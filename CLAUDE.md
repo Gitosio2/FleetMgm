@@ -217,6 +217,38 @@ class VehicleControllerTest {
 
 ---
 
+## TanStack Query Conventions
+
+Query keys follow the pattern `[feature, scope?, id?]`. Define them as constants inside the feature hook — never inline in components.
+
+```ts
+// hooks/useVehicles.ts
+const VEHICLES_KEY = 'vehicles'
+
+export function useVehicles() {
+  return useQuery({ queryKey: [VEHICLES_KEY], queryFn: fetchVehicles })
+}
+
+export function useVehicle(id: string) {
+  return useQuery({ queryKey: [VEHICLES_KEY, id], queryFn: () => fetchVehicle(id) })
+}
+
+export function useCreateVehicle() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: createVehicle,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [VEHICLES_KEY] }),
+  })
+}
+```
+
+**Rules:**
+- After any mutation (create, update, delete) invalidate the top-level feature key (`[VEHICLES_KEY]`) — this refreshes both list and detail queries in one call.
+- Scoped sublists use a second element: `['jobs', 'active']`, `['jobs', 'driver', driverId]`.
+- Components never call `queryClient` directly — only hooks do.
+
+---
+
 ## API Contract
 
 ### URL patterns
