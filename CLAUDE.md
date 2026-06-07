@@ -217,6 +217,31 @@ class VehicleControllerTest {
 
 ---
 
+## MapStruct Conventions
+
+Mappers live in the `dto/` sub-package of each feature, alongside the records they map. One mapper interface per feature.
+
+```java
+@Mapper(componentModel = "spring")  // required — makes it a Spring bean
+public interface VehicleMapper {
+
+    VehicleResponse toResponse(Vehicle vehicle);
+
+    Vehicle toEntity(CreateVehicleRequest request);
+
+    @Mapping(target = "id", ignore = true)        // always explicit, never silent
+    @Mapping(target = "deletedAt", ignore = true)
+    void updateEntity(UpdateVehicleRequest request, @MappingTarget Vehicle vehicle);
+}
+```
+
+**Rules:**
+- `componentModel = "spring"` is mandatory on every mapper — otherwise MapStruct generates a static instance that cannot be injected in tests.
+- Mappers contain field mapping only. Any derived value or business rule goes in the `application/` service before calling the mapper.
+- Every ignored field must be declared with `@Mapping(target = "...", ignore = true)` — never rely on MapStruct's silent unmapped-field behaviour.
+
+---
+
 ## TanStack Query Conventions
 
 Query keys follow the pattern `[feature, scope?, id?]`. Define them as constants inside the feature hook — never inline in components.
