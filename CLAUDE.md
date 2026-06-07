@@ -41,6 +41,73 @@ docker compose up    # Starts postgres:16 + backend + frontend (nginx)
 
 ---
 
+## Testing Strategy
+
+### Backend — which tool per layer
+
+| Layer | Tool | What it proves |
+|-------|------|----------------|
+| `application/` (services) | JUnit 5 + Mockito, no Spring context | Business logic in isolation |
+| `infrastructure/` (repositories) | `@DataJpaTest` + Testcontainers (PostgreSQL 16) | JPA queries work against the real schema + Flyway migrations |
+| `api/` (controllers) | `@WebMvcTest` + Mockito of the service | Input validation, HTTP status codes, JSON serialisation |
+| Full flows | `@SpringBootTest` + Testcontainers | Critical paths only (e.g. login → job → invoice) |
+
+**Rule:** never use H2 for repository tests — queries must run against PostgreSQL 16 with the actual Flyway migration sequence applied. Testcontainers handles this automatically when `@DataJpaTest` detects a `pg` datasource.
+
+### Service test example
+```java
+class VehicleServiceTest {
+
+    @Mock VehicleRepository vehicleRepository;
+    @Mock ApplicationEventPublisher eventPublisher;
+    @InjectMocks VehicleService vehicleService;  // no Spring context
+
+    @Test
+    void createVehicle_persistsAndReturnsDto() {
+        // arrange — stub only what this test needs
+        // act
+        // assert on the returned DTO, verify repository.save() called once
+    }
+}
+```
+
+### Repository test example
+```java
+@DataJpaTest
+@AutoConfigureTestDatabase(replace = NONE)   // use real PostgreSQL
+@Testcontainers
+class VehicleRepositoryTest {
+
+    @Container
+    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16");
+
+    @Test
+    void findActiveVehicles_excludesSoftDeleted() { ... }
+}
+```
+
+### Controller test example
+```java
+@WebMvcTest(VehicleController.class)
+class VehicleControllerTest {
+
+    @MockBean VehicleService vehicleService;  // only the service is mocked
+
+    @Test
+    void createVehicle_returns201_withLocation() { ... }
+
+    @Test
+    void createVehicle_returns400_whenLicensePlateMissing() { ... }
+}
+```
+
+### Frontend
+- **Component tests (Vitest + React Testing Library):** render the component, interact via user-event, assert on the DOM. Never assert on implementation details (state, internal methods).
+- **API mocking (MSW):** define handlers in `src/mocks/handlers.ts`. Tests import the mock server — no real backend needed.
+- **Do not test** TanStack Query internals or Zustand store shape directly; test the rendered output that depends on them.
+
+---
+
 ## API Contract
 
 ### URL patterns
