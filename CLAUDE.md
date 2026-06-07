@@ -217,6 +217,24 @@ class VehicleControllerTest {
 
 ---
 
+## Commit Conventions
+
+Follow [Conventional Commits](https://www.conventionalcommits.org/). Format: `type(scope): description`.
+
+```
+feat(vehicle): add soft delete endpoint
+fix(auth): prevent login bypass on locked accounts
+test(job): add repository tests for active job queries
+refactor(billing): extract invoice number generation to domain method
+chore(deps): bump spring-boot to 3.3.6
+```
+
+**Types:** `feat` · `fix` · `test` · `refactor` · `docs` · `chore`
+
+**Scope:** matches the feature package name — `auth`, `vehicle`, `worker`, `client`, `job`, `billing`, `workshop`, `gps`, `shared`. Use `deps` for dependency updates and `ci` for pipeline changes.
+
+---
+
 ## MapStruct Conventions
 
 Mappers live in the `dto/` sub-package of each feature, alongside the records they map. One mapper interface per feature.
