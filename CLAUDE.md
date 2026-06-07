@@ -41,6 +41,53 @@ docker compose up    # Starts postgres:16 + backend + frontend (nginx)
 
 ---
 
+## API Contract
+
+### URL patterns
+```
+GET    /api/v1/{feature}          list (paginated)
+POST   /api/v1/{feature}          create
+GET    /api/v1/{feature}/{uuid}   get by id
+PUT    /api/v1/{feature}/{uuid}   full replace
+PATCH  /api/v1/{feature}/{uuid}   partial update
+DELETE /api/v1/{feature}/{uuid}   soft delete
+```
+All IDs in URLs are **UUID**. Never expose sequential integers — enumeration is not practical with UUIDs, and the service layer enforces ownership anyway (IDOR defence, OWASP B).
+
+### HTTP verbs
+- **POST** — create a new resource; returns `201 Created` + `Location` header.
+- **PUT** — replace the full resource; idempotent.
+- **PATCH** — update one or more fields; idempotent.
+- **DELETE** — soft delete (sets `deletedAt`); returns `204 No Content`.
+- **GET** — never mutates state; safe to retry.
+
+### Error response body
+Every error from `GlobalExceptionHandler` returns the same shape:
+```json
+{
+  "status": 404,
+  "code": "VEHICLE_NOT_FOUND",
+  "message": "Vehicle f3a1c2d4-... not found",
+  "correlationId": "a1b2c3d4"
+}
+```
+`code` is a SCREAMING_SNAKE_CASE application-level constant — never expose exception class names or stack traces.
+
+### Pagination
+Paginated endpoints accept `?page=0&size=20&sort=createdAt,desc` and return:
+```json
+{
+  "content": [...],
+  "page": 0,
+  "size": 20,
+  "totalElements": 134,
+  "totalPages": 7
+}
+```
+This is `PageResponse<T>` from `shared/`. Always use this wrapper — never return a raw `List` from a paginated endpoint.
+
+---
+
 ## Architecture
 
 ### Backend: Package-by-feature monolith
