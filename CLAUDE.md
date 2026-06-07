@@ -41,6 +41,35 @@ docker compose up    # Starts postgres:16 + backend + frontend (nginx)
 
 ---
 
+## Soft Delete Pattern
+
+All entities with logical deletion share the same implementation — never use `deleteById()` on them.
+
+**Entity:** annotate with `@SQLRestriction("deleted_at IS NULL")` (Hibernate 6 / Spring Boot 3+). Hibernate appends this filter to every query automatically — no manual `WHERE` clause needed in repositories.
+
+```java
+@Entity
+@SQLRestriction("deleted_at IS NULL")
+public class Vehicle {
+    // ...
+    private Instant deletedAt;  // null = active, non-null = deleted
+}
+```
+
+**Service:** set `deletedAt = Instant.now()` and call `save()`. Returns `204 No Content`.
+
+```java
+public void delete(UUID id) {
+    Vehicle vehicle = repo.findById(id).orElseThrow(...);
+    vehicle.setDeletedAt(Instant.now());
+    repo.save(vehicle);
+}
+```
+
+**Audit / recovery queries** that need to see deleted records must use a `nativeQuery` or temporarily disable the filter — never remove `@SQLRestriction` from the entity.
+
+---
+
 ## Transaction Rules
 
 `@Transactional` belongs exclusively in `application/` (`@Service`). Never on controllers or repositories.
