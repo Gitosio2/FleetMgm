@@ -41,6 +41,28 @@ docker compose up    # Starts postgres:16 + backend + frontend (nginx)
 
 ---
 
+## JPA — Avoiding N+1 Queries
+
+Never rely on Hibernate lazy-loading associations inside a loop. If a service method needs an association, declare it explicitly in the repository — not after the fact.
+
+**Use `@EntityGraph` for known fetch requirements:**
+```java
+@EntityGraph(attributePaths = {"assignedDriver", "client"})
+Optional<Job> findById(UUID id);
+```
+
+**Use `JOIN FETCH` in JPQL for list queries:**
+```java
+@Query("SELECT v FROM Vehicle v LEFT JOIN FETCH v.activeAssignment WHERE v.status = :status")
+List<Vehicle> findAllActiveWithAssignment(@Param("status") VehicleStatus status);
+```
+
+**Use JPQL projections when only a subset of fields is needed** — no entity loaded, no associations, no risk.
+
+Enable SQL logging in the `dev` profile (`spring.jpa.show-sql=true`, `spring.jpa.properties.hibernate.format_sql=true`) to verify queries during development. The same query repeated with different IDs in the log means an N+1 has slipped through.
+
+---
+
 ## Soft Delete Pattern
 
 All entities with logical deletion share the same implementation — never use `deleteById()` on them.
