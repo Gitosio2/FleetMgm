@@ -93,6 +93,80 @@ Server state via **TanStack Query**; client state via **Zustand**. UI components
 
 ---
 
+## OWASP Top 10 — All Versions (2010 · 2013 · 2017 · 2021)
+
+The rules below cover the **union** of every OWASP Top 10 edition published to date. Entries marked with the existing Security Model (JWT, CSRF, XSS, SQL injection) are cross-referenced rather than repeated in full.
+
+### A — Injection (all editions; XSS merged here in 2021)
+- SQL: JPA `PreparedStatement` bind parameters only. `nativeQuery = true` with dynamic strings is forbidden. Dynamic `ORDER BY` requires an explicit allowlist enum.
+- OS command: never pass user input to `ProcessBuilder` / `Runtime.exec()`.
+- LDAP/JPQL/SSTI: treat all external input as untrusted; use typed parameters, never string concatenation.
+- XSS: React JSX escapes by default. `dangerouslySetInnerHTML` with user data is forbidden. CSP header: `default-src 'self'; script-src 'self'`.
+
+### B — Broken Access Control (all editions; covers IDOR from 2013)
+- Every service method that returns or mutates a resource must verify the caller owns or has permission over that resource — not just that the caller is authenticated.
+- `@PreAuthorize` annotations live on `@Service` methods, not controllers. Controllers are not a security boundary.
+- Never expose sequential integer IDs in URLs; use UUIDs so that enumeration is not practical.
+- Soft-deleted records must be excluded from all queries (`WHERE deleted_at IS NULL`).
+
+### C — Cryptographic Failures (2021) / Sensitive Data Exposure (2013 · 2017)
+- Passwords: BCrypt cost 12. Never log, return, or store plaintext passwords.
+- Refresh tokens: stored as SHA-256 hash only. The raw token is never persisted.
+- JWT secret: HS512 in dev (≥ 64 chars), RS256 in prod. Never commit secrets; load from env vars.
+- TLS in production is mandatory (Railway / Vercel enforce it). No HTTP-only endpoints in prod.
+- `AuditLog.oldValues` / `newValues` must strip password hashes and tokens before writing JSONB.
+
+### D — Insecure Design (2021)
+- Threat-model each new endpoint: who can call it, what data does it expose, what state does it mutate.
+- Rate-limit auth endpoints (`/api/v1/auth/login`, `/api/v1/auth/refresh`) at the Spring Security or reverse-proxy layer.
+- Account lockout after 5 failed login attempts (`lockedUntil` on `User`, 15 min lock). See Security Model section.
+
+### E — Security Misconfiguration (all editions)
+- Spring Boot Actuator: expose only `/health` and `/info` publicly; all other actuator endpoints require `ADMIN` role.
+- CORS: allow only the explicit frontend origin (`FRONTEND_URL` env var). Never `*`.
+- `SPRING_PROFILES_ACTIVE=prod` must disable H2 console, Swagger UI, and debug-level logging.
+- No default credentials in `V9__seed_demo_data.sql` that are reused in production.
+- HTTP response headers: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Strict-Transport-Security` (prod only).
+
+### F — Vulnerable & Outdated Components (2013 · 2017 · 2021)
+- OWASP Dependency-Check runs on every PR (`ci.yml`); build fails on CVSS ≥ 7.
+- Dependabot is configured for automatic dependency updates.
+- Do not add new dependencies without checking their CVE history.
+
+### G — Identification & Authentication Failures (2021) / Broken Authentication (2017)
+- Session management is stateless JWT. Logout invalidates the refresh token hash in the DB.
+- Access token TTL: 15 min. Refresh token TTL: 7 days.
+- JWT signature algorithm must be explicitly validated on the server — reject `"alg": "none"`.
+- Password reset flows (future) must use time-limited single-use tokens, not security questions.
+
+### H — Software & Data Integrity Failures (2021) / Insecure Deserialization (2017)
+- Never deserialise untrusted Java object streams (`ObjectInputStream`). Use JSON (Jackson) with a strict `@JsonTypeInfo` policy — disable polymorphic type handling on untrusted input.
+- CI pipeline (`ci.yml`) verifies build artefacts; do not pull dependencies from untrusted registries.
+- Frontend build artifacts are served from Vercel's CDN with sub-resource integrity (SRI) where applicable.
+
+### I — Security Logging & Monitoring Failures (2017 · 2021)
+- Every `ACCESS_DENIED`, failed login, and privilege escalation attempt must write an `AuditLog` row.
+- Structured JSON logging (logstash-logback-encoder) with a correlation ID in MDC on every request.
+- Micrometer counter incremented on each failed login attempt — alert threshold configurable via Actuator.
+- Do not log full request bodies that may contain passwords or tokens. Log sanitised summaries.
+
+### J — SSRF — Server-Side Request Forgery (2021)
+- No endpoint should accept a user-supplied URL and fetch it server-side (e.g. webhook callbacks, avatar URLs). If such a feature is added, enforce an explicit allowlist of domains.
+- Internal services (Actuator, DB) must not be reachable from the public network.
+
+### K — XML External Entities — XXE (2017)
+- If XML parsing is ever added, disable external entity resolution: `factory.setFeature("http://xml.org/sax/features/external-general-entities", false)`.
+- Prefer JSON over XML for all API contracts.
+
+### L — Unvalidated Redirects & Forwards (2010 · 2013)
+- Never use a user-supplied `redirect_uri` or `next` parameter without validating it against an explicit allowlist of allowed origins.
+- Frontend router redirects after login must only point to internal routes.
+
+### M — CSRF (2010 · 2013)
+- CSRF is intentionally disabled because the API is stateless (JWT in `Authorization` header, no cookies). This is safe only if CORS is strict — see E above. If cookies are ever introduced, re-enable CSRF protection immediately.
+
+---
+
 ## SOLID Principles
 
 These apply to both backend (Java) and frontend (TypeScript) code throughout the project.
