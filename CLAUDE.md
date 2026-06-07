@@ -93,6 +93,22 @@ Server state via **TanStack Query**; client state via **Zustand**. UI components
 
 ---
 
+## SOLID Principles
+
+These apply to both backend (Java) and frontend (TypeScript) code throughout the project.
+
+**Single Responsibility:** Each class/component does one thing. `@RestController` handles HTTP only; `@Service` holds business logic only; `@Repository` handles data access only. A React component either fetches data (via a custom hook) or renders UI — not both.
+
+**Open/Closed:** Extend behaviour without modifying existing code. Use Spring's event system (`ApplicationEventPublisher`) to add side-effects to a completed job or maintenance record without touching `JobService` or `MaintenanceService`. On the frontend, extend feature hooks rather than editing shared utilities.
+
+**Liskov Substitution:** Subtypes must be substitutable. Service interfaces (e.g. `VehicleService`) should honour their contract fully in every implementation — relevant when adding a mock/stub for tests.
+
+**Interface Segregation:** Keep interfaces narrow. Don't add a method to `VehicleRepository` that only one caller needs and that breaks the abstraction for every other caller. Prefer separate Spring Data repository interfaces per aggregate over a single god-repository.
+
+**Dependency Inversion:** Depend on abstractions, not concretions. Backend services must be injected via constructor (never `@Autowired` on a field) so they can be unit-tested without a Spring context. Frontend hooks expose a typed API contract; components never import Axios directly.
+
+---
+
 ## Inter-module Events
 
 Modules communicate via **Spring Application Events** — no external broker. All listeners use `@TransactionalEventListener(phase = AFTER_COMMIT)`.
