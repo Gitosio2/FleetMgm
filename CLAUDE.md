@@ -93,9 +93,9 @@ Server state via **TanStack Query**; client state via **Zustand**. UI components
 
 ---
 
-## OWASP Top 10 — All Versions (2010 · 2013 · 2017 · 2021)
+## OWASP Top 10 — All Versions (2010 · 2013 · 2017 · 2021 · 2025)
 
-The rules below cover the **union** of every OWASP Top 10 edition published to date. Entries marked with the existing Security Model (JWT, CSRF, XSS, SQL injection) are cross-referenced rather than repeated in full.
+The rules below cover the **union** of every OWASP Top 10 edition published to date (including the 2025 RC1). Entries marked with the existing Security Model (JWT, CSRF, XSS, SQL injection) are cross-referenced rather than repeated in full.
 
 ### A — Injection (all editions; XSS merged here in 2021)
 - SQL: JPA `PreparedStatement` bind parameters only. `nativeQuery = true` with dynamic strings is forbidden. Dynamic `ORDER BY` requires an explicit allowlist enum.
@@ -128,10 +128,11 @@ The rules below cover the **union** of every OWASP Top 10 edition published to d
 - No default credentials in `V9__seed_demo_data.sql` that are reused in production.
 - HTTP response headers: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Strict-Transport-Security` (prod only).
 
-### F — Vulnerable & Outdated Components (2013 · 2017 · 2021)
+### F — Vulnerable & Outdated Components / Software Supply Chain Failures (2013 · 2017 · 2021 · **A03:2025**)
 - OWASP Dependency-Check runs on every PR (`ci.yml`); build fails on CVSS ≥ 7.
 - Dependabot is configured for automatic dependency updates.
 - Do not add new dependencies without checking their CVE history.
+- **2025 addition — supply chain scope:** verify the integrity of the build pipeline itself. Pin GitHub Actions to a specific commit SHA (`uses: actions/checkout@<sha>`), not a mutable tag. Use Maven Central or a mirrored repository — do not resolve artefacts from arbitrary third-party registries. Lock the Node lockfile (`package-lock.json`) and never ignore lockfile divergences.
 
 ### G — Identification & Authentication Failures (2021) / Broken Authentication (2017)
 - Session management is stateless JWT. Logout invalidates the refresh token hash in the DB.
@@ -164,6 +165,39 @@ The rules below cover the **union** of every OWASP Top 10 edition published to d
 
 ### M — CSRF (2010 · 2013)
 - CSRF is intentionally disabled because the API is stateless (JWT in `Authorization` header, no cookies). This is safe only if CORS is strict — see E above. If cookies are ever introduced, re-enable CSRF protection immediately.
+
+### N — Mishandling of Exceptional Conditions (**A10:2025 — new**)
+- Never fail open: if an exception occurs during an authorisation check, deny access, do not grant it. Spring Security's `AccessDeniedException` must propagate; catch-all handlers must not silently swallow it and continue.
+- Do not expose stack traces or internal error details to the client. `GlobalExceptionHandler` must map all unhandled exceptions to a generic `500` body with only a correlation ID.
+- Business-logic errors (e.g. a vehicle already assigned, a job already completed) must return a structured error response — not an unhandled `RuntimeException` with a 500 status.
+- Validate assumptions at domain boundaries: if a value that should never be null is null, throw an explicit `IllegalStateException` with a clear message rather than letting a `NullPointerException` surface unpredictably.
+- Exhaustive `switch` / `when` expressions on enums: add a `default` branch that throws `IllegalStateException` so unhandled new enum values fail fast instead of silently doing nothing.
+
+---
+
+## Security by Design
+
+These patterns apply at design time — before a line of code is written — and complement the OWASP rules above.
+
+**Secure defaults.** Every new endpoint, feature flag, and configuration value must default to the most restrictive safe option. An endpoint with no explicit `@PreAuthorize` must be blocked, not permitted. Spring Security's `http.authorizeHttpRequests().anyRequest().authenticated()` enforces this globally.
+
+**Least privilege.** The database user used by the application must only have `SELECT / INSERT / UPDATE / DELETE` on application tables — no `DROP`, `CREATE`, or superuser rights. The JWT filter runs before controllers; the filter chain grants no authority beyond what the token's role claim explicitly states.
+
+**Minimise attack surface.** Remove or disable anything not actively used: H2 console, Swagger UI, and Spring Boot DevTools must be off in the `prod` profile. Every additional endpoint, library, and feature is additional surface; justify additions against their security cost.
+
+**Defence in depth.** No single control is the last line of defence. Input validation → service-layer authorisation → parameterised queries → CSP headers → OWASP Dependency-Check → Semgrep SAST are independent layers; a bypass of one must not compromise the system.
+
+**Fail securely.** On any unexpected error, deny access and log. Never fall back to a permissive state. See N (Mishandling of Exceptional Conditions) above.
+
+**Separation of duties.** A `DRIVER` cannot create or assign their own jobs. A `WORKSHOP_STAFF` member cannot modify invoices. Encode these constraints both in `@PreAuthorize` and in domain-layer invariants so they cannot be bypassed by calling services out of sequence.
+
+**Zero trust on internal calls.** Even though modules communicate via Spring Application Events (no network hop), listener methods must still verify that the event payload is internally consistent — not assume the publisher pre-validated everything.
+
+**Immutability in the domain layer.** Domain value objects (`AppRole`, `VehicleCategory`, `UsageMeasure`, status enums) must be immutable. Changing an entity's status (e.g. `ACTIVE → MAINTENANCE`) must go through a named method with explicit precondition checks, not a raw setter.
+
+**Audit by default.** Every state-changing operation must produce an `AuditLog` row. This is not optional telemetry — it is a security control. New service methods that mutate data must include audit logging as part of the method, not as an afterthought.
+
+**Explicit trust boundaries.** User-supplied data is untrusted until validated (`@Valid` on DTOs at the controller boundary). Internal events and service return values are trusted. Never mix the two: do not pass a raw HTTP request body deeper than the controller, and do not re-validate internally produced values as if they were external.
 
 ---
 
