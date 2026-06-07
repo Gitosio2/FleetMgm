@@ -41,6 +41,53 @@ docker compose up    # Starts postgres:16 + backend + frontend (nginx)
 
 ---
 
+## Java 21 Conventions
+
+### Use records for all DTOs
+```java
+// request
+public record CreateVehicleRequest(
+    @NotBlank String licensePlate,
+    @NotNull VehicleCategory category
+) {}
+
+// response
+public record VehicleResponse(UUID id, String licensePlate, VehicleStatus status) {}
+```
+No Lombok, no POJO boilerplate. Records are immutable by default — ideal for request/response objects that must never be mutated after construction.
+
+### Optional — return values only
+- **Yes:** `Optional<Vehicle> findById(UUID id)` in repositories.
+- **No:** never as a method parameter, never as a `@Entity` field (Hibernate does not support it), never wrapped in another container (`Optional<List<...>>`).
+- Unwrap immediately at the service call site with `.orElseThrow(() -> new NotFoundException(...))`.
+
+### Switch expressions on enums
+```java
+// always exhaustive; unhandled values fail fast
+String label = switch (vehicle.getCategory()) {
+    case LIGHT_VEHICLE    -> "Light";
+    case HEAVY_VEHICLE    -> "Heavy";
+    case HEAVY_MACHINERY  -> "Machinery";
+    // no default — compiler enforces exhaustiveness on sealed enums
+};
+```
+If a `default` branch is needed (e.g. the enum is not sealed), it must throw `IllegalStateException`, never return silently.
+
+### Pattern matching
+```java
+// instanceof pattern matching — no explicit cast
+if (cause instanceof ConstraintViolationException cve) {
+    // use cve directly
+}
+```
+
+### Other Java 21 features
+- **Text blocks** for multi-line JPQL queries or SQL in `@Query`.
+- **Sealed interfaces** for closed domain hierarchies where exhaustiveness matters (use sparingly — only when the variant set is truly fixed).
+- Avoid **virtual threads** (`Thread.ofVirtual()`) until Spring Boot's Tomcat integration is explicitly configured for them; the default thread pool model is sufficient for this project's scale.
+
+---
+
 ## Testing Strategy
 
 ### Backend — which tool per layer
