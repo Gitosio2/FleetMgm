@@ -41,6 +41,17 @@ docker compose up    # Starts postgres:16 + backend + frontend (nginx)
 
 ---
 
+## Transaction Rules
+
+`@Transactional` belongs exclusively in `application/` (`@Service`). Never on controllers or repositories.
+
+- Read-only methods use `@Transactional(readOnly = true)` — disables dirty checking and prevents accidental flushes.
+- Methods that publish `@TransactionalEventListener(AFTER_COMMIT)` events must run inside a transaction or the event is silently dropped.
+- `spring.jpa.open-in-view=false` is mandatory. With OSIV disabled, any lazy association accessed outside an active transaction throws `LazyInitializationException` immediately — a visible bug rather than a silent N+1 in production.
+- Resolve lazy associations inside the `@Transactional` service method via one of: MapStruct mapping before the transaction closes, `@EntityGraph` on the repository method, or a JPQL projection. Never fix it by switching to `FetchType.EAGER` globally.
+
+---
+
 ## Java 21 Conventions
 
 ### Use records for all DTOs
