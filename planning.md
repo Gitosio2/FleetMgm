@@ -232,57 +232,242 @@ FleetMgm/
 
 ## Plan de Desarrollo por Semanas
 
-### Semana 1 (4–10 Jun): Fundación ← EN CURSO
-- [x] pom.xml — Java 21, Spring Boot 3.3.5, dependencias completas
-- [x] application.yml — datasource, JWT config, actuator, springdoc
+### Semana 1 (4–10 Jun): Fundación — Auth + Datos Maestros ← EN CURSO
+
+#### Auth — Base ya implementada
+- [x] `pom.xml` — Java 21, Spring Boot 3.3.5, dependencias completas
+- [x] `application.yml` — datasource, JWT config, actuator, springdoc
 - [x] Estructura de paquetes (package-by-feature)
-- [x] Entidades Auth: User, RefreshToken, AppRole
-- [x] JwtService (HS512), JwtAuthenticationFilter
-- [x] Shared: GlobalExceptionHandler, PageResponse, AuditLog
-- [ ] SecurityConfig — filter chain, CORS, endpoints públicos
-- [ ] AuthService + AuthController (login/refresh/logout)
-- [ ] Flyway V1 (users) + V2 (clients) + V3 (vehicles) + V4 (workers)
-- [ ] Vehicle entity + CRUD completo con protección por rol
-- [ ] Worker entity + CRUD
-- [ ] Client entity + CRUD
-- [ ] DataInitializer — seed demo users (dev profile)
+- [x] Entidades `User`, `RefreshToken`, `AppRole` (enum)
+- [x] `JwtService` — generación y validación de tokens HS512
+- [x] `JwtAuthenticationFilter` — extrae y valida Bearer token en cada request
+- [x] `GlobalExceptionHandler`, `PageResponse<T>`, `AuditLog`
 
-**Entregable:** Admin puede hacer login, crear vehículos/trabajadores/clientes.
+#### Auth — SecurityConfig
+- [ ] `SecurityConfig` — `HttpSecurity`: sesión stateless, deshabilitar CSRF, registrar `JwtAuthenticationFilter`
+- [ ] `SecurityConfig` — endpoints públicos (`/api/v1/auth/**`, `/actuator/health`) vs. autenticados
+- [ ] `SecurityConfig` — CORS: origen permitido desde env var `FRONTEND_URL`, métodos y headers permitidos
 
-### Semana 2 (11–17 Jun): Asignaciones + Trabajos
-- Worker ↔ Vehicle assignment (historial)
-- Job lifecycle (PENDING → IN_PROGRESS → COMPLETED)
-- Rol DRIVER: ve solo sus trabajos activos
-- UsageLog al completar trabajo (JobCompletedEvent)
-- Flyway V5 (jobs)
+#### Auth — Lógica de login
+- [ ] `Flyway V1` — tabla `users` + tabla `refresh_tokens`
+- [ ] `LoginRequest` / `AuthResponse` (records) — DTOs con `@Valid`
+- [ ] `AuthService.login()` — verificar credenciales con BCrypt, comprobar cuenta habilitada/no expirada, generar access token (15 min) y refresh token
+
+#### Auth — Lockout y seguridad
+- [ ] `AuthService` — lockout: incrementar `failedLoginAttempts` en cada intento fallido
+- [ ] `AuthService` — bloquear cuenta 15 min (`lockedUntil`) tras 5 intentos; resetear contador en login exitoso
+- [ ] `AuthService` — registrar `AuditLog` en cada login exitoso y en cada bloqueo de cuenta
+
+#### Auth — Refresh y logout
+- [ ] `AuthService.refresh()` — buscar hash SHA-256 del refresh token en BD, validar expiración, emitir nuevo access token
+- [ ] `AuthService.logout()` — eliminar hash del refresh token de BD (revocación real, no solo expirar el JWT)
+
+#### Auth — Controlador y tests
+- [ ] `AuthController` — `POST /api/v1/auth/login`, `POST /api/v1/auth/refresh`, `POST /api/v1/auth/logout`
+- [ ] Tests `AuthServiceTest` — login OK, contraseña incorrecta, cuenta bloqueada, refresh válido, refresh expirado, logout
+- [ ] Tests `AuthControllerTest` (`@WebMvcTest`) — 200, 400, 401 status codes, cuerpo de error estructurado
+
+#### Datos maestros — Clientes
+- [ ] `Flyway V2` — tabla `clients`
+- [ ] `Client` entity — campos, `@SQLRestriction("deleted_at IS NULL")`
+- [ ] `ClientRepository` — findAll paginado, findByTaxId
+- [ ] `CreateClientRequest` / `ClientResponse` (records) + `ClientMapper` (MapStruct)
+- [ ] `ClientService` — `create`, `findAll` (paginado), `findById`, `update`, `delete` (soft)
+- [ ] `ClientController` — CRUD completo, `Location` header en POST, `204` en DELETE
+- [ ] `@PreAuthorize` en `ClientService` — solo ADMIN/MANAGER/ADMINISTRATIVE
+- [ ] Tests `ClientServiceTest` (Mockito), `ClientControllerTest` (`@WebMvcTest`)
+
+#### Datos maestros — Vehículos
+- [ ] `Flyway V3` — tabla `vehicles`
+- [ ] `Vehicle` entity — campos, enums `VehicleCategory` / `VehicleStatus` / `UsageMeasure`, `@SQLRestriction`
+- [ ] `VehicleRepository` — findAll paginado, query `findAllActiveWithAssignment` (JOIN FETCH)
+- [ ] `CreateVehicleRequest` / `VehicleResponse` (records) + `VehicleMapper`
+- [ ] `VehicleService` — `create`, `findAll`, `findById`, `update`, `delete` (soft)
+- [ ] `VehicleController` — CRUD completo
+- [ ] `@PreAuthorize` en `VehicleService` — ADMIN/MANAGER/ADMINISTRATIVE crean/editan; DRIVER solo ve el suyo
+- [ ] Tests `VehicleServiceTest`, `VehicleRepositoryTest` (`@DataJpaTest` + Testcontainers PostgreSQL 16), `VehicleControllerTest`
+
+#### Datos maestros — Trabajadores
+- [ ] `Flyway V4` — tabla `workers`
+- [ ] `Worker` entity — campos, enums `WorkerRole` (DRIVER/TECHNICIAN/BOTH), `LicenseType`, `@SQLRestriction`
+- [ ] `WorkerRepository`
+- [ ] `CreateWorkerRequest` / `WorkerResponse` (records) + `WorkerMapper`
+- [ ] `WorkerService` — `create`, `findAll`, `findById`, `update`, `delete` (soft)
+- [ ] `WorkerController`
+- [ ] `@PreAuthorize` en `WorkerService` — ADMIN/MANAGER/ADMINISTRATIVE gestionan; DRIVER solo ve su perfil
+- [ ] Tests `WorkerServiceTest`, `WorkerControllerTest`
+
+#### Inicialización
+- [ ] `DataInitializer` — seed usuarios demo en perfil `dev` (1 ADMIN, 1 MANAGER, 1 DRIVER) con BCrypt cost 12
+
+**Entregable:** Admin puede hacer login, recibir JWT, crear vehículos/trabajadores/clientes. JWT expira en 15 min y se puede renovar. Logout invalida el refresh token en BD.
+
+---
+
+### Semana 2 (11–17 Jun): Asignaciones + Ciclo de vida de Trabajos
+
+#### Asignaciones conductor↔vehículo
+- [ ] `Flyway V5a` — tabla `driver_vehicle_assignments` con unique partial index (`WHERE end_date IS NULL`)
+- [ ] `DriverVehicleAssignment` entity
+- [ ] `AssignmentRepository` — `findActiveByDriverId`, `findActiveByVehicleId`, historial paginado
+- [ ] `CreateAssignmentRequest` / `AssignmentResponse` (records) + `AssignmentMapper`
+- [ ] `AssignmentService.assign()` — validar que el conductor no tiene ya una asignación activa, crear asignación
+- [ ] `AssignmentService.endAssignment()` — poner `endDate = now()` en la asignación activa
+- [ ] `AssignmentService` — historial por conductor y por vehículo (paginado)
+- [ ] `AssignmentController` — `POST` (asignar), `PATCH /{id}/end` (finalizar), `GET` (historial)
+- [ ] `@PreAuthorize` en `AssignmentService` — solo ADMIN/MANAGER/ADMINISTRATIVE pueden asignar
+- [ ] Tests `AssignmentServiceTest`, `AssignmentRepositoryTest` (`@DataJpaTest`), `AssignmentControllerTest`
+
+#### Jobs — Entidad y consultas
+- [ ] `Flyway V5b` — tabla `jobs` + tabla `usage_logs`
+- [ ] `Job` entity — campos, enum `JobStatus` (PENDING/IN_PROGRESS/COMPLETED/CANCELLED), `@SQLRestriction`
+- [ ] `JobRepository` — findAll paginado, `findByAssignedDriverIdAndStatusIn` (para DRIVER), JOIN FETCH vehículo y conductor
+- [ ] `UsageLog` entity + `UsageLogRepository`
+
+#### Jobs — Lógica de negocio
+- [ ] `CreateJobRequest` / `JobResponse` (records) + `JobMapper`
+- [ ] `JobService.create()` — crear trabajo PENDING, asignar vehículo y conductor
+- [ ] `JobService.start()` — PENDING → IN_PROGRESS, registrar `actualStart`
+- [ ] `JobService.complete()` — IN_PROGRESS → COMPLETED, registrar `actualEnd`, `endUsageValue`
+- [ ] `JobService.cancel()` — PENDING/IN_PROGRESS → CANCELLED con motivo
+- [ ] `JobService` — validación: no retroceder estado (COMPLETED no puede volver a IN_PROGRESS)
+
+#### Jobs — Eventos y UsageLog
+- [ ] `JobCompletedEvent` — record con `jobId`, `vehicleId`, `endUsageValue`, `measureType`
+- [ ] `JobService` — publicar `JobCompletedEvent` via `ApplicationEventPublisher` al completar
+- [ ] `JobEventListener` — `@TransactionalEventListener(AFTER_COMMIT)`: crear `UsageLog` y actualizar `currentKm`/`currentHours` en `Vehicle`
+
+#### Jobs — Controlador, RBAC y tests
+- [ ] `JobController` — CRUD + `PATCH /{id}/start`, `PATCH /{id}/complete`, `PATCH /{id}/cancel`
+- [ ] `@PreAuthorize` en `JobService` — DRIVER solo ve y actualiza sus trabajos activos; ADMIN/MANAGER/ADMINISTRATIVE gestionan todos
+- [ ] Tests `JobServiceTest` — create, transiciones de estado, publicación de evento
+- [ ] Tests `JobEventListenerTest` — verifica `UsageLog` creado y `currentKm` actualizado al recibir el evento
+- [ ] Tests `JobRepositoryTest` (`@DataJpaTest`), `JobControllerTest`
+
+---
 
 ### Semana 3 (18–24 Jun): Taller + Mantenimiento
-- MaintenanceRecord + WorkshopSchedule
-- Panel WORKSHOP_STAFF: vista hoy/semana/mes
-- VehicleEntersWorkshopEvent, MaintenanceCompletedEvent
-- Flyway V6
+
+#### Registros de mantenimiento
+- [ ] `Flyway V6a` — tabla `maintenance_records`
+- [ ] `MaintenanceRecord` entity — campos, enum `MaintenanceStatus` (SCHEDULED/IN_PROGRESS/COMPLETED)
+- [ ] `MaintenanceRepository`
+- [ ] `CreateMaintenanceRequest` / `MaintenanceResponse` (records) + `MaintenanceMapper`
+- [ ] `MaintenanceService.create()` — crear registro SCHEDULED, publicar `VehicleEntersWorkshopEvent`
+- [ ] `MaintenanceService.start()` — SCHEDULED → IN_PROGRESS
+- [ ] `MaintenanceService.complete()` — IN_PROGRESS → COMPLETED, registrar `workshopExitDate`, publicar `MaintenanceCompletedEvent`
+- [ ] `VehicleEntersWorkshopEvent` + `MaintenanceCompletedEvent` (records)
+- [ ] `VehicleService` — `@EventListener`: `VehicleEntersWorkshopEvent` → status `MAINTENANCE`
+- [ ] `VehicleService` — `@EventListener`: `MaintenanceCompletedEvent` → status `ACTIVE`
+- [ ] `MaintenanceController`
+- [ ] `@PreAuthorize` — WORKSHOP_STAFF puede crear/editar; ADMIN/MANAGER/ADMINISTRATIVE también
+- [ ] Tests `MaintenanceServiceTest`, `VehicleStatusEventTest` (verifica cambios de estado en Vehicle)
+
+#### Agenda del taller
+- [ ] `Flyway V6b` — tabla `workshop_schedules`
+- [ ] `WorkshopSchedule` entity — campos, prioridad, estado
+- [ ] `WorkshopScheduleRepository` — queries por rango de fecha: hoy, semana actual, mes actual
+- [ ] `CreateScheduleRequest` / `ScheduleResponse` (records) + `ScheduleMapper`
+- [ ] `WorkshopScheduleService` — crear, editar, cancelar, listar por hoy/semana/mes
+- [ ] `WorkshopController` — endpoints + query params de rango temporal
+- [ ] `@PreAuthorize` — WORKSHOP_STAFF y superiores
+- [ ] Tests `WorkshopScheduleServiceTest`, `WorkshopScheduleRepositoryTest`, `WorkshopControllerTest`
+
+---
 
 ### Semana 4 (25 Jun – 1 Jul): Facturación
-- Invoice + InvoiceLineItem
-- Flujo DRAFT → ISSUED → PAID
-- Export PDF (OpenPDF)
-- Dashboard rentabilidad: ingresos vs costes
-- Flyway V7
 
-### Semana 5 (2–8 Jul): Mapa GPS + Informes
-- GpsPosition + @Scheduled mock
-- Mapa Leaflet polling 10s
-- Informes visuales con Recharts
-- AuditLog viewer (solo ADMIN)
-- Flyway V8
+#### Facturas — Entidad y repositorio
+- [ ] `Flyway V7` — tablas `invoices` + `invoice_line_items`
+- [ ] `Invoice` entity — campos, enum `InvoiceStatus` (DRAFT/ISSUED/PAID/OVERDUE), `@SQLRestriction`
+- [ ] `InvoiceLineItem` entity
+- [ ] `InvoiceRepository`, `LineItemRepository`
+- [ ] `InvoiceNumberGenerator` — secuencia PostgreSQL para formato `INV-2026-00001`
 
-### Semana 6 (9–15 Jul): Hardening + Demo
-- OWASP Dependency Check → corregir CVEs High+
-- docker-compose.yml — un comando levanta todo
-- Tests de integración (Testcontainers)
-- Flyway V9 seed datos demo
-- README con diagrama, credenciales, instrucciones
-- GitHub Actions CI/CD
+#### Facturas — Lógica de negocio
+- [ ] `CreateInvoiceRequest` / `InvoiceResponse` / `LineItemRequest` (records) + `InvoiceMapper`
+- [ ] `BillingService.create()` — crear factura DRAFT vinculada a un cliente
+- [ ] `BillingService.addLineItem()` — añadir línea a factura en estado DRAFT
+- [ ] `BillingService.issue()` — DRAFT → ISSUED; valida que tiene al menos una línea; calcula subtotal, IVA (21%), total
+- [ ] `BillingService.markPaid()` — ISSUED → PAID, registrar `paymentDate`
+- [ ] `BillingService` — `JobCompletedEvent` consumer: crear línea de factura automáticamente en la factura DRAFT del cliente
+- [ ] `InvoiceController` — CRUD + `PATCH /{id}/issue`, `PATCH /{id}/pay`
+- [ ] `@PreAuthorize` — solo ADMIN/MANAGER/ADMINISTRATIVE
+- [ ] Tests `BillingServiceTest` — flujo completo DRAFT→ISSUED→PAID, cálculo IVA, consumer de evento
+
+#### PDF y rentabilidad
+- [ ] `PdfExportService` — generar PDF de factura con OpenPDF (cabecera, líneas, totales, IVA)
+- [ ] `GET /api/v1/invoices/{id}/pdf` — descarga del PDF, `Content-Disposition: attachment`
+- [ ] `ProfitabilityRepository` — `@Query` projection: ingresos (`SUM` line items), costes (`SUM` maintenance), margen por vehículo
+- [ ] `GET /api/v1/reports/profitability` — paginado, solo ADMIN/MANAGER
+- [ ] Tests `PdfExportServiceTest`, `ProfitabilityRepositoryTest` (`@DataJpaTest`)
+
+---
+
+### Semana 5 (2–8 Jul): GPS + Frontend completo
+
+#### Backend GPS
+- [ ] `Flyway V8a` — tabla `gps_positions` con índices en `vehicle_id` y `recorded_at`
+- [ ] `GpsPosition` entity — campos: lat, lng, heading, speed, `source` (MOCK/DEVICE)
+- [ ] `GpsRepository` — `findLatestByVehicleId`, `findLatestForAllActiveVehicles` (proyección)
+- [ ] `GpsMockScheduler` — `@Scheduled(fixedDelay = 30_000)`: genera posiciones aleatorias con deriva para vehículos ACTIVE
+- [ ] `GpsController` — `GET /api/v1/gps/latest` — lista última posición por vehículo activo
+- [ ] `@PreAuthorize` — ADMIN/MANAGER/ADMINISTRATIVE ven todos; DRIVER solo su posición
+- [ ] Tests `GpsRepositoryTest`
+
+#### AuditLog viewer
+- [ ] `Flyway V8b` — tabla `audit_logs`
+- [ ] `AuditLogRepository` — findAll paginado con filtros (entityType, action, fecha)
+- [ ] `GET /api/v1/audit` — paginado, solo ADMIN/MANAGER
+- [ ] Tests `AuditControllerTest`
+
+#### Frontend — Setup y auth
+- [ ] Setup Axios client con interceptor JWT + lógica de auto-refresh al recibir 401 (`api/client.ts`)
+- [ ] Zustand `authStore` — sesión de usuario (email, rol, tokens), acciones login/logout
+- [ ] `useAuth` hook — wraps login/logout mutations
+- [ ] Página `Login` — formulario, manejo de error 401 y cuenta bloqueada
+
+#### Frontend — Layout y navegación
+- [ ] Layout principal — sidebar con navegación filtrada por rol del usuario autenticado
+- [ ] Rutas protegidas — redirige a Login si no hay sesión; redirige a 403 si rol insuficiente
+
+#### Frontend — Datos maestros
+- [ ] `useVehicles` hook + página `Vehicles` — lista paginada, modal crear, modal editar, soft delete
+- [ ] `useWorkers` hook + página `Workers` — lista paginada, CRUD
+- [ ] `useClients` hook + página `Clients` — lista paginada, CRUD
+- [ ] `useAssignments` hook — asignar conductor a vehículo desde detalle de vehículo
+
+#### Frontend — Operaciones
+- [ ] `useJobs` hook + página `Jobs` — lista paginada, crear trabajo, cambiar estado (DRIVER solo sus trabajos activos)
+- [ ] `useWorkshop` hook + página `Workshop` — vista semana con agenda, crear/cancelar órdenes
+- [ ] `useBilling` hook + página `Billing` — lista facturas, crear, emitir, marcar pagada, descargar PDF
+
+#### Frontend — GPS y Dashboard
+- [ ] `useGps` hook — polling cada 10s a `/api/v1/gps/latest`
+- [ ] Página `Map` — mapa Leaflet con marcadores de vehículos activos, popover con datos del vehículo
+- [ ] `useProfitability` hook + sección `Dashboard` — gráfico Recharts ingresos vs costes por vehículo
+- [ ] Página `AuditLog` — tabla paginada con filtros (solo ADMIN/MANAGER)
+
+---
+
+### Semana 6 (9–15 Jul): Hardening + Tests de integración + Demo
+
+#### Tests de integración (`@SpringBootTest` + Testcontainers)
+- [ ] `AuthFlowIT` — login correcto → JWT → endpoint protegido; login incorrecto 5 veces → cuenta bloqueada
+- [ ] `JobLifecycleIT` — crear job → iniciar → completar → verificar `UsageLog` creado y `currentKm` actualizado
+- [ ] `InvoiceFlowIT` — crear factura DRAFT → añadir línea → emitir → pagar → descargar PDF
+
+#### CI/CD
+- [ ] `.github/workflows/ci.yml` — build + tests + OWASP Dependency-Check + Semgrep en cada PR; falla si CVSS ≥ 7
+- [ ] `.github/workflows/security.yml` — OWASP scan semanal programado
+- [ ] Anclar GitHub Actions a SHAs concretos (no tags mutables — suply chain)
+
+#### Demo y hardening final
+- [ ] `docker-compose.yml` — postgres:16 + backend + frontend (nginx), health checks, `depends_on`
+- [ ] `Flyway V9` — seed datos demo realistas (5 vehículos, 3 conductores, 10 trabajos completados, 3 facturas)
+- [ ] Revisar headers HTTP en `SecurityConfig`: `X-Content-Type-Options`, `X-Frame-Options`, `HSTS` (prod)
+- [ ] OWASP Dependency-Check — corregir cualquier CVE CVSS ≥ 7 que quede
+- [ ] `README.md` — diagrama de arquitectura, capturas de pantalla, credenciales demo, instrucciones de arranque local y Railway
 
 ---
 
