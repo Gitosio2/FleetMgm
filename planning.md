@@ -232,17 +232,6 @@ FleetMgm/
 
 ## Plan de Desarrollo por Hitos
 
-### Enfoque híbrido SDD + TDD
-
-Cada feature se desarrolla en dos hitos consecutivos:
-
-- **Hito impar (contrato API — espíritu SDD):** Flyway + Entity + DTOs + Mapper + Controller. Se define el contrato público del endpoint antes de implementar la lógica. SpringDoc genera el spec OpenAPI automáticamente desde las anotaciones.
-- **Hito par (lógica e implementación — TDD):** Se escriben los tests del Service *antes* de implementarlo, luego Repository + Service + RBAC + todos los tests. El test falla primero, luego se implementa hasta que pase.
-
-Auth es la excepción: tiene más casuística de seguridad y se divide en hitos más finos.
-
----
-
 ### Base ya implementada
 - [x] `pom.xml` — Java 21, Spring Boot 3.3.5, dependencias completas
 - [x] `application.yml` — datasource, JWT config, actuator, springdoc
@@ -259,21 +248,21 @@ Auth es la excepción: tiene más casuística de seguridad y se divide en hitos 
 - [ ] `SecurityConfig` — endpoints públicos (`/api/v1/auth/**`, `/actuator/health`) vs. autenticados (`anyRequest().authenticated()`)
 - [ ] `SecurityConfig` — CORS: origen permitido desde env var `FRONTEND_URL`, métodos y headers permitidos, nunca `*`
 
-### Hito 2 — Auth: Contrato API (SDD)
+### Hito 2 — Auth: Contrato API
 - [ ] `Flyway V1` — tabla `users` + tabla `refresh_tokens`
 - [ ] `LoginRequest` / `AuthResponse` / `RefreshRequest` (records) con `@Valid`
 - [ ] `AuthController` — `POST /api/v1/auth/login`, `POST /api/v1/auth/refresh`, `POST /api/v1/auth/logout`
 
-### Hito 3 — Auth: Lógica de login y lockout (TDD)
-- [ ] Tests primero: `AuthServiceTest` — login OK, contraseña incorrecta, cuenta deshabilitada, lockout tras 5 intentos
+### Hito 3 — Auth: Lógica de login y lockout
 - [ ] `AuthService.login()` — verificar credenciales BCrypt, comprobar cuenta habilitada, generar access token (15 min) + refresh token
 - [ ] `AuthService` — lockout: incrementar `failedLoginAttempts`; bloquear `lockedUntil = now + 15 min` al 5.º fallo; resetear en login exitoso
 - [ ] `AuthService` — registrar `AuditLog` en login exitoso y en bloqueo de cuenta
+- [ ] Tests `AuthServiceTest` — login OK, contraseña incorrecta, cuenta deshabilitada, lockout tras 5 intentos
 
-### Hito 4 — Auth: Refresh, logout y tests de controller (TDD)
-- [ ] Tests primero: refresh válido, refresh expirado, logout
+### Hito 4 — Auth: Refresh, logout y tests de controller
 - [ ] `AuthService.refresh()` — validar hash SHA-256 del refresh token en BD, emitir nuevo access token
 - [ ] `AuthService.logout()` — eliminar hash del refresh token de BD (revocación real)
+- [ ] Tests `AuthServiceTest` — refresh válido, refresh expirado, logout
 - [ ] Tests `AuthControllerTest` (`@WebMvcTest`) — 200, 400, 401, cuerpo de error estructurado
 - [ ] `DataInitializer` — seed usuarios demo en perfil `dev` (1 ADMIN, 1 MANAGER, 1 DRIVER) con BCrypt cost 12
 
@@ -281,74 +270,74 @@ Auth es la excepción: tiene más casuística de seguridad y se divide en hitos 
 
 ---
 
-### Hito 5 — Clientes: Contrato API (SDD)
+### Hito 5 — Clientes: Contrato API
 - [ ] `Flyway V2` — tabla `clients`
 - [ ] `Client` entity — campos, `@SQLRestriction("deleted_at IS NULL")`
 - [ ] `CreateClientRequest` / `UpdateClientRequest` / `ClientResponse` (records)
 - [ ] `ClientMapper` (MapStruct) — `toResponse`, `toEntity`, `updateEntity`
 - [ ] `ClientController` — `GET /api/v1/clients`, `POST`, `GET /{id}`, `PUT /{id}`, `DELETE /{id}`; `Location` header en POST, `204` en DELETE
 
-### Hito 6 — Clientes: Lógica e implementación (TDD)
-- [ ] Tests primero: `ClientServiceTest` — crear OK, taxId duplicado → excepción, findById no encontrado → 404, soft delete
+### Hito 6 — Clientes: Lógica e implementación
 - [ ] `ClientRepository` — `findAll` paginado, `existsByTaxId`
 - [ ] `ClientService` — `create`, `findAll`, `findById`, `update`, `delete` (soft), `@Transactional`
 - [ ] `@PreAuthorize` en `ClientService` — solo ADMIN/MANAGER/ADMINISTRATIVE
+- [ ] Tests `ClientServiceTest` — crear OK, taxId duplicado → excepción, findById no encontrado → 404, soft delete
 - [ ] Tests `ClientRepositoryTest` (`@DataJpaTest` + Testcontainers PostgreSQL 16) — soft delete excluye registros con `deleted_at`
 - [ ] Tests `ClientControllerTest` (`@WebMvcTest`) — 201, 400, 404, 403
 
 ---
 
-### Hito 7 — Vehículos: Contrato API (SDD)
+### Hito 7 — Vehículos: Contrato API
 - [ ] `Flyway V3` — tabla `vehicles`
 - [ ] `Vehicle` entity — campos, enums `VehicleCategory` / `VehicleStatus` / `UsageMeasure`, `@SQLRestriction`
 - [ ] `CreateVehicleRequest` / `UpdateVehicleRequest` / `VehicleResponse` (records)
 - [ ] `VehicleMapper` (MapStruct)
 - [ ] `VehicleController` — CRUD completo
 
-### Hito 8 — Vehículos: Lógica e implementación (TDD)
-- [ ] Tests primero: `VehicleServiceTest` — crear OK, licensePlate duplicada → excepción, findById no encontrado, soft delete
+### Hito 8 — Vehículos: Lógica e implementación
 - [ ] `VehicleRepository` — `findAll` paginado, `findAllActiveWithAssignment` (JOIN FETCH)
 - [ ] `VehicleService` — `create`, `findAll`, `findById`, `update`, `delete` (soft), `@Transactional`
 - [ ] `@PreAuthorize` en `VehicleService` — ADMIN/MANAGER/ADMINISTRATIVE crean/editan; DRIVER solo ve el suyo
+- [ ] Tests `VehicleServiceTest` — crear OK, licensePlate duplicada → excepción, findById no encontrado, soft delete
 - [ ] Tests `VehicleRepositoryTest` (`@DataJpaTest` + Testcontainers)
 - [ ] Tests `VehicleControllerTest` (`@WebMvcTest`)
 
 ---
 
-### Hito 9 — Trabajadores: Contrato API (SDD)
+### Hito 9 — Trabajadores: Contrato API
 - [ ] `Flyway V4` — tabla `workers`
 - [ ] `Worker` entity — campos, enums `WorkerRole` (DRIVER/TECHNICIAN/BOTH), `LicenseType`, `@SQLRestriction`
 - [ ] `CreateWorkerRequest` / `UpdateWorkerRequest` / `WorkerResponse` (records)
 - [ ] `WorkerMapper` (MapStruct)
 - [ ] `WorkerController` — CRUD completo
 
-### Hito 10 — Trabajadores: Lógica e implementación (TDD)
-- [ ] Tests primero: `WorkerServiceTest` — crear OK, nationalId duplicado → excepción, findById no encontrado, soft delete
+### Hito 10 — Trabajadores: Lógica e implementación
 - [ ] `WorkerRepository` — `findAll` paginado, `existsByNationalId`
 - [ ] `WorkerService` — `create`, `findAll`, `findById`, `update`, `delete` (soft), `@Transactional`
 - [ ] `@PreAuthorize` en `WorkerService` — ADMIN/MANAGER/ADMINISTRATIVE gestionan; DRIVER solo ve su perfil
+- [ ] Tests `WorkerServiceTest` — crear OK, nationalId duplicado → excepción, findById no encontrado, soft delete
 - [ ] Tests `WorkerRepositoryTest`, `WorkerControllerTest`
 
 ---
 
-### Hito 11 — Asignaciones conductor↔vehículo: Contrato API (SDD)
+### Hito 11 — Asignaciones conductor↔vehículo: Contrato API
 - [ ] `Flyway V5a` — tabla `driver_vehicle_assignments` con unique partial index (`WHERE end_date IS NULL`)
 - [ ] `DriverVehicleAssignment` entity
 - [ ] `CreateAssignmentRequest` / `AssignmentResponse` (records)
 - [ ] `AssignmentMapper` (MapStruct)
 - [ ] `AssignmentController` — `POST /api/v1/assignments` (asignar), `PATCH /{id}/end` (finalizar), `GET /api/v1/workers/{id}/assignments` (historial)
 
-### Hito 12 — Asignaciones: Lógica e implementación (TDD)
-- [ ] Tests primero: `AssignmentServiceTest` — asignar OK, conductor ya tiene asignación activa → excepción, finalizar asignación
+### Hito 12 — Asignaciones: Lógica e implementación
 - [ ] `AssignmentRepository` — `findActiveByDriverId`, `findActiveByVehicleId`, historial paginado
 - [ ] `AssignmentService.assign()` — validar una sola asignación activa por conductor, crear asignación
 - [ ] `AssignmentService.endAssignment()` — `endDate = now()` en la asignación activa
 - [ ] `@PreAuthorize` — solo ADMIN/MANAGER/ADMINISTRATIVE pueden asignar
+- [ ] Tests `AssignmentServiceTest` — asignar OK, conductor ya tiene asignación activa → excepción, finalizar asignación
 - [ ] Tests `AssignmentRepositoryTest` (`@DataJpaTest`), `AssignmentControllerTest`
 
 ---
 
-### Hito 13 — Trabajos: Contrato API (SDD)
+### Hito 13 — Trabajos: Contrato API
 - [ ] `Flyway V5b` — tablas `jobs` + `usage_logs`
 - [ ] `Job` entity — campos, enum `JobStatus` (PENDING/IN_PROGRESS/COMPLETED/CANCELLED), `@SQLRestriction`
 - [ ] `UsageLog` entity
@@ -356,8 +345,7 @@ Auth es la excepción: tiene más casuística de seguridad y se divide en hitos 
 - [ ] `JobMapper` (MapStruct)
 - [ ] `JobController` — CRUD + `PATCH /{id}/start`, `PATCH /{id}/complete`, `PATCH /{id}/cancel`
 
-### Hito 14 — Trabajos: Lógica, eventos y tests (TDD)
-- [ ] Tests primero: `JobServiceTest` — crear OK, transición PENDING→IN_PROGRESS, retroceder estado → excepción, completar publica evento
+### Hito 14 — Trabajos: Lógica y eventos
 - [ ] `JobRepository` — `findAll` paginado, `findByAssignedDriverIdAndStatusIn` (para DRIVER), JOIN FETCH
 - [ ] `UsageLogRepository`
 - [ ] `JobService.create()` — crear PENDING
@@ -366,19 +354,19 @@ Auth es la excepción: tiene más casuística de seguridad y se divide en hitos 
 - [ ] `JobService.cancel()` — PENDING/IN_PROGRESS → CANCELLED
 - [ ] `JobCompletedEvent` (record) + `JobEventListener` — `@TransactionalEventListener(AFTER_COMMIT)`: crear `UsageLog`, actualizar `currentKm`/`currentHours` en `Vehicle`
 - [ ] `@PreAuthorize` — DRIVER solo ve y cambia estado de sus trabajos activos
+- [ ] Tests `JobServiceTest` — crear OK, transición PENDING→IN_PROGRESS, retroceder estado → excepción, completar publica evento
 - [ ] Tests `JobEventListenerTest`, `JobRepositoryTest` (`@DataJpaTest`), `JobControllerTest`
 
 ---
 
-### Hito 15 — Mantenimiento: Contrato API (SDD)
+### Hito 15 — Mantenimiento: Contrato API
 - [ ] `Flyway V6a` — tabla `maintenance_records`
 - [ ] `MaintenanceRecord` entity — campos, enum `MaintenanceStatus` (SCHEDULED/IN_PROGRESS/COMPLETED)
 - [ ] `CreateMaintenanceRequest` / `MaintenanceResponse` (records)
 - [ ] `MaintenanceMapper` (MapStruct)
 - [ ] `MaintenanceController` — CRUD + `PATCH /{id}/start`, `PATCH /{id}/complete`
 
-### Hito 16 — Mantenimiento: Lógica y eventos (TDD)
-- [ ] Tests primero: `MaintenanceServiceTest` — crear publica evento, completar publica evento, Vehicle cambia de estado
+### Hito 16 — Mantenimiento: Lógica y eventos
 - [ ] `MaintenanceRepository`
 - [ ] `VehicleEntersWorkshopEvent` + `MaintenanceCompletedEvent` (records)
 - [ ] `MaintenanceService.create()` — crear SCHEDULED, publicar `VehicleEntersWorkshopEvent`
@@ -386,27 +374,28 @@ Auth es la excepción: tiene más casuística de seguridad y se divide en hitos 
 - [ ] `MaintenanceService.complete()` — IN_PROGRESS → COMPLETED, `workshopExitDate = now()`, publicar `MaintenanceCompletedEvent`
 - [ ] `VehicleService` — `@TransactionalEventListener`: `VehicleEntersWorkshopEvent` → status `MAINTENANCE`; `MaintenanceCompletedEvent` → status `ACTIVE`
 - [ ] `@PreAuthorize` — WORKSHOP_STAFF puede crear/editar; ADMIN/MANAGER/ADMINISTRATIVE también
+- [ ] Tests `MaintenanceServiceTest` — crear publica evento, completar publica evento, Vehicle cambia de estado
 - [ ] Tests `VehicleStatusEventTest`, `MaintenanceControllerTest`
 
 ---
 
-### Hito 17 — Agenda del taller: Contrato API (SDD)
+### Hito 17 — Agenda del taller: Contrato API
 - [ ] `Flyway V6b` — tabla `workshop_schedules`
 - [ ] `WorkshopSchedule` entity — campos, prioridad, estado
 - [ ] `CreateScheduleRequest` / `ScheduleResponse` (records)
 - [ ] `ScheduleMapper` (MapStruct)
 - [ ] `WorkshopController` — CRUD + `GET /api/v1/workshop/schedules?range=today|week|month`
 
-### Hito 18 — Agenda del taller: Lógica e implementación (TDD)
-- [ ] Tests primero: `WorkshopScheduleServiceTest` — listar hoy, listar semana, cancelar
+### Hito 18 — Agenda del taller: Lógica e implementación
 - [ ] `WorkshopScheduleRepository` — queries por rango de fecha: hoy, semana actual, mes actual
 - [ ] `WorkshopScheduleService` — crear, editar, cancelar, listar por rango
 - [ ] `@PreAuthorize` — WORKSHOP_STAFF y superiores
+- [ ] Tests `WorkshopScheduleServiceTest` — listar hoy, listar semana, cancelar
 - [ ] Tests `WorkshopScheduleRepositoryTest` (`@DataJpaTest`), `WorkshopControllerTest`
 
 ---
 
-### Hito 19 — Facturación: Contrato API (SDD)
+### Hito 19 — Facturación: Contrato API
 - [ ] `Flyway V7` — tablas `invoices` + `invoice_line_items`
 - [ ] `Invoice` entity — campos, enum `InvoiceStatus` (DRAFT/ISSUED/PAID/OVERDUE), `@SQLRestriction`
 - [ ] `InvoiceLineItem` entity
@@ -414,8 +403,7 @@ Auth es la excepción: tiene más casuística de seguridad y se divide en hitos 
 - [ ] `InvoiceMapper` (MapStruct)
 - [ ] `InvoiceController` — CRUD + `PATCH /{id}/issue`, `PATCH /{id}/pay`, `POST /{id}/line-items`
 
-### Hito 20 — Facturación: Lógica e implementación (TDD)
-- [ ] Tests primero: `BillingServiceTest` — crear DRAFT, emitir sin líneas → excepción, flujo completo DRAFT→ISSUED→PAID, cálculo IVA 21%
+### Hito 20 — Facturación: Lógica e implementación
 - [ ] `InvoiceRepository`, `LineItemRepository`
 - [ ] `InvoiceNumberGenerator` — secuencia PostgreSQL `INV-2026-00001`
 - [ ] `BillingService.create()` — crear DRAFT
@@ -424,25 +412,25 @@ Auth es la excepción: tiene más casuística de seguridad y se divide en hitos 
 - [ ] `BillingService.markPaid()` — ISSUED → PAID, `paymentDate = now()`
 - [ ] `BillingService` — `JobCompletedEvent` consumer: crear línea de factura en la DRAFT del cliente
 - [ ] `@PreAuthorize` — solo ADMIN/MANAGER/ADMINISTRATIVE
+- [ ] Tests `BillingServiceTest` — crear DRAFT, emitir sin líneas → excepción, flujo completo DRAFT→ISSUED→PAID, cálculo IVA 21%
 - [ ] Tests `BillingControllerTest`
 
-### Hito 21 — PDF y rentabilidad (TDD)
-- [ ] Tests primero: `PdfExportServiceTest` — PDF generado contiene número de factura, líneas e IVA
+### Hito 21 — PDF y rentabilidad
 - [ ] `PdfExportService` — generar PDF con OpenPDF (cabecera, líneas, totales, IVA)
 - [ ] `GET /api/v1/invoices/{id}/pdf` — `Content-Disposition: attachment; filename="INV-...pdf"`
-- [ ] Tests primero: `ProfitabilityRepositoryTest` — ingresos, costes y margen calculados correctamente
 - [ ] `ProfitabilityRepository` — `@Query` projection: ingresos (`SUM` line items), costes (`SUM` maintenance.cost), margen por vehículo
 - [ ] `GET /api/v1/reports/profitability` — paginado, solo ADMIN/MANAGER
+- [ ] Tests `PdfExportServiceTest`, `ProfitabilityRepositoryTest` (`@DataJpaTest`)
 
 ---
 
-### Hito 22 — GPS: Contrato API (SDD)
+### Hito 22 — GPS: Contrato API
 - [ ] `Flyway V8a` — tabla `gps_positions` con índices en `vehicle_id` y `recorded_at`
 - [ ] `GpsPosition` entity — lat, lng, heading, speed, `source` (MOCK/DEVICE)
 - [ ] `GpsPositionResponse` (record)
 - [ ] `GpsController` — `GET /api/v1/gps/latest`
 
-### Hito 23 — GPS: Lógica e implementación (TDD)
+### Hito 23 — GPS: Lógica e implementación
 - [ ] `GpsRepository` — `findLatestByVehicleId`, `findLatestForAllActiveVehicles` (proyección)
 - [ ] `GpsMockScheduler` — `@Scheduled(fixedDelay = 30_000)`, genera posiciones con deriva aleatoria para vehículos ACTIVE
 - [ ] `@PreAuthorize` — ADMIN/MANAGER/ADMINISTRATIVE ven todos; DRIVER solo su posición
