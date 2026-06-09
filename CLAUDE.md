@@ -240,7 +240,7 @@ chore(deps): bump spring-boot to 3.3.6
 Each milestone in `planning.md` gets its own branch. Format:
 
 ```
-hito<NN>/<scope>-<short-description>
+hito<NN>-<scope>-<short-description>
 ```
 
 - `NN` is zero-padded to two digits so branches sort correctly (`01`, `02`, …, `31`).
@@ -251,14 +251,14 @@ hito<NN>/<scope>-<short-description>
 
 | Hito | Branch |
 |------|--------|
-| Hito 1 — SecurityConfig | `hito01/auth-security-config` |
-| Hito 2 — Auth API contract | `hito02/auth-api-contract` |
-| Hito 5 — Clients CRUD | `hito05/client-crud` |
-| Hito 7 — Vehicles CRUD | `hito07/vehicle-crud` |
-| Hito 13 — Jobs lifecycle | `hito13/job-lifecycle` |
-| Hito 19 — Invoicing | `hito19/billing-invoices` |
-| Hito 25 — Frontend login | `hito25/frontend-login` |
-| Hito 30 — CI/CD pipeline | `hito30/ci-owasp-semgrep` |
+| Hito 1 — SecurityConfig | `hito01-auth-security-config` |
+| Hito 2 — Auth API contract | `hito02-auth-api-contract` |
+| Hito 5 — Clients CRUD | `hito05-client-crud` |
+| Hito 7 — Vehicles CRUD | `hito07-vehicle-crud` |
+| Hito 13 — Jobs lifecycle | `hito13-job-lifecycle` |
+| Hito 19 — Invoicing | `hito19-billing-invoices` |
+| Hito 25 — Frontend login | `hito25-frontend-login` |
+| Hito 30 — CI/CD pipeline | `hito30-ci-owasp-semgrep` |
 
 Merge each hito branch into `main` via PR when the milestone is complete.
 Never push directly to `main`.
