@@ -74,6 +74,10 @@ public class AuthService {
         }
 
         User user = token.getUser();
+        if (!user.isEnabled() || user.isLocked()) {
+            refreshTokenRepository.delete(token);
+            throw new BadCredentialsException();
+        }
         String accessToken = jwtService.generateAccessToken(user.getEmail(), user.getAppRole().name());
         return new AuthResponse(accessToken, request.refreshToken(), user.getAppRole().name());
     }
