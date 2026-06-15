@@ -164,6 +164,59 @@ class AuthServiceTest {
         verify(refreshTokenRepository).delete(token);
     }
 
+    @Test
+    void refresh_returnsNewAccessToken_whenTokenValidAndUserActive() {
+        User user = activeUser();
+        RefreshToken token = validToken(user);
+        when(refreshTokenRepository.findByTokenHash(any())).thenReturn(Optional.of(token));
+        when(jwtService.generateAccessToken(anyString(), anyString())).thenReturn("new.access.token");
+
+        AuthResponse response = authService.refresh(new RefreshRequest("raw-token"));
+
+        assertThat(response.accessToken()).isEqualTo("new.access.token");
+        assertThat(response.refreshToken()).isEqualTo("raw-token");
+    }
+
+    @Test
+    void refresh_throwsBadCredentials_whenTokenNotFound() {
+        when(refreshTokenRepository.findByTokenHash(any())).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> authService.refresh(new RefreshRequest("unknown")))
+                .isInstanceOf(BadCredentialsException.class);
+    }
+
+    @Test
+    void refresh_throwsBadCredentials_andDeletesToken_whenExpired() {
+        User user = activeUser();
+        RefreshToken token = expiredToken(user);
+        when(refreshTokenRepository.findByTokenHash(any())).thenReturn(Optional.of(token));
+
+        assertThatThrownBy(() -> authService.refresh(new RefreshRequest("expired-token")))
+                .isInstanceOf(BadCredentialsException.class);
+        verify(refreshTokenRepository).delete(token);
+    }
+
+    // --- logout() ---
+
+    @Test
+    void logout_deletesToken_whenExists() {
+        RefreshToken token = validToken(activeUser());
+        when(refreshTokenRepository.findByTokenHash(any())).thenReturn(Optional.of(token));
+
+        authService.logout(new RefreshRequest("raw-token"));
+
+        verify(refreshTokenRepository).delete(token);
+    }
+
+    @Test
+    void logout_doesNothing_whenTokenNotFound() {
+        when(refreshTokenRepository.findByTokenHash(any())).thenReturn(Optional.empty());
+
+        authService.logout(new RefreshRequest("unknown"));
+
+        verify(refreshTokenRepository, never()).delete(any());
+    }
+
     // --- helpers ---
 
     private User activeUser() {
@@ -191,6 +244,14 @@ class AuthServiceTest {
         token.setUser(user);
         token.setTokenHash("hash");
         token.setExpiresAt(Instant.now().plusSeconds(3600));
+        return token;
+    }
+
+    private RefreshToken expiredToken(User user) {
+        RefreshToken token = new RefreshToken();
+        token.setUser(user);
+        token.setTokenHash("hash");
+        token.setExpiresAt(Instant.now().minusSeconds(1));
         return token;
     }
 }
