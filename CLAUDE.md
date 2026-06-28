@@ -23,7 +23,16 @@ FleetMgm is a Master's thesis fleet management application. Backend: Java 21 + S
 ./mvnw dependency-check:check                 # OWASP CVE scan (falla si CVSS ≥ 7)
 ```
 
-### Frontend (`frontend/`)
+### Monorepo (root)
+
+```bash
+turbo dev            # Starts all apps in dev mode (web on port 5173)
+turbo build          # Builds all packages and apps
+turbo test           # Runs Vitest across packages/ and apps/web
+turbo lint           # Lints all workspaces
+```
+
+### Web app (`apps/web/`)
 
 ```bash
 npm run dev          # Start Vite dev server (port 5173)
@@ -36,7 +45,7 @@ npm run test:ui      # Vitest UI mode
 ### Full stack
 
 ```bash
-docker compose up    # Starts postgres:16 + backend + frontend (nginx)
+docker compose up    # Starts postgres:16 + backend + apps/web (nginx)
 ```
 
 ---
@@ -390,15 +399,32 @@ Config: `config/SecurityConfig.java`, `config/AuditorAwareImpl.java`.
 
 **Rule:** Never expose JPA entities in the API layer. Always map to DTOs. Business logic lives exclusively in `application/`; controllers do routing + validation, repositories do data access.
 
-### Frontend: Feature-scoped components
+### Frontend: Monorepo structure
+
+Turborepo + npm workspaces. Shared logic lives in `packages/`; visual components are app-specific.
 
 ```
-src/
-  api/client.ts          Axios instance with JWT Bearer interceptor + auto-refresh
-  store/authStore.ts     Zustand — user session and preferences
+packages/
+  api/src/
+    client.ts            Axios instance with JWT Bearer interceptor + auto-refresh
+    types.ts             PageResponse<T>, ApiError, shared domain types
+  hooks/src/
+    useAuth.ts           login/logout mutations (TanStack Query)
+    useVehicles.ts       }
+    useWorkers.ts        } TanStack Query wrappers — consumed by web and mobile
+    useJobs.ts           }
+    …
+  store/src/
+    authStore.ts         Zustand — user session, tokens, role
+
+apps/web/src/
+  mocks/                 MSW handlers (browser.ts for dev, server.ts for Vitest)
   pages/                 One file per route (Login, Dashboard, Vehicles, …)
   components/            Sub-divided by feature (vehicle/, worker/, job/, map/, billing/, workshop/)
-  hooks/                 TanStack Query wrappers (useVehicles, useJobs, …)
+
+apps/mobile/src/         React Native + Expo — post-web; consumes same packages/
+  screens/               Equivalent to pages/
+  components/            NativeWind + RN primitives
 ```
 
 Server state via **TanStack Query**; client state via **Zustand**. UI components from **shadcn/ui + Tailwind CSS**.

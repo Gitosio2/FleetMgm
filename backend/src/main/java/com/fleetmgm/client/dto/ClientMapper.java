@@ -10,6 +10,10 @@ public interface ClientMapper {
 
     ClientResponse toResponse(Client client);
 
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "deletedAt", ignore = true)
     Client toEntity(CreateClientRequest request);
 
     @Mapping(target = "id", ignore = true)
