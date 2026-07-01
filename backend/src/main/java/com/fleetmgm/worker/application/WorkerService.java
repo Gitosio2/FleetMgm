@@ -2,6 +2,7 @@ package com.fleetmgm.worker.application;
 
 import com.fleetmgm.auth.infrastructure.UserRepository;
 import com.fleetmgm.shared.PageResponse;
+import org.springframework.dao.DataIntegrityViolationException;
 import com.fleetmgm.shared.exception.ConflictException;
 import com.fleetmgm.shared.exception.NotFoundException;
 import com.fleetmgm.worker.domain.Worker;
@@ -58,7 +59,12 @@ public class WorkerService {
         if (request.userId() != null) {
             userRepository.findById(request.userId()).ifPresent(worker::setUser);
         }
-        return workerMapper.toResponse(workerRepository.save(worker));
+        try {
+            return workerMapper.toResponse(workerRepository.save(worker));
+        } catch (DataIntegrityViolationException ex) {
+            throw new ConflictException("WORKER_NATIONAL_ID_CONFLICT",
+                    "National ID " + request.nationalId() + " already in use");
+        }
     }
 
     @Transactional(readOnly = true)
