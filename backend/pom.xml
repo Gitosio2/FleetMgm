@@ -177,6 +177,8 @@
                 <configuration>
                     <!-- Tests tagged @Tag("integration") require Docker; excluded from default build -->
                     <excludedGroups>integration</excludedGroups>
+                    <!-- Required for Mockito/ByteBuddy to work on Java 24+ -->
+                    <argLine>-Dnet.bytebuddy.experimental=true</argLine>
                 </configuration>
             </plugin>
         </plugins>
