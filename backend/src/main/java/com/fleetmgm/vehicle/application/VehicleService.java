@@ -37,7 +37,7 @@ public class VehicleService {
     }
 
     @Transactional(readOnly = true)
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ADMINISTRATIVE', 'DRIVER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ADMINISTRATIVE', 'WORKSHOP_STAFF', 'DRIVER')")
     public PageResponse<VehicleResponse> list(Pageable pageable) {
         if (isCurrentUserDriver()) {
             return listForCurrentDriver();
@@ -58,7 +58,7 @@ public class VehicleService {
     }
 
     @Transactional(readOnly = true)
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ADMINISTRATIVE', 'DRIVER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ADMINISTRATIVE', 'WORKSHOP_STAFF', 'DRIVER')")
     public VehicleResponse getById(UUID id) {
         if (isCurrentUserDriver()) {
             assertDriverOwnsVehicle(id);
