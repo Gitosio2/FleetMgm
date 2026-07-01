@@ -9,6 +9,7 @@ import com.fleetmgm.vehicle.dto.VehicleMapper;
 import com.fleetmgm.vehicle.dto.VehicleResponse;
 import com.fleetmgm.vehicle.infrastructure.AssignmentRepository;
 import com.fleetmgm.vehicle.infrastructure.VehicleRepository;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -54,7 +55,12 @@ public class VehicleService {
                     "License plate " + request.licensePlate() + " already in use");
         }
         var vehicle = vehicleMapper.toEntity(request);
-        return vehicleMapper.toResponse(vehicleRepository.save(vehicle));
+        try {
+            return vehicleMapper.toResponse(vehicleRepository.save(vehicle));
+        } catch (DataIntegrityViolationException ex) {
+            throw new ConflictException("VEHICLE_LICENSE_PLATE_CONFLICT",
+                    "License plate " + request.licensePlate() + " already in use");
+        }
     }
 
     @Transactional(readOnly = true)
@@ -79,7 +85,12 @@ public class VehicleService {
                     "License plate " + request.licensePlate() + " already in use");
         }
         vehicleMapper.updateEntity(request, vehicle);
-        return vehicleMapper.toResponse(vehicleRepository.save(vehicle));
+        try {
+            return vehicleMapper.toResponse(vehicleRepository.save(vehicle));
+        } catch (DataIntegrityViolationException ex) {
+            throw new ConflictException("VEHICLE_LICENSE_PLATE_CONFLICT",
+                    "License plate " + request.licensePlate() + " already in use");
+        }
     }
 
     @Transactional
