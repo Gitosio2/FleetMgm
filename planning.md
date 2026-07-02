@@ -2,9 +2,9 @@
 
 ## Context
 
-Proyecto de fin de máster: aplicación de gestión de flotas con backend Spring Boot + frontend React.
+Aplicación de gestión de flotas con backend Spring Boot + frontend React.
 Repositorio greenfield. Plazo: ~6 semanas (hasta mediados de julio 2026).
-El objetivo es una app funcional y bien estructurada arquitectónica y securamente para presentación académica.
+El objetivo es una app funcional y bien estructurada arquitectónica y securamente.
 
 ---
 
@@ -14,7 +14,7 @@ El objetivo es una app funcional y bien estructurada arquitectónica y securamen
 
 | Capa | Tecnología | Justificación |
 |------|------------|---------------|
-| Backend | Java 21 + Spring Boot 3.3 | Ecosistema maduro; Spring Security, Data JPA, Actuator y Validation out-of-the-box. Reconocible como elección de producción por un tribunal de máster. |
+| Backend | Java 21 + Spring Boot 3.5 | Ecosistema maduro; Spring Security, Data JPA, Actuator y Validation out-of-the-box. Stack estándar y ampliamente adoptada en producción. Subido desde 3.3 en el Hito 11 — la línea 3.3.x llegó a su último patch (3.3.13) con CVEs CVSS ≥ 7 sin resolver en Spring Core/Security/Tomcat. |
 | ORM | Spring Data JPA + Hibernate | El dominio es relacional (vehículos, trabajos, facturas con integridad referencial fuerte); JPA encaja de forma natural. |
 | Seguridad | Spring Security + JJWT (HS512 → RS256 en prod) | RBAC battle-tested. JWT con access token 15 min + refresh token 7 días almacenado hasheado en BD. |
 | BD | PostgreSQL 16 | JSONB para AuditLog, integridad referencial, transacciones ACID. |
@@ -30,7 +30,7 @@ El objetivo es una app funcional y bien estructurada arquitectónica y securamen
 | CI/CD | GitHub Actions | Pipeline declarativo en YAML, sin infraestructura adicional. |
 | SAST | Semgrep | Reglas específicas para Spring Security y React. |
 | CVE scan | OWASP Dependency-Check | Escanea dependencias transitivas contra NVD; falla el build si CVSS ≥ 7. |
-| Docs API | SpringDoc OpenAPI (Swagger UI) | Generación automática desde anotaciones; útil para demo ante tribunal. |
+| Docs API | SpringDoc OpenAPI (Swagger UI) | Generación automática desde anotaciones; útil para explorar y probar la API interactivamente. |
 | Contenedores | Docker Compose | Un solo comando levanta la app completa para la presentación. |
 
 ### Seguridad por capas
@@ -116,13 +116,17 @@ com.fleetmgm
 
 **InvoiceLineItem** — id, invoiceId, description, quantity, unitPrice, subtotal, linkedJobId(nullable), linkedMaintenanceId(nullable)
 
+**SupplierInvoice** — id(UUID), supplierName, supplierInvoiceNumber(nullable), category(ExpenseCategory: MAINTENANCE/FUEL/INSURANCE/LEASING_RENTING/TOLL/OTHER), invoiceDate, dueDate(nullable), paymentDate(nullable), status(SupplierInvoiceStatus: PENDING/PAID), subtotal, taxAmount, total, vehicleId(FK→Vehicle, nullable), notes, documentPath(nullable — ruta a PDF/imagen subido, punto de anclaje para OCR futuro), soft-delete
+
+**SupplierInvoiceLineItem** — id, invoiceId(FK), description, quantity, unitPrice, subtotal, vehicleId(nullable), maintenanceRecordId(nullable)
+
 **GpsPosition** — id, vehicleId(indexed), latitude, longitude, heading, speed, recordedAt(indexed), source(MOCK/DEVICE)
 
 **AuditLog** — id, entityType, entityId, action, performedByUserId, performedByEmail, performedAt, ipAddress, oldValues(JSONB), newValues(JSONB), details
 
 ### Rentabilidad (vista calculada, no entidad)
 - Ingresos por vehículo = SUM(InvoiceLineItems vinculados a Jobs de ese vehículo)
-- Costes por vehículo = SUM(MaintenanceRecord.cost)
+- Costes por vehículo = SUM(MaintenanceRecord.cost) + SUM(SupplierInvoice.total WHERE vehicleId = ese vehículo)
 - Margen = Ingresos − Costes
 - Implementado como `@Query` projection de JPA o PostgreSQL View
 
@@ -145,6 +149,7 @@ com.fleetmgm
 | Historial de trabajos pasados | ✅ | ✅ | ✅ | ❌ | ❌ |
 | Clientes — ver/crear/editar | ✅ | ✅ | ✅ | ❌ | ❌ |
 | Facturas — ver/crear/editar/pagar | ✅ | ✅ | ✅ | ❌ | ❌ |
+| Facturas de proveedor (gastos) — ver/crear/editar | ✅ | ✅ | ✅ | ❌ | ❌ |
 | Trabajadores — ver lista | ✅ | ✅ | ✅ | ❌ | Solo su perfil |
 | Trabajadores — crear/editar | ✅ | ✅ | ✅ | ❌ | ❌ |
 | GPS — mapa de flota completo | ✅ | ✅ | ✅ | ❌ | ❌ |
@@ -188,7 +193,7 @@ FleetMgm/
 ├── tsconfig.base.json                          ← config TypeScript base compartida
 │
 ├── backend/
-│   ├── pom.xml                                 ← Java 21, Spring Boot 3.3.5
+│   ├── pom.xml                                 ← Java 21, Spring Boot 3.5.16
 │   └── src/main/java/com/fleetmgm/
 │       ├── FleetMgmApplication.java
 │       ├── config/
@@ -217,12 +222,14 @@ FleetMgm/
 │           ├── V1__create_users.sql
 │           ├── V2__create_clients.sql
 │           ├── V3__create_vehicles.sql
-│           ├── V4__create_workers.sql
-│           ├── V5__create_jobs.sql
+│           ├── V4__create_workers.sql                          ← incluye driver_vehicle_assignments
+│           ├── V5__create_jobs.sql                              ← incluye usage_logs
 │           ├── V6__create_maintenance_workshop.sql
-│           ├── V7__create_invoices.sql
+│           ├── V7__create_invoices.sql                          ← incluye supplier_invoices
 │           ├── V8__create_gps_audit.sql
-│           └── V9__seed_demo_data.sql
+│           ├── V9__add_vehicle_license_plate_unique_index.sql   ← aplicada, Hito 8
+│           ├── V10__add_worker_national_id_unique_index.sql     ← aplicada, Hito 10
+│           └── V11__seed_demo_data.sql                          ← pendiente, Hito 41 (única migración que falta)
 │
 ├── packages/                                   ← lógica compartida entre web y mobile
 │   ├── api/                                    ← @fleetmgm/api
@@ -250,7 +257,7 @@ FleetMgm/
 │           └── index.ts
 │
 ├── apps/
-│   ├── web/                                    ← React + Vite + TypeScript (Hito 25+)
+│   ├── web/                                    ← React + Vite + TypeScript (Hito 12+)
 │   │   └── src/
 │   │       ├── mocks/                          ← MSW handlers (tests + desarrollo)
 │   │       ├── pages/                          ← Login, Dashboard, Vehicles, Workers…
@@ -285,13 +292,19 @@ FleetMgm/
 > tests propios — sus tests de controller viven en el hito de lógica correspondiente.
 
 ### Base ya implementada
-- [x] `pom.xml` — Java 21, Spring Boot 3.3.5, dependencias completas
+- [x] `pom.xml` — Java 21, Spring Boot 3.3.5 al inicio, subido a **3.5.16** en el Hito 11 (ver Decisiones de Implementación)
 - [x] `application.yml` — datasource, JWT config, actuator, springdoc
 - [x] Estructura de paquetes (package-by-feature)
 - [x] Entidades `User`, `RefreshToken`, `AppRole` (enum)
 - [x] `JwtService` — generación y validación de tokens HS512
 - [x] `JwtAuthenticationFilter` — extrae y valida Bearer token en cada request
 - [x] `GlobalExceptionHandler`, `PageResponse<T>`, `AuditLog`
+- [x] **Flyway V1–V8** — esquema completo de toda la base de datos, aplicado desde el commit de scaffold inicial (`aa3e61e`): `users`, `clients`, `vehicles`, `workers` + `driver_vehicle_assignments` (V4), `jobs` + `usage_logs` (V5), `maintenance_records` + `workshop_schedules` (V6), `invoices` + `invoice_line_items` + `supplier_invoices` + `supplier_invoice_line_items` (V7), `gps_positions` + `audit_logs` (V8)
+- [x] **Entidades de dominio** (capa `domain/` únicamente — sin `api/`, `application/`, `dto/`) para todas las features: `Job`/`JobStatus`, `UsageLog`, `MaintenanceRecord`/`MaintenanceStatus`, `WorkshopSchedule`/`SchedulePriority`/`WorkshopStatus`, `Invoice`/`InvoiceLineItem`/`InvoiceStatus`, `SupplierInvoice`/`SupplierInvoiceLineItem`/`SupplierInvoiceStatus`/`ExpenseCategory`, `GpsPosition`/`GpsSource`, `DriverVehicleAssignment`
+- [x] `AssignmentRepository` (parcial) — `findActiveByDriverEmail`, usado por `VehicleService` para el filtro "DRIVER solo ve su vehículo"
+- [x] `AuditLogRepository` (parcial) — `JpaRepository` base, sin queries de filtro todavía
+
+> **Nota:** `SupplierInvoice` (facturas de proveedor / gastos operativos: mantenimiento, combustible, seguro, leasing, peajes) se scaffoldeó junto con el resto del dominio en el commit inicial, pero no estaba documentado en este plan hasta esta revisión — ver Hitos 30–31. Afecta directamente el cálculo de rentabilidad (ver Modelo de Dominio).
 
 ---
 
@@ -346,60 +359,140 @@ FleetMgm/
 - [x] `VehicleMapper` (MapStruct)
 - [x] `VehicleController` — CRUD completo
 
-### Hito 8 — Vehículos: Lógica e implementación
-- [ ] **[RED]** Tests `VehicleServiceTest` — crear OK, licensePlate duplicada → excepción, findById no encontrado, soft delete, @PreAuthorize DRIVER solo ve el suyo
-- [ ] **[RED]** Tests `VehicleRepositoryTest` (`@DataJpaTest` + Testcontainers) — findAllActiveWithAssignment excluye soft-deleted y trae JOIN FETCH
-- [ ] **[RED]** Tests `VehicleControllerTest` (`@WebMvcTest`) — 201, 400, 404, 403 por rol
-- [ ] **[GREEN]** `VehicleRepository` — `findAll` paginado, `findAllActiveWithAssignment` (JOIN FETCH)
-- [ ] **[GREEN]** `VehicleService` — `create`, `findAll`, `findById`, `update`, `delete` (soft), `@Transactional`
-- [ ] **[GREEN]** `@PreAuthorize` en `VehicleService` — ADMIN/MANAGER/ADMINISTRATIVE crean/editan; DRIVER solo ve el suyo
+### Hito 8 — Vehículos: Lógica e implementación *(implementado)*
+- [x] **[RED]** Tests `VehicleServiceTest` — crear OK, licensePlate duplicada → excepción, findById no encontrado, soft delete, @PreAuthorize DRIVER solo ve el suyo
+- [x] **[RED]** Tests `VehicleRepositoryTest` (`@DataJpaTest` + Testcontainers) — findAllActiveWithAssignment excluye soft-deleted y trae JOIN FETCH
+- [x] **[RED]** Tests `VehicleControllerTest` (`@WebMvcTest`) — 201, 400, 404, 403 por rol
+- [x] **[GREEN]** `VehicleRepository` — `findAll` paginado, `findAllActiveWithAssignment` (JOIN FETCH)
+- [x] **[GREEN]** `VehicleService` — `create`, `findAll`, `findById`, `update`, `delete` (soft), `@Transactional`
+- [x] **[GREEN]** `@PreAuthorize` en `VehicleService` — ADMIN/MANAGER/ADMINISTRATIVE crean/editan; DRIVER solo ve el suyo
 
 ---
 
-### Hito 9 — Trabajadores: Contrato API
-- [ ] `Flyway V4` — tabla `workers`
-- [ ] `Worker` entity — campos, enums `WorkerRole` (DRIVER/TECHNICIAN/BOTH), `LicenseType`, `@SQLRestriction`
-- [ ] `CreateWorkerRequest` / `UpdateWorkerRequest` / `WorkerResponse` (records)
-- [ ] `WorkerMapper` (MapStruct)
-- [ ] `WorkerController` — CRUD completo
+### Hito 9 — Trabajadores: Contrato API *(implementado)*
+- [x] `Flyway V4` — tabla `workers`
+- [x] `Worker` entity — campos, enums `WorkerRole` (DRIVER/TECHNICIAN/BOTH), `LicenseType`, `@SQLRestriction`
+- [x] `CreateWorkerRequest` / `UpdateWorkerRequest` / `WorkerResponse` (records)
+- [x] `WorkerMapper` (MapStruct)
+- [x] `WorkerController` — CRUD completo
 
-### Hito 10 — Trabajadores: Lógica e implementación
-- [ ] **[RED]** Tests `WorkerServiceTest` — crear OK, nationalId duplicado → excepción, findById no encontrado, soft delete, @PreAuthorize DRIVER solo ve su perfil
-- [ ] **[RED]** Tests `WorkerRepositoryTest` (`@DataJpaTest` + Testcontainers) — soft delete excluye registros con `deleted_at`, existsByNationalId
-- [ ] **[RED]** Tests `WorkerControllerTest` (`@WebMvcTest`) — 201, 400, 404, 403 por rol
-- [ ] **[GREEN]** `WorkerRepository` — `findAll` paginado, `existsByNationalId`
-- [ ] **[GREEN]** `WorkerService` — `create`, `findAll`, `findById`, `update`, `delete` (soft), `@Transactional`
-- [ ] **[GREEN]** `@PreAuthorize` en `WorkerService` — ADMIN/MANAGER/ADMINISTRATIVE gestionan; DRIVER solo ve su perfil
+### Hito 10 — Trabajadores: Lógica e implementación *(implementado)*
+- [x] **[RED]** Tests `WorkerServiceTest` — crear OK, nationalId duplicado → excepción, findById no encontrado, soft delete, @PreAuthorize DRIVER solo ve su perfil
+- [x] **[RED]** Tests `WorkerRepositoryTest` (`@DataJpaTest` + Testcontainers) — soft delete excluye registros con `deleted_at`, existsByNationalId
+- [x] **[RED]** Tests `WorkerControllerTest` (`@WebMvcTest`) — 201, 400, 404, 403 por rol
+- [x] **[GREEN]** `WorkerRepository` — `findAll` paginado, `existsByNationalId`
+- [x] **[GREEN]** `WorkerService` — `create`, `findAll`, `findById`, `update`, `delete` (soft), `@Transactional`
+- [x] **[GREEN]** `@PreAuthorize` en `WorkerService` — ADMIN/MANAGER/ADMINISTRATIVE gestionan; DRIVER solo ve su perfil
 
 ---
 
-### Hito 11 — Asignaciones conductor↔vehículo: Contrato API
-- [ ] `Flyway V5a` — tabla `driver_vehicle_assignments` con unique partial index (`WHERE end_date IS NULL`)
-- [ ] `DriverVehicleAssignment` entity
+> **Nota sobre esta reorganización (revisión post-Hito 10):** el orden original tenía tres problemas
+> detectados en auditoría: (1) el CI/CD vivía en el último hito, así que el control de seguridad
+> "OWASP Dependency-Check en cada PR" declarado en el Stack no estaba activo durante los primeros ~30
+> PRs; (2) los 12 hitos de frontend estaban agrupados al final, arriesgando llegar a la demo con
+> backend completo pero UI inexistente si el tiempo se acorta; (3) `SupplierInvoice` (facturas de
+> proveedor) estaba scaffoldeado en el commit inicial sin hito asignado. Los tres se corrigen aquí:
+> CI adelantado al Hito 11, frontend intercalado inmediatamente después de cada bloque de backend del
+> que depende, y un hito propio para facturas de proveedor. También se eliminaron las migraciones
+> Flyway ya cubiertas por el scaffold inicial (V1–V8) de los checklists de "Contrato API" — solo
+> falta añadir DTOs, mapper y controller sobre el esquema y las entidades que ya existen.
+
+### Hito 11 — CI/CD: Pipeline mínimo *(adelantado desde el final del plan — implementado)*
+- [x] Plugin `dependency-check-maven` 12.2.2 en `pom.xml` con `failBuildOnCVSS = 7`
+- [x] `.github/workflows/ci.yml` — en cada PR y push a `main`: `./mvnw test` (backend) + `./mvnw dependency-check:check` (OWASP)
+- [x] `.github/workflows/security.yml` — OWASP scan semanal programado (`schedule: cron`, lunes 06:00 UTC)
+- [x] Maven Wrapper (`mvnw`/`mvnw.cmd` + `.mvn/wrapper/`) añadido — no existía pese a estar documentado en `CLAUDE.md`
+- [x] Verificado localmente: `./mvnw test` (60/60) y `./mvnw dependency-check:check` (`BUILD SUCCESS`) tras subir `spring-boot-starter-parent` 3.3.5 → **3.5.16** (la línea 3.3.x llegó a su último patch con CVEs CVSS ≥ 7 sin resolver en Spring Core/Security/Tomcat) + overrides de `postgresql`, `log4j2`, `jackson-bom`, `tomcat.version`, y bump de `springdoc-openapi-starter-webmvc-ui` a 2.8.17
+- [ ] Anclar `actions/checkout` / `actions/setup-java` a SHA concreto — diferido al Hito 41 (hardening final); por ahora usan tag `@v4`
+
+---
+
+### Hito 12 — Monorepo: Scaffold Turborepo
+- [ ] `package.json` raíz — `workspaces: ["apps/*", "packages/*"]`, scripts `turbo dev/build/lint/test`
+- [ ] `turbo.json` — pipeline de tasks con caché: `build` (dependsOn `^build`), `dev` (persistent), `lint`, `test`
+- [ ] `tsconfig.base.json` — config TypeScript base compartida por todos los paquetes
+- [ ] `packages/api/` — `package.json` (`@fleetmgm/api`), `tsconfig.json`, `src/client.ts` (instancia Axios vacía), `src/types.ts` (`PageResponse<T>`, `ApiError`), `src/index.ts`
+- [ ] `packages/hooks/` — `package.json` (`@fleetmgm/hooks`, peerDep React), `tsconfig.json`, `src/index.ts` vacío
+- [ ] `packages/store/` — `package.json` (`@fleetmgm/store`), `tsconfig.json`, `src/index.ts` vacío
+- [ ] `apps/web/` — `package.json` con deps `@fleetmgm/api`, `@fleetmgm/hooks`, `@fleetmgm/store`; scaffold Vite (`npm create vite@latest`)
+- [ ] `apps/mobile/` — `package.json` placeholder con deps `@fleetmgm/api`, `@fleetmgm/hooks`, `@fleetmgm/store`
+- [ ] `npm install` en raíz — instala workspaces y verifica que los paquetes se resuelven entre sí
+- [ ] Ampliar `.github/workflows/ci.yml` con job `turbo test` (packages + apps/web) ahora que el monorepo existe
+
+### Hito 13 — Frontend: Infraestructura base y auth
+> Requiere: Hito 12 (monorepo scaffold) + Hitos 1–4 (backend auth, ya implementados)
+- [ ] **[RED]** Handlers MSW en `apps/web/src/mocks/handlers.ts` — `POST /api/v1/auth/login` (OK, 401, cuenta bloqueada), `POST /api/v1/auth/refresh`
+- [ ] **[RED]** Tests `Login.test.tsx` — render formulario, submit OK redirige al dashboard, error 401 muestra mensaje, cuenta bloqueada muestra aviso
+- [ ] **[RED]** Tests `authStore.test.ts` — login persiste sesión, logout limpia el store, tokens se refrescan ante 401
+- [ ] **[RED]** Tests `ProtectedRoute.test.tsx` — sin sesión redirige a Login; rol insuficiente muestra 403
+- [ ] **[GREEN]** `packages/api/src/client.ts` — interceptor JWT + lógica de auto-refresh al recibir 401
+- [ ] **[GREEN]** Setup MSW — `apps/web/src/mocks/browser.ts` (desarrollo), `apps/web/src/mocks/server.ts` (tests Vitest)
+- [ ] **[GREEN]** `packages/store/src/authStore.ts` — sesión de usuario (email, rol, tokens), acciones login/logout
+- [ ] **[GREEN]** `packages/hooks/src/useAuth.ts` — wraps login/logout mutations de TanStack Query
+- [ ] **[GREEN]** Página `Login` — formulario, manejo de error 401 y mensaje de cuenta bloqueada
+- [ ] **[GREEN]** Layout principal — sidebar con navegación filtrada por rol del usuario autenticado
+- [ ] **[GREEN]** Rutas protegidas — redirige a Login si no hay sesión; 403 si rol insuficiente
+
+### Hito 14 — Frontend: Clients
+> Requiere: Hitos 5–6 (backend clients, ya implementados)
+- [ ] **[RED]** Handlers MSW — `GET /api/v1/clients`, `POST`, `PUT /{id}`, `DELETE /{id}`
+- [ ] **[RED]** Tests `Clients.test.tsx` — lista paginada renderiza, modal crear llama a POST, modal editar llama a PUT, soft delete llama a DELETE, acciones ocultas si rol DRIVER
+- [ ] **[GREEN]** `packages/hooks/src/useClients.ts` — lista paginada, create, update, delete con invalidación de caché
+- [ ] **[GREEN]** `apps/web/src/components/client/` — `ClientTable`, `ClientFormModal`, `ClientDeleteButton`
+- [ ] **[GREEN]** Página `Clients` — composición de componentes, paginación
+
+### Hito 15 — Frontend: Vehicles
+> Requiere: Hitos 7–8 (backend vehicles, ya implementados)
+- [ ] **[RED]** Handlers MSW — `GET /api/v1/vehicles`, `POST`, `PUT /{id}`, `DELETE /{id}`
+- [ ] **[RED]** Tests `Vehicles.test.tsx` — lista paginada renderiza, badge de estado correcto por `VehicleStatus`, DRIVER solo ve su vehículo, CRUD oculto para DRIVER
+- [ ] **[GREEN]** `packages/hooks/src/useVehicles.ts` — lista paginada, create, update, delete con invalidación de caché
+- [ ] **[GREEN]** `apps/web/src/components/vehicle/` — `VehicleTable`, `VehicleStatusBadge`, `VehicleFormModal`
+- [ ] **[GREEN]** Página `Vehicles` — composición de componentes, paginación
+
+### Hito 16 — Frontend: Workers
+> Requiere: Hitos 9–10 (backend workers, ya implementados)
+- [ ] **[RED]** Handlers MSW — `GET /api/v1/workers`, `POST`, `PUT /{id}`, `DELETE /{id}`
+- [ ] **[RED]** Tests `Workers.test.tsx` — lista paginada renderiza, DRIVER solo ve su perfil, CRUD oculto para DRIVER
+- [ ] **[GREEN]** `packages/hooks/src/useWorkers.ts` — lista paginada, create, update, delete con invalidación de caché
+- [ ] **[GREEN]** `apps/web/src/components/worker/` — `WorkerTable`, `WorkerFormModal`
+- [ ] **[GREEN]** Página `Workers` — composición de componentes, paginación
+
+---
+
+### Hito 17 — Asignaciones conductor↔vehículo: Contrato API
+- [x] `Flyway V4` — tabla `driver_vehicle_assignments` con unique partial index (`WHERE end_date IS NULL`) *(ya aplicada, incluida en la migración de workers)*
+- [x] `DriverVehicleAssignment` entity *(ya scaffoldeada)*
 - [ ] `CreateAssignmentRequest` / `AssignmentResponse` (records)
 - [ ] `AssignmentMapper` (MapStruct)
 - [ ] `AssignmentController` — `POST /api/v1/assignments` (asignar), `PATCH /{id}/end` (finalizar), `GET /api/v1/workers/{id}/assignments` (historial)
 
-### Hito 12 — Asignaciones: Lógica e implementación
+### Hito 18 — Asignaciones: Lógica e implementación
 - [ ] **[RED]** Tests `AssignmentServiceTest` — asignar OK, conductor ya tiene asignación activa → excepción, finalizar asignación, @PreAuthorize solo ADMIN/MANAGER/ADMINISTRATIVE
 - [ ] **[RED]** Tests `AssignmentRepositoryTest` (`@DataJpaTest` + Testcontainers) — findActiveByDriverId, unique partial index garantiza una sola activa
 - [ ] **[RED]** Tests `AssignmentControllerTest` (`@WebMvcTest`) — 201, 400, 404, 403 por rol
-- [ ] **[GREEN]** `AssignmentRepository` — `findActiveByDriverId`, `findActiveByVehicleId`, historial paginado
+- [ ] **[GREEN]** `AssignmentRepository` — ampliar el stub existente (`findActiveByDriverEmail`, usado hoy por `VehicleService`) con `findActiveByDriverId`, `findActiveByVehicleId`, historial paginado
 - [ ] **[GREEN]** `AssignmentService.assign()` — validar una sola asignación activa por conductor, crear asignación
 - [ ] **[GREEN]** `AssignmentService.endAssignment()` — `endDate = now()` en la asignación activa
 - [ ] **[GREEN]** `@PreAuthorize` — solo ADMIN/MANAGER/ADMINISTRATIVE pueden asignar
 
+### Hito 19 — Frontend: Assignments
+> Requiere: Hitos 17–18 (backend assignments)
+- [ ] **[RED]** Handlers MSW — `POST /api/v1/assignments`, `PATCH /{id}/end`, `GET /api/v1/workers/{id}/assignments`
+- [ ] **[RED]** Tests `Assignments.test.tsx` — modal asignación crea correctamente, finalizar asignación actualiza la lista, historial paginado renderiza, 403 oculta acciones a DRIVER
+- [ ] **[GREEN]** `packages/hooks/src/useAssignments.ts` — assign, endAssignment, historial paginado
+- [ ] **[GREEN]** `apps/web/src/components/assignment/` — `AssignmentModal`, `AssignmentHistory`
+- [ ] **[GREEN]** Panel de asignación integrado en página `Vehicles` (detalle de vehículo)
+
 ---
 
-### Hito 13 — Trabajos: Contrato API
-- [ ] `Flyway V5b` — tablas `jobs` + `usage_logs`
-- [ ] `Job` entity — campos, enum `JobStatus` (PENDING/IN_PROGRESS/COMPLETED/CANCELLED), `@SQLRestriction`
-- [ ] `UsageLog` entity
+### Hito 20 — Trabajos: Contrato API
+- [x] `Flyway V5` — tablas `jobs` + `usage_logs` *(ya aplicada)*
+- [x] `Job` entity — enum `JobStatus` (PENDING/IN_PROGRESS/COMPLETED/CANCELLED), `@SQLRestriction`; `UsageLog` entity *(ya scaffoldeadas)*
 - [ ] `CreateJobRequest` / `UpdateJobRequest` / `JobResponse` (records)
 - [ ] `JobMapper` (MapStruct)
 - [ ] `JobController` — CRUD + `PATCH /{id}/start`, `PATCH /{id}/complete`, `PATCH /{id}/cancel`
 
-### Hito 14 — Trabajos: Lógica y eventos
+### Hito 21 — Trabajos: Lógica y eventos
 - [ ] **[RED]** Tests `JobServiceTest` — crear OK, transición PENDING→IN_PROGRESS, retroceder estado → excepción, completar publica `JobCompletedEvent`, cancelar desde COMPLETED → excepción
 - [ ] **[RED]** Tests `JobEventListenerTest` — `JobCompletedEvent` crea `UsageLog` y actualiza `currentKm`/`currentHours` en Vehicle
 - [ ] **[RED]** Tests `JobRepositoryTest` (`@DataJpaTest` + Testcontainers) — findByAssignedDriverIdAndStatusIn, JOIN FETCH no produce N+1
@@ -413,16 +506,24 @@ FleetMgm/
 - [ ] **[GREEN]** `JobCompletedEvent` (record) + `JobEventListener` — `@TransactionalEventListener(AFTER_COMMIT)`: crear `UsageLog`, actualizar `currentKm`/`currentHours` en `Vehicle`
 - [ ] **[GREEN]** `@PreAuthorize` — DRIVER solo ve y cambia estado de sus trabajos activos
 
+### Hito 22 — Frontend: Jobs
+> Requiere: Hitos 20–21 (backend jobs)
+- [ ] **[RED]** Handlers MSW — `GET /api/v1/jobs`, `POST`, `PATCH /{id}/start`, `PATCH /{id}/complete`, `PATCH /{id}/cancel`
+- [ ] **[RED]** Tests `Jobs.test.tsx` — lista renderiza; DRIVER solo ve sus trabajos activos; botones start/complete/cancel aparecen según rol y estado; transición de estado actualiza el badge
+- [ ] **[GREEN]** `packages/hooks/src/useJobs.ts` — lista paginada, create, start, complete, cancel con invalidación de caché
+- [ ] **[GREEN]** `apps/web/src/components/job/` — `JobTable`, `JobStatusBadge`, `JobFormModal`, `JobActionButtons`
+- [ ] **[GREEN]** Página `Jobs` — composición de componentes, filtro por estado
+
 ---
 
-### Hito 15 — Mantenimiento: Contrato API
-- [ ] `Flyway V6a` — tabla `maintenance_records`
-- [ ] `MaintenanceRecord` entity — campos, enum `MaintenanceStatus` (SCHEDULED/IN_PROGRESS/COMPLETED)
+### Hito 23 — Mantenimiento: Contrato API
+- [x] `Flyway V6` — tabla `maintenance_records` *(ya aplicada)*
+- [x] `MaintenanceRecord` entity — enum `MaintenanceStatus` (SCHEDULED/IN_PROGRESS/COMPLETED) *(ya scaffoldeada)*
 - [ ] `CreateMaintenanceRequest` / `MaintenanceResponse` (records)
 - [ ] `MaintenanceMapper` (MapStruct)
 - [ ] `MaintenanceController` — CRUD + `PATCH /{id}/start`, `PATCH /{id}/complete`
 
-### Hito 16 — Mantenimiento: Lógica y eventos
+### Hito 24 — Mantenimiento: Lógica y eventos
 - [ ] **[RED]** Tests `MaintenanceServiceTest` — crear publica `VehicleEntersWorkshopEvent`, completar publica `MaintenanceCompletedEvent`, transiciones de estado inválidas → excepción
 - [ ] **[RED]** Tests `VehicleStatusEventTest` — `VehicleEntersWorkshopEvent` cambia Vehicle a MAINTENANCE; `MaintenanceCompletedEvent` lo devuelve a ACTIVE
 - [ ] **[RED]** Tests `MaintenanceControllerTest` (`@WebMvcTest`) — 201, 400, 404, 403; WORKSHOP_STAFF puede crear/editar
@@ -434,16 +535,14 @@ FleetMgm/
 - [ ] **[GREEN]** `VehicleService` — `@TransactionalEventListener`: `VehicleEntersWorkshopEvent` → status `MAINTENANCE`; `MaintenanceCompletedEvent` → status `ACTIVE`
 - [ ] **[GREEN]** `@PreAuthorize` — WORKSHOP_STAFF puede crear/editar; ADMIN/MANAGER/ADMINISTRATIVE también
 
----
-
-### Hito 17 — Agenda del taller: Contrato API
-- [ ] `Flyway V6b` — tabla `workshop_schedules`
-- [ ] `WorkshopSchedule` entity — campos, prioridad, estado
+### Hito 25 — Agenda del taller: Contrato API
+- [x] `Flyway V6` — tabla `workshop_schedules` *(ya aplicada, misma migración que maintenance_records)*
+- [x] `WorkshopSchedule` entity — prioridad, estado *(ya scaffoldeada)*
 - [ ] `CreateScheduleRequest` / `ScheduleResponse` (records)
 - [ ] `ScheduleMapper` (MapStruct)
 - [ ] `WorkshopController` — CRUD + `GET /api/v1/workshop/schedules?range=today|week|month`
 
-### Hito 18 — Agenda del taller: Lógica e implementación
+### Hito 26 — Agenda del taller: Lógica e implementación
 - [ ] **[RED]** Tests `WorkshopScheduleServiceTest` — listar hoy, listar semana, listar mes, cancelar, @PreAuthorize WORKSHOP_STAFF y superiores
 - [ ] **[RED]** Tests `WorkshopScheduleRepositoryTest` (`@DataJpaTest` + Testcontainers) — queries por rango de fecha devuelven solo registros del periodo correcto
 - [ ] **[RED]** Tests `WorkshopControllerTest` (`@WebMvcTest`) — 201, 400, 404, 403 por rol; parámetro `range` inválido → 400
@@ -451,17 +550,25 @@ FleetMgm/
 - [ ] **[GREEN]** `WorkshopScheduleService` — crear, editar, cancelar, listar por rango
 - [ ] **[GREEN]** `@PreAuthorize` — WORKSHOP_STAFF y superiores
 
+### Hito 27 — Frontend: Workshop
+> Requiere: Hitos 23–26 (backend maintenance + workshop schedules)
+- [ ] **[RED]** Handlers MSW — `GET /api/v1/workshop/schedules?range=today|week|month`, `POST`, `PATCH /{id}/cancel`; `GET /api/v1/maintenance`, `POST`, `PATCH /{id}/start`, `PATCH /{id}/complete`
+- [ ] **[RED]** Tests `Workshop.test.tsx` — selector de rango filtra la lista correctamente; WORKSHOP_STAFF ve y crea órdenes; cambio de estado actualiza badge
+- [ ] **[GREEN]** `packages/hooks/src/useWorkshop.ts` — lista por rango, create, cancel
+- [ ] **[GREEN]** `packages/hooks/src/useMaintenance.ts` — lista, create, start, complete
+- [ ] **[GREEN]** `apps/web/src/components/workshop/` — `ScheduleTable`, `ScheduleRangeSelector`, `MaintenanceTable`, `MaintenanceFormModal`
+- [ ] **[GREEN]** Página `Workshop` — vista unificada de agenda y mantenimientos
+
 ---
 
-### Hito 19 — Facturación: Contrato API
-- [ ] `Flyway V7` — tablas `invoices` + `invoice_line_items`
-- [ ] `Invoice` entity — campos, enum `InvoiceStatus` (DRAFT/ISSUED/PAID/OVERDUE), `@SQLRestriction`
-- [ ] `InvoiceLineItem` entity
+### Hito 28 — Facturación (clientes): Contrato API
+- [x] `Flyway V7` — tablas `invoices` + `invoice_line_items` *(ya aplicada)*
+- [x] `Invoice` entity — enum `InvoiceStatus` (DRAFT/ISSUED/PAID/OVERDUE), `@SQLRestriction`; `InvoiceLineItem` entity *(ya scaffoldeadas)*
 - [ ] `CreateInvoiceRequest` / `InvoiceResponse` / `LineItemRequest` (records)
 - [ ] `InvoiceMapper` (MapStruct)
 - [ ] `InvoiceController` — CRUD + `PATCH /{id}/issue`, `PATCH /{id}/pay`, `POST /{id}/line-items`
 
-### Hito 20 — Facturación: Lógica e implementación
+### Hito 29 — Facturación (clientes): Lógica e implementación
 - [ ] **[RED]** Tests `BillingServiceTest` — crear DRAFT, emitir sin líneas → excepción, flujo completo DRAFT→ISSUED→PAID, cálculo IVA 21%, `JobCompletedEvent` crea línea en DRAFT del cliente
 - [ ] **[RED]** Tests `BillingControllerTest` (`@WebMvcTest`) — 201, 400, 404, 403; emitir factura sin líneas → 422
 - [ ] **[GREEN]** `InvoiceRepository`, `LineItemRepository`
@@ -473,23 +580,47 @@ FleetMgm/
 - [ ] **[GREEN]** `BillingService` — `JobCompletedEvent` consumer: crear línea de factura en la DRAFT del cliente
 - [ ] **[GREEN]** `@PreAuthorize` — solo ADMIN/MANAGER/ADMINISTRATIVE
 
-### Hito 21 — PDF y rentabilidad
+### Hito 30 — Facturas de proveedor: Contrato API *(nuevo — sin hito asignado en el plan original)*
+- [x] `Flyway V7` — tablas `supplier_invoices` + `supplier_invoice_line_items` *(ya aplicada, misma migración que invoices)*
+- [x] `SupplierInvoice`, `SupplierInvoiceLineItem`, `SupplierInvoiceStatus` (PENDING/PAID), `ExpenseCategory` *(ya scaffoldeadas)*
+- [ ] `CreateSupplierInvoiceRequest` / `SupplierInvoiceResponse` / `SupplierLineItemRequest` (records)
+- [ ] `SupplierInvoiceMapper` (MapStruct)
+- [ ] `SupplierInvoiceController` — CRUD + `PATCH /{id}/pay`, `POST /{id}/line-items`
+
+### Hito 31 — Facturas de proveedor: Lógica e implementación *(nuevo)*
+- [ ] **[RED]** Tests `SupplierInvoiceServiceTest` — crear PENDING, marcar PAID, listar por vehicleId, listar por categoría, @PreAuthorize solo ADMIN/MANAGER/ADMINISTRATIVE
+- [ ] **[RED]** Tests `SupplierInvoiceControllerTest` (`@WebMvcTest`) — 201, 400, 404, 403
+- [ ] **[GREEN]** `SupplierInvoiceRepository`, `SupplierInvoiceLineItemRepository`
+- [ ] **[GREEN]** `SupplierInvoiceService.create()` — crear PENDING
+- [ ] **[GREEN]** `SupplierInvoiceService.markPaid()` — PENDING → PAID, `paymentDate = now()`
+- [ ] **[GREEN]** `@PreAuthorize` — solo ADMIN/MANAGER/ADMINISTRATIVE
+
+### Hito 32 — PDF y rentabilidad
 - [ ] **[RED]** Tests `PdfExportServiceTest` — PDF generado contiene cabecera, líneas y totales correctos; IVA calculado al 21%
-- [ ] **[RED]** Tests `ProfitabilityRepositoryTest` (`@DataJpaTest` + Testcontainers) — proyección devuelve ingresos, costes y margen correctos por vehículo
+- [ ] **[RED]** Tests `ProfitabilityRepositoryTest` (`@DataJpaTest` + Testcontainers) — proyección devuelve ingresos, costes (mantenimiento + facturas de proveedor) y margen correctos por vehículo
 - [ ] **[GREEN]** `PdfExportService` — generar PDF con OpenPDF (cabecera, líneas, totales, IVA)
 - [ ] **[GREEN]** `GET /api/v1/invoices/{id}/pdf` — `Content-Disposition: attachment; filename="INV-...pdf"`
-- [ ] **[GREEN]** `ProfitabilityRepository` — `@Query` projection: ingresos (`SUM` line items), costes (`SUM` maintenance.cost), margen por vehículo
+- [ ] **[GREEN]** `ProfitabilityRepository` — `@Query` projection: ingresos (`SUM` line items), costes (`SUM MaintenanceRecord.cost` + `SUM SupplierInvoice.total` por vehículo), margen por vehículo
 - [ ] **[GREEN]** `GET /api/v1/reports/profitability` — paginado, solo ADMIN/MANAGER
+
+### Hito 33 — Frontend: Billing
+> Requiere: Hitos 28–31 (backend facturación a clientes + facturas de proveedor)
+- [ ] **[RED]** Handlers MSW — `GET /api/v1/invoices`, `POST`, `PATCH /{id}/issue`, `PATCH /{id}/pay`, `GET /{id}/pdf`, `POST /{id}/line-items`; `GET /api/v1/supplier-invoices`, `POST`, `PATCH /{id}/pay`
+- [ ] **[RED]** Tests `Billing.test.tsx` — lista de facturas de cliente renderiza con badge de estado; flujo DRAFT→ISSUED→PAID actualiza UI; botón PDF dispara descarga (`Content-Disposition: attachment`); lista de facturas de proveedor renderiza filtrable por categoría; 403 oculta acciones a DRIVER
+- [ ] **[GREEN]** `packages/hooks/src/useBilling.ts` — lista paginada, create, addLineItem, issue, markPaid
+- [ ] **[GREEN]** `packages/hooks/src/useSupplierInvoices.ts` — lista paginada, create, markPaid
+- [ ] **[GREEN]** `apps/web/src/components/billing/` — `InvoiceTable`, `InvoiceStatusBadge`, `InvoiceFormModal`, `LineItemList`, `PdfDownloadButton`, `SupplierInvoiceTable`, `SupplierInvoiceFormModal`
+- [ ] **[GREEN]** Página `Billing` — secciones separadas: facturación a clientes / gastos de proveedor
 
 ---
 
-### Hito 22 — GPS: Contrato API
-- [ ] `Flyway V8a` — tabla `gps_positions` con índices en `vehicle_id` y `recorded_at`
-- [ ] `GpsPosition` entity — lat, lng, heading, speed, `source` (MOCK/DEVICE)
+### Hito 34 — GPS: Contrato API
+- [x] `Flyway V8` — tabla `gps_positions` con índices en `vehicle_id` y `recorded_at` *(ya aplicada)*
+- [x] `GpsPosition` entity — lat, lng, heading, speed, `source` (MOCK/DEVICE) *(ya scaffoldeada)*
 - [ ] `GpsPositionResponse` (record)
 - [ ] `GpsController` — `GET /api/v1/gps/latest`
 
-### Hito 23 — GPS: Lógica e implementación
+### Hito 35 — GPS: Lógica e implementación
 - [ ] **[RED]** Tests `GpsRepositoryTest` (`@DataJpaTest` + Testcontainers) — findLatestByVehicleId devuelve la posición más reciente; vehículos INACTIVE no aparecen en findLatestForAllActiveVehicles
 - [ ] **[RED]** Tests `GpsMockSchedulerTest` — scheduler genera exactamente una posición por vehículo ACTIVE con coordenadas dentro del rango esperado
 - [ ] **[RED]** Tests `GpsControllerTest` (`@WebMvcTest`) — 200, 403 DRIVER sin acceso global; DRIVER solo ve su posición
@@ -497,138 +628,54 @@ FleetMgm/
 - [ ] **[GREEN]** `GpsMockScheduler` — `@Scheduled(fixedDelay = 30_000)`, genera posiciones con deriva aleatoria para vehículos ACTIVE
 - [ ] **[GREEN]** `@PreAuthorize` — ADMIN/MANAGER/ADMINISTRATIVE ven todos; DRIVER solo su posición
 
----
-
-### Hito 24 — AuditLog viewer
-- [ ] **[RED]** Tests `AuditControllerTest` (`@WebMvcTest`) — 200 con filtros entityType/action/rango de fechas; 403 ADMINISTRATIVE no tiene acceso
-- [ ] **[GREEN]** `Flyway V8b` — tabla `audit_logs`
-- [ ] **[GREEN]** `AuditLogRepository` — `findAll` paginado con filtros (entityType, action, rango de fechas)
-- [ ] **[GREEN]** `AuditLogResponse` (record) + `AuditLogController` — `GET /api/v1/audit`, solo ADMIN/MANAGER
-
----
-
-### Hito 25 — Monorepo: Scaffold Turborepo
-- [ ] `package.json` raíz — `workspaces: ["apps/*", "packages/*"]`, scripts `turbo dev/build/lint/test`
-- [ ] `turbo.json` — pipeline de tasks con caché: `build` (dependsOn `^build`), `dev` (persistent), `lint`, `test`
-- [ ] `tsconfig.base.json` — config TypeScript base compartida por todos los paquetes
-- [ ] `packages/api/` — `package.json` (`@fleetmgm/api`), `tsconfig.json`, `src/client.ts` (instancia Axios vacía), `src/types.ts` (`PageResponse<T>`, `ApiError`), `src/index.ts`
-- [ ] `packages/hooks/` — `package.json` (`@fleetmgm/hooks`, peerDep React), `tsconfig.json`, `src/index.ts` vacío
-- [ ] `packages/store/` — `package.json` (`@fleetmgm/store`), `tsconfig.json`, `src/index.ts` vacío
-- [ ] `apps/web/` — `package.json` con deps `@fleetmgm/api`, `@fleetmgm/hooks`, `@fleetmgm/store`; scaffold Vite (`npm create vite@latest`)
-- [ ] `apps/mobile/` — `package.json` placeholder con deps `@fleetmgm/api`, `@fleetmgm/hooks`, `@fleetmgm/store`
-- [ ] `npm install` en raíz — instala workspaces y verifica que los paquetes se resuelven entre sí
-
-### Hito 26 — Frontend: Infraestructura base y auth
-> Requiere: Hito 25 (monorepo scaffold) + Hitos 1–4 (backend auth)
-- [ ] **[RED]** Handlers MSW en `apps/web/src/mocks/handlers.ts` — `POST /api/v1/auth/login` (OK, 401, cuenta bloqueada), `POST /api/v1/auth/refresh`
-- [ ] **[RED]** Tests `Login.test.tsx` — render formulario, submit OK redirige al dashboard, error 401 muestra mensaje, cuenta bloqueada muestra aviso
-- [ ] **[RED]** Tests `authStore.test.ts` — login persiste sesión, logout limpia el store, tokens se refrescan ante 401
-- [ ] **[RED]** Tests `ProtectedRoute.test.tsx` — sin sesión redirige a Login; rol insuficiente muestra 403
-- [ ] **[GREEN]** `packages/api/src/client.ts` — interceptor JWT + lógica de auto-refresh al recibir 401
-- [ ] **[GREEN]** Setup MSW — `apps/web/src/mocks/browser.ts` (desarrollo), `apps/web/src/mocks/server.ts` (tests Vitest)
-- [ ] **[GREEN]** `packages/store/src/authStore.ts` — sesión de usuario (email, rol, tokens), acciones login/logout
-- [ ] **[GREEN]** `packages/hooks/src/useAuth.ts` — wraps login/logout mutations de TanStack Query
-- [ ] **[GREEN]** Página `Login` — formulario, manejo de error 401 y mensaje de cuenta bloqueada
-- [ ] **[GREEN]** Layout principal — sidebar con navegación filtrada por rol del usuario autenticado
-- [ ] **[GREEN]** Rutas protegidas — redirige a Login si no hay sesión; 403 si rol insuficiente
-
-### Hito 27 — Frontend: Clients
-> Requiere: Hitos 5–6 (backend clients)
-- [ ] **[RED]** Handlers MSW — `GET /api/v1/clients`, `POST`, `PUT /{id}`, `DELETE /{id}`
-- [ ] **[RED]** Tests `Clients.test.tsx` — lista paginada renderiza, modal crear llama a POST, modal editar llama a PUT, soft delete llama a DELETE, acciones ocultas si rol DRIVER
-- [ ] **[GREEN]** `packages/hooks/src/useClients.ts` — lista paginada, create, update, delete con invalidación de caché
-- [ ] **[GREEN]** `apps/web/src/components/client/` — `ClientTable`, `ClientFormModal`, `ClientDeleteButton`
-- [ ] **[GREEN]** Página `Clients` — composición de componentes, paginación
-
-### Hito 28 — Frontend: Vehicles
-> Requiere: Hitos 7–8 (backend vehicles)
-- [ ] **[RED]** Handlers MSW — `GET /api/v1/vehicles`, `POST`, `PUT /{id}`, `DELETE /{id}`
-- [ ] **[RED]** Tests `Vehicles.test.tsx` — lista paginada renderiza, badge de estado correcto por `VehicleStatus`, DRIVER solo ve su vehículo, CRUD oculto para DRIVER
-- [ ] **[GREEN]** `packages/hooks/src/useVehicles.ts` — lista paginada, create, update, delete con invalidación de caché
-- [ ] **[GREEN]** `apps/web/src/components/vehicle/` — `VehicleTable`, `VehicleStatusBadge`, `VehicleFormModal`
-- [ ] **[GREEN]** Página `Vehicles` — composición de componentes, paginación
-
-### Hito 29 — Frontend: Workers
-> Requiere: Hitos 9–10 (backend workers)
-- [ ] **[RED]** Handlers MSW — `GET /api/v1/workers`, `POST`, `PUT /{id}`, `DELETE /{id}`
-- [ ] **[RED]** Tests `Workers.test.tsx` — lista paginada renderiza, DRIVER solo ve su perfil, CRUD oculto para DRIVER
-- [ ] **[GREEN]** `packages/hooks/src/useWorkers.ts` — lista paginada, create, update, delete con invalidación de caché
-- [ ] **[GREEN]** `apps/web/src/components/worker/` — `WorkerTable`, `WorkerFormModal`
-- [ ] **[GREEN]** Página `Workers` — composición de componentes, paginación
-
-### Hito 30 — Frontend: Assignments
-> Requiere: Hitos 11–12 (backend assignments)
-- [ ] **[RED]** Handlers MSW — `POST /api/v1/assignments`, `PATCH /{id}/end`, `GET /api/v1/workers/{id}/assignments`
-- [ ] **[RED]** Tests `Assignments.test.tsx` — modal asignación crea correctamente, finalizar asignación actualiza la lista, historial paginado renderiza, 403 oculta acciones a DRIVER
-- [ ] **[GREEN]** `packages/hooks/src/useAssignments.ts` — assign, endAssignment, historial paginado
-- [ ] **[GREEN]** `apps/web/src/components/assignment/` — `AssignmentModal`, `AssignmentHistory`
-- [ ] **[GREEN]** Panel de asignación integrado en página `Vehicles` (detalle de vehículo)
-
-### Hito 31 — Frontend: Jobs
-> Requiere: Hitos 13–14 (backend jobs)
-- [ ] **[RED]** Handlers MSW — `GET /api/v1/jobs`, `POST`, `PATCH /{id}/start`, `PATCH /{id}/complete`, `PATCH /{id}/cancel`
-- [ ] **[RED]** Tests `Jobs.test.tsx` — lista renderiza; DRIVER solo ve sus trabajos activos; botones start/complete/cancel aparecen según rol y estado; transición de estado actualiza el badge
-- [ ] **[GREEN]** `packages/hooks/src/useJobs.ts` — lista paginada, create, start, complete, cancel con invalidación de caché
-- [ ] **[GREEN]** `apps/web/src/components/job/` — `JobTable`, `JobStatusBadge`, `JobFormModal`, `JobActionButtons`
-- [ ] **[GREEN]** Página `Jobs` — composición de componentes, filtro por estado
-
-### Hito 32 — Frontend: Workshop
-> Requiere: Hitos 15–18 (backend maintenance + workshop schedules)
-- [ ] **[RED]** Handlers MSW — `GET /api/v1/workshop/schedules?range=today|week|month`, `POST`, `PATCH /{id}/cancel`; `GET /api/v1/maintenance`, `POST`, `PATCH /{id}/start`, `PATCH /{id}/complete`
-- [ ] **[RED]** Tests `Workshop.test.tsx` — selector de rango filtra la lista correctamente; WORKSHOP_STAFF ve y crea órdenes; cambio de estado actualiza badge
-- [ ] **[GREEN]** `packages/hooks/src/useWorkshop.ts` — lista por rango, create, cancel
-- [ ] **[GREEN]** `packages/hooks/src/useMaintenance.ts` — lista, create, start, complete
-- [ ] **[GREEN]** `apps/web/src/components/workshop/` — `ScheduleTable`, `ScheduleRangeSelector`, `MaintenanceTable`, `MaintenanceFormModal`
-- [ ] **[GREEN]** Página `Workshop` — vista unificada de agenda y mantenimientos
-
-### Hito 33 — Frontend: Billing
-> Requiere: Hitos 19–21 (backend billing + PDF)
-- [ ] **[RED]** Handlers MSW — `GET /api/v1/invoices`, `POST`, `PATCH /{id}/issue`, `PATCH /{id}/pay`, `GET /{id}/pdf`; `POST /{id}/line-items`
-- [ ] **[RED]** Tests `Billing.test.tsx` — lista renderiza con badge de estado; flujo DRAFT→ISSUED→PAID actualiza UI; botón PDF dispara descarga (`Content-Disposition: attachment`); 403 oculta acciones a DRIVER
-- [ ] **[GREEN]** `packages/hooks/src/useBilling.ts` — lista paginada, create, addLineItem, issue, markPaid
-- [ ] **[GREEN]** `apps/web/src/components/billing/` — `InvoiceTable`, `InvoiceStatusBadge`, `InvoiceFormModal`, `LineItemList`, `PdfDownloadButton`
-- [ ] **[GREEN]** Página `Billing` — composición de componentes
-
-### Hito 34 — Frontend: GPS Map
-> Requiere: Hitos 22–23 (backend GPS)
+### Hito 36 — Frontend: GPS Map
+> Requiere: Hitos 34–35 (backend GPS)
 - [ ] **[RED]** Handlers MSW — `GET /api/v1/gps/latest`
 - [ ] **[RED]** Tests `Map.test.tsx` — marcador renderizado por cada vehículo retornado por MSW; popover muestra licensePlate y speed; polling cada 10 s dispara segunda llamada
 - [ ] **[GREEN]** `packages/hooks/src/useGps.ts` — polling cada 10 s, invalida caché automáticamente
 - [ ] **[GREEN]** `apps/web/src/components/map/` — `FleetMap` (Leaflet + react-leaflet), `VehicleMarker`, `VehiclePopover`
 - [ ] **[GREEN]** Página `Map` — mapa Leaflet con marcadores de vehículos activos
 
-### Hito 35 — Frontend: Dashboard y rentabilidad
-> Requiere: Hito 21 (backend profitability endpoint)
-- [ ] **[RED]** Handlers MSW — `GET /api/v1/reports/profitability`
-- [ ] **[RED]** Tests `Dashboard.test.tsx` — gráfico Recharts renderiza barras por vehículo; totales de ingresos/costes/margen son correctos; solo ADMIN/MANAGER ven la sección
-- [ ] **[GREEN]** `packages/hooks/src/useProfitability.ts` — lista paginada de rentabilidad por vehículo
-- [ ] **[GREEN]** `apps/web/src/components/` — `ProfitabilityChart` (Recharts), `ProfitabilitySummary`
-- [ ] **[GREEN]** Página `Dashboard` — KPIs de flota + gráfico de rentabilidad
+---
 
-### Hito 36 — Frontend: AuditLog
-> Requiere: Hito 24 (backend audit viewer)
+### Hito 37 — AuditLog viewer
+- [x] `Flyway V8` — tabla `audit_logs` *(ya aplicada, misma migración que gps_positions)*
+- [x] `AuditLog` entity, `AuditLogRepository` *(stub base ya creado — `JpaRepository` sin queries de filtro)*
+- [ ] **[RED]** Tests `AuditControllerTest` (`@WebMvcTest`) — 200 con filtros entityType/action/rango de fechas; 403 ADMINISTRATIVE no tiene acceso
+- [ ] **[GREEN]** `AuditLogRepository` — ampliar con `findAll` paginado y filtros (entityType, action, rango de fechas)
+- [ ] **[GREEN]** `AuditLogResponse` (record) + `AuditLogController` — `GET /api/v1/audit`, solo ADMIN/MANAGER
+
+### Hito 38 — Frontend: AuditLog
+> Requiere: Hito 37 (backend audit viewer)
 - [ ] **[RED]** Handlers MSW — `GET /api/v1/audit` con filtros entityType, action, rango de fechas
 - [ ] **[RED]** Tests `AuditLog.test.tsx` — tabla paginada renderiza; filtros por entityType y action reducen la lista; 403 si rol ADMINISTRATIVE o inferior
 - [ ] **[GREEN]** `packages/hooks/src/useAuditLog.ts` — lista paginada con filtros
 - [ ] **[GREEN]** `apps/web/src/components/audit/` — `AuditLogTable`, `AuditLogFilters`
 - [ ] **[GREEN]** Página `AuditLog` — tabla paginada con filtros (solo ADMIN/MANAGER)
 
+### Hito 39 — Frontend: Dashboard y rentabilidad
+> Requiere: Hito 32 (backend profitability endpoint — incluye costes de mantenimiento y de proveedores)
+- [ ] **[RED]** Handlers MSW — `GET /api/v1/reports/profitability`
+- [ ] **[RED]** Tests `Dashboard.test.tsx` — gráfico Recharts renderiza barras por vehículo; totales de ingresos/costes/margen son correctos; solo ADMIN/MANAGER ven la sección
+- [ ] **[GREEN]** `packages/hooks/src/useProfitability.ts` — lista paginada de rentabilidad por vehículo
+- [ ] **[GREEN]** `apps/web/src/components/` — `ProfitabilityChart` (Recharts), `ProfitabilitySummary`
+- [ ] **[GREEN]** Página `Dashboard` — KPIs de flota + gráfico de rentabilidad
+
 ---
 
-### Hito 37 — Tests de integración (`@SpringBootTest` + Testcontainers)
+### Hito 40 — Tests de integración (`@SpringBootTest` + Testcontainers)
 - [ ] `AuthFlowIT` — login correcto → JWT → endpoint protegido; 5 intentos fallidos → cuenta bloqueada → 401
 - [ ] `JobLifecycleIT` — crear job → iniciar → completar → verificar `UsageLog` creado y `currentKm` actualizado
 - [ ] `InvoiceFlowIT` — crear DRAFT → añadir línea → emitir → pagar → descargar PDF
 
-### Hito 38 — CI/CD
-- [ ] `.github/workflows/ci.yml` — `turbo test` (packages + apps/web) + backend `./mvnw test` + OWASP Dependency-Check + Semgrep en cada PR; falla si CVSS ≥ 7
-- [ ] `.github/workflows/security.yml` — OWASP scan semanal programado
-- [ ] Anclar GitHub Actions a SHAs concretos (no tags mutables — supply chain)
-
-### Hito 39 — Demo y hardening final
+### Hito 41 — Demo y hardening final
 - [ ] `docker-compose.yml` — postgres:16 + backend + apps/web (nginx), health checks, `depends_on`
-- [ ] `Flyway V9` — seed datos demo realistas (5 vehículos, 3 conductores, 10 trabajos completados, 3 facturas)
+- [ ] `Flyway V11` — seed datos demo realistas (5 vehículos, 3 conductores, 10 trabajos completados, 3 facturas de cliente, facturas de proveedor de ejemplo)
 - [ ] Revisar headers HTTP en `SecurityConfig`: `X-Content-Type-Options`, `X-Frame-Options`, `HSTS` (prod)
+- [ ] Rate limiting en `/api/v1/auth/login` y `/api/v1/auth/refresh` (Bucket4j o filtro Spring Security) — control declarado en Security Model desde el inicio pero sin hito propio hasta esta revisión
+- [ ] Structured JSON logging (`logstash-logback-encoder`, ya en `pom.xml`) con correlation ID en MDC en cada request
+- [ ] Métrica Micrometer — contador de intentos de login fallidos, expuesto en `/actuator/metrics`
+- [ ] Anclar `actions/checkout` / `actions/setup-java` en `ci.yml` y `security.yml` a SHA concreto (no tags mutables — supply chain)
 - [ ] OWASP Dependency-Check — corregir cualquier CVE CVSS ≥ 7 pendiente
 - [ ] `README.md` — diagrama de arquitectura, capturas de pantalla, credenciales demo, instrucciones Railway y local
 
@@ -647,6 +694,10 @@ FleetMgm/
 | Unidad de uso | Enum `KILOMETERS / HOURS` por vehículo | Transporte usa km; maquinaria usa horas de motor |
 | Cliente | Entidad separada con FK en Job e Invoice | Permite historial de facturas por cliente y reutilización |
 | Worker campos | phone, nationalId (DNI/NIE), licenseType (B/C/D…) | Requisitos legales y operativos confirmados |
+| Orden de hitos: CI/CD | Movido al Hito 11 (antes era el penúltimo) | Un control de seguridad declarado en el plan pero inactivo durante ~30 PRs no es un control real |
+| Orden de hitos: Frontend | Intercalado justo después de cada bloque de backend del que depende, en vez de en bloque al final | Evita llegar a la demo con backend completo pero UI inexistente si el tiempo se acorta |
+| Facturas de proveedor | Hito propio (30–31), separado de Facturación a clientes | Ya estaba scaffoldeada (entidad + Flyway) en el commit inicial sin documentar; afecta el cálculo de rentabilidad (costes) |
+| Spring Boot 3.3 → 3.5.16 | Subido en el Hito 11, al activar el gate de OWASP | 3.3.13 (último patch de la línea) seguía con CVEs CVSS hasta 9.8 en Spring Core/Security/Tomcat sin backport; 3.5.16 las resuelve. Validado con los 60 tests existentes antes y después del salto |
 
 ---
 
@@ -658,12 +709,12 @@ FleetMgm/
 
 **Alternativa backup:**
 - BD → Neon.tech (PostgreSQL gratuito 0.5GB)
-- Backend → Render (gratis, pero cold start ~30s — avisar al tribunal)
+- Backend → Render (gratis, pero cold start ~30s)
 
 **Demo presencial:**
 ```bash
 docker compose up        # levanta todo localmente
-ngrok http 8080          # URL pública temporal para el tribunal
+ngrok http 8080          # URL pública temporal
 ```
 
 **Variables de entorno en producción (Railway secrets):**
