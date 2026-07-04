@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# actions/checkout and actions/setup-java are pinned to version tags (@v4) for now.
+# Pinning to an exact commit SHA (A03:2025 supply-chain hardening) is deferred to
+# Hito 41 (Demo y hardening final) — see planning.md.
+
+jobs:
+  backend-test:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - run: ./mvnw -B test
+
+  owasp-dependency-check:
+    name: OWASP Dependency-Check (fails on CVSS >= 7)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - run: ./mvnw -B dependency-check:check
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+
+  # Frontend job (turbo test) is added in Hito 12, once the Turborepo monorepo
+  # (package.json, turbo.json, apps/web) exists — there is nothing to lint/test yet.

@@ -7,7 +7,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.3.5</version>
+        <version>3.5.16</version>
         <relativePath/>
     </parent>
 
@@ -15,13 +15,19 @@
     <artifactId>fleetmgm-backend</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>FleetMgm Backend</name>
-    <description>Fleet management backend — Spring Boot 3.3 / Java 21</description>
+    <description>Fleet management backend — Spring Boot 3.5 / Java 21</description>
 
     <properties>
         <java.version>21</java.version>
         <jjwt.version>0.12.6</jjwt.version>
         <mapstruct.version>1.6.2</mapstruct.version>
         <testcontainers.version>1.20.3</testcontainers.version>
+        <!-- Overrides on top of the spring-boot-dependencies BOM: OWASP Dependency-Check
+             (Hito 11) flagged CVSS >= 7 CVEs still open at the BOM-pinned versions. -->
+        <postgresql.version>42.7.12</postgresql.version>
+        <log4j2.version>2.26.1</log4j2.version>
+        <jackson-bom.version>2.22.0</jackson-bom.version>
+        <tomcat.version>10.1.56</tomcat.version>
     </properties>
 
     <dependencies>
@@ -115,7 +121,7 @@
         <dependency>
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-            <version>2.6.0</version>
+            <version>2.8.17</version>
         </dependency>
 
         <!-- OpenPDF (factures) -->
@@ -179,6 +185,18 @@
                     <excludedGroups>integration</excludedGroups>
                     <!-- Required for Mockito/ByteBuddy to work on Java 24+ -->
                     <argLine>-Dnet.bytebuddy.experimental=true</argLine>
+                </configuration>
+            </plugin>
+            <plugin>
+                <!-- OWASP Top 10 F: fails the build on any dependency with CVSS >= 7. Run explicitly via
+                     `mvn dependency-check:check` (see ci.yml) — not bound to a lifecycle phase, so it
+                     never blocks a local `mvn test`. -->
+                <groupId>org.owasp</groupId>
+                <artifactId>dependency-check-maven</artifactId>
+                <version>12.2.2</version>
+                <configuration>
+                    <failBuildOnCVSS>7</failBuildOnCVSS>
+                    <nvdApiKey>${env.NVD_API_KEY}</nvdApiKey>
                 </configuration>
             </plugin>
         </plugins>

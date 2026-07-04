@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-FleetMgm is a Master's thesis fleet management application. Backend: Java 21 + Spring Boot 3.3. Frontend: React + Vite + TypeScript. The project is greenfield — source code is scaffolded incrementally per `planning.md`, which is the source of truth for all architectural decisions.
+FleetMgm is a Master's thesis fleet management application. Backend: Java 21 + Spring Boot 3.5 (started on 3.3, upgraded in Hito 11 once the OWASP Dependency-Check gate exposed unpatched CVSS >= 7 CVEs at the end of the 3.3.x line). Frontend: React + Vite + TypeScript. The project is greenfield — source code is scaffolded incrementally per `planning.md`, which is the source of truth for all architectural decisions.
 
 **Timeline:** ~6 weeks (Jun–mid Jul 2026). See `planning.md` for week-by-week checklist.
 
@@ -587,7 +587,7 @@ Modules communicate via **Spring Application Events** — no external broker. Al
 
 **PostgreSQL 16.** Migrations managed by **Flyway** under `src/main/resources/db/migration/`.
 
-Migration sequence: V1 users → V2 clients → V3 vehicles → V4 workers → V5 jobs → V6 maintenance/workshop → V7 invoices → V8 gps/audit → V9 seed demo data.
+Migration sequence: V1 users → V2 clients → V3 vehicles → V4 workers (+ driver_vehicle_assignments) → V5 jobs (+ usage_logs) → V6 maintenance/workshop → V7 invoices (+ supplier_invoices) → V8 gps/audit → V9 vehicle license plate unique index → V10 worker national ID unique index → V11 seed demo data (pending, Hito 41). V1–V8 shipped the full schema (including tables for features not yet implemented at the application layer) in the initial scaffold commit; only V11 remains.
 
 **Key schema notes:**
 - `DriverVehicleAssignment.end_date IS NULL` = active assignment. A partial unique index enforces one active vehicle per driver.
