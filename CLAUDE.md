@@ -37,7 +37,7 @@ turbo lint           # Lints all workspaces
 ```bash
 npm run dev          # Start Vite dev server (port 5173)
 npm run build        # Production build
-npm run lint         # ESLint
+npm run lint         # oxlint
 npm run test         # Vitest (unit + component tests)
 npm run test:ui      # Vitest UI mode
 ```

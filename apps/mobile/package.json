@@ -1,0 +1,10 @@
+{
+  "name": "@fleetmgm/mobile",
+  "version": "0.0.0",
+  "private": true,
+  "dependencies": {
+    "@fleetmgm/api": "*",
+    "@fleetmgm/hooks": "*",
+    "@fleetmgm/store": "*"
+  }
+}
