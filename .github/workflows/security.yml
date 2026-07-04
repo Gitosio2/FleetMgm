@@ -20,3 +20,5 @@ jobs:
           java-version: "21"
           cache: maven
       - run: ./mvnw -B dependency-check:check
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}

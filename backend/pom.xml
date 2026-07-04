@@ -196,6 +196,7 @@
                 <version>12.2.2</version>
                 <configuration>
                     <failBuildOnCVSS>7</failBuildOnCVSS>
+                    <nvdApiKey>${env.NVD_API_KEY}</nvdApiKey>
                 </configuration>
             </plugin>
         </plugins>
