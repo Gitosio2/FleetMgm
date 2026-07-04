@@ -43,10 +43,9 @@ jobs:
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
 
-  # TODO(Hito 13+): no package.json defines a `test` script yet, so `turbo run test`
-  # currently skips every workspace and this job always reports success without
-  # testing anything. Remove this TODO once real tests land and the job becomes a
-  # meaningful gate.
+  # TODO(Hito 13+): no package.json defines a `test` script yet, so `test` is a no-op
+  # per workspace until real tests land. `build`/`lint` are the real gate for now —
+  # they already catch broken TypeScript/Vite changes.
   frontend-test:
     name: Frontend tests (turbo)
     runs-on: ubuntu-latest
@@ -57,4 +56,4 @@ jobs:
           node-version: "22"
           cache: npm
       - run: npm ci
-      - run: npx turbo run test --filter='./packages/*' --filter='./apps/web'
+      - run: npx turbo run build lint test --filter='./packages/*' --filter='./apps/web'
