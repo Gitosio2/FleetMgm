@@ -43,5 +43,18 @@ jobs:
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
 
-  # Frontend job (turbo test) is added in Hito 12, once the Turborepo monorepo
-  # (package.json, turbo.json, apps/web) exists — there is nothing to lint/test yet.
+  # TODO(Hito 13+): no package.json defines a `test` script yet, so `turbo run test`
+  # currently skips every workspace and this job always reports success without
+  # testing anything. Remove this TODO once real tests land and the job becomes a
+  # meaningful gate.
+  frontend-test:
+    name: Frontend tests (turbo)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npx turbo run test --filter='./packages/*' --filter='./apps/web'
