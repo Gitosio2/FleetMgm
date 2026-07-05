@@ -82,3 +82,39 @@ export type CreateVehicleRequest = {
 }
 
 export type UpdateVehicleRequest = CreateVehicleRequest
+
+export type WorkerRole = 'DRIVER' | 'TECHNICIAN' | 'BOTH'
+
+export type Worker = {
+  id: string
+  firstName: string
+  lastName: string
+  fullName: string
+  workerRole: WorkerRole
+  nationalId: string
+  phone: string | null
+  licenseType: string | null
+  licenseExpiry: string | null
+  userId: string | null
+  createdAt: string
+}
+
+export type CreateWorkerRequest = {
+  firstName: string
+  lastName: string
+  workerRole: WorkerRole
+  nationalId: string
+  phone?: string | null
+  licenseType?: string | null
+  licenseExpiry?: string | null
+  userId?: string | null
+}
+
+export type UpdateWorkerRequest = {
+  firstName: string
+  lastName: string
+  workerRole: WorkerRole
+  phone?: string | null
+  licenseType?: string | null
+  licenseExpiry?: string | null
+}
