@@ -2,10 +2,10 @@ import type { VehicleStatus } from '@fleetmgm/api'
 import { cn } from '@/lib/utils'
 
 const STATUS_LABEL: Record<VehicleStatus, string> = {
-  ACTIVE: 'Active',
-  MAINTENANCE: 'Maintenance',
-  INACTIVE: 'Inactive',
-  DECOMMISSIONED: 'Decommissioned',
+  ACTIVE: 'Activo',
+  MAINTENANCE: 'Mantenimiento',
+  INACTIVE: 'Inactivo',
+  DECOMMISSIONED: 'Dado de baja',
 }
 
 const STATUS_CLASSNAME: Record<VehicleStatus, string> = {

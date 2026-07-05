@@ -57,22 +57,22 @@ export function ClientFormModal({ open, onOpenChange, client }: ClientFormModalP
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{isEditing ? 'Edit client' : 'New client'}</DialogTitle>
+          <DialogTitle>{isEditing ? 'Editar cliente' : 'Nuevo cliente'}</DialogTitle>
         </DialogHeader>
 
         <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="client-name">Name</Label>
+            <Label htmlFor="client-name">Nombre</Label>
             <Input id="client-name" value={name} onChange={(e) => setName(e.target.value)} required />
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="client-tax-id">Tax ID</Label>
+            <Label htmlFor="client-tax-id">ID fiscal</Label>
             <Input id="client-tax-id" value={taxId} onChange={(e) => setTaxId(e.target.value)} required />
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="client-email">Email</Label>
+            <Label htmlFor="client-email">Correo electrónico</Label>
             <Input
               id="client-email"
               type="email"
@@ -82,18 +82,18 @@ export function ClientFormModal({ open, onOpenChange, client }: ClientFormModalP
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="client-phone">Phone</Label>
+            <Label htmlFor="client-phone">Teléfono</Label>
             <Input id="client-phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="client-address">Address</Label>
+            <Label htmlFor="client-address">Dirección</Label>
             <Input id="client-address" value={address} onChange={(e) => setAddress(e.target.value)} />
           </div>
 
           <DialogFooter>
             <Button type="submit" disabled={isPending}>
-              {isEditing ? 'Save changes' : 'Create client'}
+              {isEditing ? 'Guardar cambios' : 'Crear cliente'}
             </Button>
           </DialogFooter>
         </form>

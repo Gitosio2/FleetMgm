@@ -24,21 +24,21 @@ export function VehicleDeleteButton({ vehicleId, vehicleLabel }: VehicleDeleteBu
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button variant="ghost" size="sm" aria-label="Delete vehicle" disabled={deleteVehicle.isPending}>
+        <Button variant="ghost" size="sm" aria-label="Eliminar vehículo" disabled={deleteVehicle.isPending}>
           <Trash2 className="size-4" />
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete {vehicleLabel}?</AlertDialogTitle>
+          <AlertDialogTitle>¿Eliminar {vehicleLabel}?</AlertDialogTitle>
           <AlertDialogDescription>
-            This removes the vehicle from active lists. This action cannot be undone from here.
+            Esto elimina el vehículo de las listas activas. Esta acción no se puede deshacer desde aquí.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogCancel>Cancelar</AlertDialogCancel>
           <AlertDialogAction onClick={() => deleteVehicle.mutate(vehicleId)}>
-            Delete
+            Eliminar
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

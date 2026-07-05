@@ -34,21 +34,21 @@ export function Vehicles() {
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display text-2xl font-semibold">Vehicles</h1>
+          <h1 className="font-display text-2xl font-semibold">Vehículos</h1>
           <p className="text-on-surface-variant">
-            Manage the fleet's vehicles and heavy machinery.
+            Gestiona los vehículos y maquinaria pesada de la flota.
           </p>
         </div>
         {canManage && (
           <Button onClick={openCreateForm}>
             <Plus className="size-4" />
-            New vehicle
+            Nuevo vehículo
           </Button>
         )}
       </div>
 
       {isLoading ? (
-        <p className="text-on-surface-variant">Loading vehicles…</p>
+        <p className="text-on-surface-variant">Cargando vehículos…</p>
       ) : (
         <VehicleTable vehicles={data?.content ?? []} canManage={canManage} onEdit={openEditForm} />
       )}
@@ -61,10 +61,10 @@ export function Vehicles() {
             disabled={page === 0}
             onClick={() => setPage((current) => current - 1)}
           >
-            Previous
+            Anterior
           </Button>
           <span className="text-sm text-on-surface-variant">
-            Page {page + 1} of {data.totalPages}
+            Página {page + 1} de {data.totalPages}
           </span>
           <Button
             variant="outline"
@@ -72,7 +72,7 @@ export function Vehicles() {
             disabled={page + 1 >= data.totalPages}
             onClick={() => setPage((current) => current + 1)}
           >
-            Next
+            Siguiente
           </Button>
         </div>
       )}

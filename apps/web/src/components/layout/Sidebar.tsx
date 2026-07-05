@@ -19,7 +19,7 @@ export function Sidebar() {
         </span>
         <div>
           <p className="font-display text-sm font-semibold leading-tight">Fleet Manager Pro</p>
-          <p className="text-xs text-on-surface-variant">Enterprise Logistics</p>
+          <p className="text-xs text-on-surface-variant">Logística Empresarial</p>
         </div>
       </div>
 

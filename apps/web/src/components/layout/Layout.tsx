@@ -22,7 +22,7 @@ export function Layout() {
           </div>
           <Button variant="ghost" size="sm" onClick={() => logout.mutate()}>
             <LogOut />
-            Logout
+            Cerrar sesión
           </Button>
         </header>
 

@@ -23,24 +23,24 @@ export type NavItem = {
 export const MANAGEMENT_ROLES: AppRole[] = ['ADMIN', 'MANAGER', 'ADMINISTRATIVE']
 
 export const NAV_ITEMS: NavItem[] = [
-  { label: 'Dashboard', to: '/', icon: LayoutDashboard },
-  { label: 'Vehicles', to: '/vehicles', icon: Truck },
-  { label: 'Workers', to: '/workers', icon: Users },
-  { label: 'Clients', to: '/clients', icon: Building2, allowedRoles: MANAGEMENT_ROLES },
+  { label: 'Panel', to: '/', icon: LayoutDashboard },
+  { label: 'Vehículos', to: '/vehicles', icon: Truck },
+  { label: 'Trabajadores', to: '/workers', icon: Users },
+  { label: 'Clientes', to: '/clients', icon: Building2, allowedRoles: MANAGEMENT_ROLES },
   {
-    label: 'Jobs',
+    label: 'Trabajos',
     to: '/jobs',
     icon: ClipboardList,
     allowedRoles: [...MANAGEMENT_ROLES, 'DRIVER'],
   },
   {
-    label: 'Workshop',
+    label: 'Taller',
     to: '/workshop',
     icon: Wrench,
     allowedRoles: [...MANAGEMENT_ROLES, 'WORKSHOP_STAFF'],
   },
-  { label: 'Billing', to: '/billing', icon: Receipt, allowedRoles: MANAGEMENT_ROLES },
-  { label: 'GPS Map', to: '/gps', icon: MapPin, allowedRoles: MANAGEMENT_ROLES },
-  { label: 'Reports', to: '/reports', icon: TrendingUp, allowedRoles: MANAGEMENT_ROLES },
-  { label: 'Audit Log', to: '/audit', icon: ShieldCheck, allowedRoles: ['ADMIN', 'MANAGER'] },
+  { label: 'Facturación', to: '/billing', icon: Receipt, allowedRoles: MANAGEMENT_ROLES },
+  { label: 'Mapa GPS', to: '/gps', icon: MapPin, allowedRoles: MANAGEMENT_ROLES },
+  { label: 'Informes', to: '/reports', icon: TrendingUp, allowedRoles: MANAGEMENT_ROLES },
+  { label: 'Registro de auditoría', to: '/audit', icon: ShieldCheck, allowedRoles: ['ADMIN', 'MANAGER'] },
 ]
