@@ -4,6 +4,7 @@ import { Layout } from '@/components/layout/Layout'
 import { Login } from '@/pages/Login'
 import { Dashboard } from '@/pages/Dashboard'
 import { Clients } from '@/pages/Clients'
+import { Vehicles } from '@/pages/Vehicles'
 import { NotImplemented } from '@/pages/NotImplemented'
 import { NAV_ITEMS, MANAGEMENT_ROLES } from '@/components/layout/nav-items'
 
@@ -28,7 +29,17 @@ function App() {
             </ProtectedRoute>
           }
         />
-        {NAV_ITEMS.filter((item) => item.to !== '/' && item.to !== '/clients').map((item) => (
+        <Route
+          path="/vehicles"
+          element={
+            <ProtectedRoute>
+              <Vehicles />
+            </ProtectedRoute>
+          }
+        />
+        {NAV_ITEMS.filter(
+          (item) => item.to !== '/' && item.to !== '/clients' && item.to !== '/vehicles',
+        ).map((item) => (
           <Route key={item.to} path={item.to} element={<NotImplemented />} />
         ))}
       </Route>
