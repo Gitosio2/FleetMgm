@@ -3,8 +3,9 @@ import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { Layout } from '@/components/layout/Layout'
 import { Login } from '@/pages/Login'
 import { Dashboard } from '@/pages/Dashboard'
+import { Clients } from '@/pages/Clients'
 import { NotImplemented } from '@/pages/NotImplemented'
-import { NAV_ITEMS } from '@/components/layout/nav-items'
+import { NAV_ITEMS, MANAGEMENT_ROLES } from '@/components/layout/nav-items'
 
 function App() {
   return (
@@ -19,7 +20,15 @@ function App() {
         }
       >
         <Route index element={<Dashboard />} />
-        {NAV_ITEMS.filter((item) => item.to !== '/').map((item) => (
+        <Route
+          path="/clients"
+          element={
+            <ProtectedRoute allowedRoles={MANAGEMENT_ROLES}>
+              <Clients />
+            </ProtectedRoute>
+          }
+        />
+        {NAV_ITEMS.filter((item) => item.to !== '/' && item.to !== '/clients').map((item) => (
           <Route key={item.to} path={item.to} element={<NotImplemented />} />
         ))}
       </Route>

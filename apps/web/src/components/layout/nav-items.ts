@@ -20,7 +20,7 @@ export type NavItem = {
   allowedRoles?: AppRole[]
 }
 
-const MANAGEMENT_ROLES: AppRole[] = ['ADMIN', 'MANAGER', 'ADMINISTRATIVE']
+export const MANAGEMENT_ROLES: AppRole[] = ['ADMIN', 'MANAGER', 'ADMINISTRATIVE']
 
 export const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', to: '/', icon: LayoutDashboard },

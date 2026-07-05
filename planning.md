@@ -436,11 +436,12 @@ FleetMgm/
 
 ### Hito 14 — Frontend: Clients
 > Requiere: Hitos 5–6 (backend clients, ya implementados)
-- [ ] **[RED]** Handlers MSW — `GET /api/v1/clients`, `POST`, `PUT /{id}`, `DELETE /{id}`
-- [ ] **[RED]** Tests `Clients.test.tsx` — lista paginada renderiza, modal crear llama a POST, modal editar llama a PUT, soft delete llama a DELETE, acciones ocultas si rol DRIVER
-- [ ] **[GREEN]** `packages/hooks/src/useClients.ts` — lista paginada, create, update, delete con invalidación de caché
-- [ ] **[GREEN]** `apps/web/src/components/client/` — `ClientTable`, `ClientFormModal`, `ClientDeleteButton`
-- [ ] **[GREEN]** Página `Clients` — composición de componentes, paginación
+- [x] **[RED]** Handlers MSW — `GET /api/v1/clients`, `POST`, `PUT /{id}`, `DELETE /{id}`
+- [x] **[RED]** Tests `Clients.test.tsx` — lista paginada renderiza, modal crear llama a POST, modal editar llama a PUT, soft delete pide confirmación y llama a DELETE, acciones ocultas si rol DRIVER
+  > **Nota (revisión Hito 14):** el test se escribió después de `useClients`/los componentes, no antes — se rompió el orden RED→GREEN por avanzar paso a paso sin pausar en el ítem de test. Decisión tomada con el usuario: no revertir el código ya validado (typecheck+lint+build limpios), sino escribir el test contra la implementación existente. No fue un RED real (no pudo fallar primero), pero cierra la cobertura del checklist. Próximos hitos deben pausar explícitamente en cada ítem `[RED]` antes de tocar código de implementación.
+- [x] **[GREEN]** `packages/hooks/src/useClients.ts` — lista paginada, create, update, delete con invalidación de caché
+- [x] **[GREEN]** `apps/web/src/components/client/` — `ClientTable`, `ClientFormModal`, `ClientDeleteButton` (con confirmación vía `AlertDialog` antes de borrar)
+- [x] **[GREEN]** Página `Clients` — composición de componentes, paginación
 
 ### Hito 15 — Frontend: Vehicles
 > Requiere: Hitos 7–8 (backend vehicles, ya implementados)
