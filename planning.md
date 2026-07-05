@@ -443,13 +443,14 @@ FleetMgm/
 - [x] **[GREEN]** `apps/web/src/components/client/` — `ClientTable`, `ClientFormModal`, `ClientDeleteButton` (con confirmación vía `AlertDialog` antes de borrar)
 - [x] **[GREEN]** Página `Clients` — composición de componentes, paginación
 
-### Hito 15 — Frontend: Vehicles
+### Hito 15 — Frontend: Vehicles *(implementado)*
 > Requiere: Hitos 7–8 (backend vehicles, ya implementados)
-- [ ] **[RED]** Handlers MSW — `GET /api/v1/vehicles`, `POST`, `PUT /{id}`, `DELETE /{id}`
-- [ ] **[RED]** Tests `Vehicles.test.tsx` — lista paginada renderiza, badge de estado correcto por `VehicleStatus`, DRIVER solo ve su vehículo, CRUD oculto para DRIVER
-- [ ] **[GREEN]** `packages/hooks/src/useVehicles.ts` — lista paginada, create, update, delete con invalidación de caché
-- [ ] **[GREEN]** `apps/web/src/components/vehicle/` — `VehicleTable`, `VehicleStatusBadge`, `VehicleFormModal`
-- [ ] **[GREEN]** Página `Vehicles` — composición de componentes, paginación
+- [x] **[RED]** Handlers MSW — `GET /api/v1/vehicles`, `POST`, `PUT /{id}`, `DELETE /{id}`
+- [x] **[RED]** Tests `Vehicles.test.tsx` — lista paginada renderiza, badge de estado correcto por `VehicleStatus`, DRIVER solo ve su vehículo, CRUD oculto para DRIVER
+- [x] **[GREEN]** `packages/hooks/src/useVehicles.ts` — lista paginada, create, update, delete con invalidación de caché
+- [x] **[GREEN]** `apps/web/src/components/vehicle/` — `VehicleTable`, `VehicleStatusBadge`, `VehicleFormModal`, `VehicleDeleteButton`
+- [x] **[GREEN]** Página `Vehicles` — composición de componentes, paginación
+  > **Nota (revisión Hito 15):** esta vez se respetó el orden RED→GREEN (test fallando confirmado por falta de `./Vehicles` antes de escribir cualquier componente). Además, al notar que `useClients`/`useVehicles` eran mecánicamente idénticos (mismo query/mutation/invalidate, solo cambia el tipo y el path), se extrajo `packages/hooks/src/createCrudHooks.ts` como factory genérica y se refactorizó `useClients` para usarla — decisión tomada con el usuario tras discutir cuándo generalizar (hook: seguro con 2 casos idénticos comprobados; tabla/formulario: se deja específico por feature, a la espera de un tercer caso real en Workers). Verificado end-to-end con Playwright headless contra el dev server con MSW: ADMIN ve la lista con badges de estado y puede crear/editar/borrar; DRIVER ve solo su vehículo asignado (mock fijo, sin tabla de asignaciones) y no ve acciones de gestión.
 
 ### Hito 16 — Frontend: Workers
 > Requiere: Hitos 9–10 (backend workers, ya implementados)
