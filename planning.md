@@ -454,11 +454,12 @@ FleetMgm/
 
 ### Hito 16 — Frontend: Workers
 > Requiere: Hitos 9–10 (backend workers, ya implementados)
-- [ ] **[RED]** Handlers MSW — `GET /api/v1/workers`, `POST`, `PUT /{id}`, `DELETE /{id}`
-- [ ] **[RED]** Tests `Workers.test.tsx` — lista paginada renderiza, DRIVER solo ve su perfil, CRUD oculto para DRIVER
-- [ ] **[GREEN]** `packages/hooks/src/useWorkers.ts` — lista paginada, create, update, delete con invalidación de caché
-- [ ] **[GREEN]** `apps/web/src/components/worker/` — `WorkerTable`, `WorkerFormModal`
-- [ ] **[GREEN]** Página `Workers` — composición de componentes, paginación
+- [x] **[RED]** Handlers MSW — `GET /api/v1/workers`, `POST`, `PUT /{id}`, `DELETE /{id}`
+- [x] **[RED]** Tests `Workers.test.tsx` — lista paginada renderiza, DRIVER solo ve su perfil, CRUD oculto para DRIVER
+- [x] **[GREEN]** `packages/hooks/src/useWorkers.ts` — lista paginada, create, update, delete con invalidación de caché (vía `createCrudHooks`)
+- [x] **[GREEN]** `apps/web/src/components/worker/` — `WorkerTable`, `WorkerRoleBadge`, `WorkerDeleteButton`, `WorkerFormModal`
+- [x] **[GREEN]** Página `Workers` — composición de componentes, paginación, ruta `/workers` sin restricción de rol (igual que Vehicles)
+  > **Nota (revisión Hito 16):** tercer caso real de CRUD paginado. `useWorkers` confirma que `createCrudHooks` generaliza sin fricción a un tercer dominio. La capa de tabla/formulario se mantuvo específica por feature (como se decidió en Hito 15) — `WorkerTable`/`WorkerFormModal` no comparten código estructural real con `VehicleTable`/`VehicleFormModal` más allá del layout visual (columnas y campos son de dominio distinto), así que no se generalizó esa capa.
 
 ---
 
