@@ -179,6 +179,71 @@ export function resetVehiclesMock() {
   vehicles = [...SEED_VEHICLES]
 }
 
+type WorkerRole = 'DRIVER' | 'TECHNICIAN' | 'BOTH'
+
+type Worker = {
+  id: string
+  firstName: string
+  lastName: string
+  fullName: string
+  workerRole: WorkerRole
+  nationalId: string
+  phone: string | null
+  licenseType: string | null
+  licenseExpiry: string | null
+  userId: string | null
+  createdAt: string
+}
+
+type WorkerRequestBody = {
+  firstName: string
+  lastName: string
+  workerRole: WorkerRole
+  nationalId: string
+  phone?: string | null
+  licenseType?: string | null
+  licenseExpiry?: string | null
+  userId?: string | null
+}
+
+export const SEED_WORKERS: Worker[] = [
+  {
+    id: 'worker-1',
+    firstName: 'Carlos',
+    lastName: 'Gómez',
+    fullName: 'Carlos Gómez',
+    workerRole: 'DRIVER',
+    nationalId: '12345678A',
+    phone: '+34611111111',
+    licenseType: 'C',
+    licenseExpiry: '2027-05-01',
+    userId: 'user-driver-1',
+    createdAt: '2026-01-05T09:00:00Z',
+  },
+  {
+    id: 'worker-2',
+    firstName: 'Laura',
+    lastName: 'Fernández',
+    fullName: 'Laura Fernández',
+    workerRole: 'TECHNICIAN',
+    nationalId: '87654321B',
+    phone: '+34622222222',
+    licenseType: null,
+    licenseExpiry: null,
+    userId: null,
+    createdAt: '2026-02-01T09:00:00Z',
+  },
+]
+
+// The mock has no assignment table — the driver's own profile is always the first seed worker.
+const DRIVER_WORKER_ID = SEED_WORKERS[0]!.id
+
+let workers: Worker[] = [...SEED_WORKERS]
+
+export function resetWorkersMock() {
+  workers = [...SEED_WORKERS]
+}
+
 export const handlers = [
   http.get('/api/v1/clients', ({ request }) => {
     const url = new URL(request.url)
@@ -349,6 +414,93 @@ export const handlers = [
 
   http.delete('/api/v1/vehicles/:id', ({ params }) => {
     vehicles = vehicles.filter((vehicle) => vehicle.id !== params.id)
+    return new HttpResponse(null, { status: 204 })
+  }),
+
+  http.get('/api/v1/workers', ({ request }) => {
+    const url = new URL(request.url)
+    const page = Number(url.searchParams.get('page') ?? 0)
+    const size = Number(url.searchParams.get('size') ?? 20)
+
+    if (useAuthStore.getState().role === 'DRIVER') {
+      const own = workers.find((worker) => worker.id === DRIVER_WORKER_ID)
+      const content = own ? [own] : []
+      return HttpResponse.json({
+        content,
+        page: 0,
+        size: 1,
+        totalElements: content.length,
+        totalPages: content.length > 0 ? 1 : 0,
+      })
+    }
+
+    const start = page * size
+    const content = workers.slice(start, start + size)
+
+    return HttpResponse.json({
+      content,
+      page,
+      size,
+      totalElements: workers.length,
+      totalPages: Math.max(1, Math.ceil(workers.length / size)),
+    })
+  }),
+
+  http.post('/api/v1/workers', async ({ request }) => {
+    const body = (await request.json()) as WorkerRequestBody
+
+    const newWorker: Worker = {
+      id: `worker-${workers.length + 1}`,
+      firstName: body.firstName,
+      lastName: body.lastName,
+      fullName: `${body.firstName} ${body.lastName}`,
+      workerRole: body.workerRole,
+      nationalId: body.nationalId,
+      phone: body.phone ?? null,
+      licenseType: body.licenseType ?? null,
+      licenseExpiry: body.licenseExpiry ?? null,
+      userId: body.userId ?? null,
+      createdAt: new Date().toISOString(),
+    }
+    workers = [...workers, newWorker]
+
+    return HttpResponse.json(newWorker, { status: 201 })
+  }),
+
+  http.put('/api/v1/workers/:id', async ({ request, params }) => {
+    const body = (await request.json()) as WorkerRequestBody
+    const index = workers.findIndex((worker) => worker.id === params.id)
+    const existing = workers[index]
+
+    if (!existing) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'WORKER_NOT_FOUND',
+          message: `Worker ${params.id} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    const updated: Worker = {
+      ...existing,
+      firstName: body.firstName,
+      lastName: body.lastName,
+      fullName: `${body.firstName} ${body.lastName}`,
+      workerRole: body.workerRole,
+      phone: body.phone ?? null,
+      licenseType: body.licenseType ?? null,
+      licenseExpiry: body.licenseExpiry ?? null,
+    }
+    workers = workers.map((worker, i) => (i === index ? updated : worker))
+
+    return HttpResponse.json(updated)
+  }),
+
+  http.delete('/api/v1/workers/:id', ({ params }) => {
+    workers = workers.filter((worker) => worker.id !== params.id)
     return new HttpResponse(null, { status: 204 })
   }),
 
