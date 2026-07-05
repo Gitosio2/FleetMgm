@@ -331,6 +331,21 @@ export function useCreateVehicle() {
 
 ---
 
+## UI Copy Language
+
+Project-specific override of the global default: **user-facing UI copy in `apps/web/` is written in Spanish** — page titles, labels, button text, form field labels, empty/loading states, confirmation dialogs, toasts, and validation messages shown to the end user.
+
+This does **not** change anything else — everything else stays in English per the global convention:
+- Code, identifiers, variable/function/component names, file names
+- Comments
+- Commit messages, PR descriptions, branch names
+- Enum values and API contracts (`VehicleStatus.ACTIVE`, `/api/v1/vehicles`, etc.) — only their *displayed label* is translated (e.g. a `VEHICLE_STATUS_LABEL` map), never the wire value
+- Backend code and any DTO/entity/exception content
+
+Centralize translated strings the same way `VehicleStatusBadge`/`VehicleFormModal` already do it — a `Record<Enum, string>` (or equivalent) mapping the raw value to its Spanish label — so a future i18n pass (if one is ever undertaken) only has to swap the map's construction, not hunt down inline strings.
+
+---
+
 ## API Contract
 
 ### URL patterns
