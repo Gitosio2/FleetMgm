@@ -421,17 +421,18 @@ FleetMgm/
 
 ### Hito 13 — Frontend: Infraestructura base y auth
 > Requiere: Hito 12 (monorepo scaffold) + Hitos 1–4 (backend auth, ya implementados)
-- [ ] **[RED]** Handlers MSW en `apps/web/src/mocks/handlers.ts` — `POST /api/v1/auth/login` (OK, 401, cuenta bloqueada), `POST /api/v1/auth/refresh`
-- [ ] **[RED]** Tests `Login.test.tsx` — render formulario, submit OK redirige al dashboard, error 401 muestra mensaje, cuenta bloqueada muestra aviso
-- [ ] **[RED]** Tests `authStore.test.ts` — login persiste sesión, logout limpia el store, tokens se refrescan ante 401
-- [ ] **[RED]** Tests `ProtectedRoute.test.tsx` — sin sesión redirige a Login; rol insuficiente muestra 403
-- [ ] **[GREEN]** `packages/api/src/client.ts` — interceptor JWT + lógica de auto-refresh al recibir 401
-- [ ] **[GREEN]** Setup MSW — `apps/web/src/mocks/browser.ts` (desarrollo), `apps/web/src/mocks/server.ts` (tests Vitest)
-- [ ] **[GREEN]** `packages/store/src/authStore.ts` — sesión de usuario (email, rol, tokens), acciones login/logout
-- [ ] **[GREEN]** `packages/hooks/src/useAuth.ts` — wraps login/logout mutations de TanStack Query
-- [ ] **[GREEN]** Página `Login` — formulario, manejo de error 401 y mensaje de cuenta bloqueada
-- [ ] **[GREEN]** Layout principal — sidebar con navegación filtrada por rol del usuario autenticado
-- [ ] **[GREEN]** Rutas protegidas — redirige a Login si no hay sesión; 403 si rol insuficiente
+- [x] **[RED]** Handlers MSW en `apps/web/src/mocks/handlers.ts` — `POST /api/v1/auth/login` (OK, 401 genérico), `POST /api/v1/auth/refresh`
+- [x] **[RED]** Tests `Login.test.tsx` — render formulario, submit OK redirige al dashboard, error 401 muestra mensaje genérico "Invalid credentials"
+  > **Nota (revisión Hito 13):** el backend devuelve el mismo `401 INVALID_CREDENTIALS` tanto para contraseña incorrecta como para cuenta bloqueada (`AuthService.login()`, rama `user.isLocked()`) — no expone un código distinguible a propósito, para que un atacante no pueda confirmar por enumeración si una cuenta existe o está bloqueada (OWASP G — Identification & Authentication Failures). El frontend no muestra un aviso específico de "cuenta bloqueada"; el mensaje genérico ante 401 es la decisión de seguridad correcta, no una limitación pendiente de resolver.
+- [x] **[RED]** Tests `authStore.test.ts` — login persiste sesión, logout limpia el store, tokens se refrescan ante 401
+- [x] **[RED]** Tests `ProtectedRoute.test.tsx` — sin sesión redirige a Login; rol insuficiente muestra 403
+- [x] **[GREEN]** `packages/api/src/client.ts` — interceptor JWT + lógica de auto-refresh al recibir 401
+- [x] **[GREEN]** Setup MSW — `apps/web/src/mocks/browser.ts` (desarrollo), `apps/web/src/mocks/server.ts` (tests Vitest)
+- [x] **[GREEN]** `packages/store/src/authStore.ts` — sesión de usuario (email, rol, tokens), acciones login/logout
+- [x] **[GREEN]** `packages/hooks/src/useAuth.ts` — wraps login/logout mutations de TanStack Query
+- [x] **[GREEN]** Página `Login` — formulario, manejo de error 401 con mensaje genérico
+- [x] **[GREEN]** Layout principal — sidebar con navegación filtrada por rol del usuario autenticado
+- [x] **[GREEN]** Rutas protegidas — redirige a Login si no hay sesión; 403 si rol insuficiente
 
 ### Hito 14 — Frontend: Clients
 > Requiere: Hitos 5–6 (backend clients, ya implementados)
