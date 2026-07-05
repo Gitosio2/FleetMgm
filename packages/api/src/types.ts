@@ -12,3 +12,23 @@ export type ApiError = {
   message: string
   correlationId: string
 }
+
+export type Client = {
+  id: string
+  name: string
+  taxId: string
+  email: string | null
+  phone: string | null
+  address: string | null
+  createdAt: string
+}
+
+export type CreateClientRequest = {
+  name: string
+  taxId: string
+  email?: string
+  phone?: string
+  address?: string
+}
+
+export type UpdateClientRequest = CreateClientRequest
