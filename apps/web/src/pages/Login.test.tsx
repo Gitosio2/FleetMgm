@@ -32,18 +32,18 @@ describe('Login', () => {
   it('renders the sign-in form', () => {
     renderLogin()
 
-    expect(screen.getByLabelText(/email/i)).toBeInTheDocument()
-    expect(screen.getByLabelText(/password/i)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /login/i })).toBeInTheDocument()
+    expect(screen.getByLabelText(/correo electrónico/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/contraseña/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /iniciar sesión/i })).toBeInTheDocument()
   })
 
   it('redirects to the dashboard on successful login', async () => {
     const user = userEvent.setup()
     renderLogin()
 
-    await user.type(screen.getByLabelText(/email/i), VALID_CREDENTIALS.email)
-    await user.type(screen.getByLabelText(/password/i), VALID_CREDENTIALS.password)
-    await user.click(screen.getByRole('button', { name: /login/i }))
+    await user.type(screen.getByLabelText(/correo electrónico/i), VALID_CREDENTIALS.email)
+    await user.type(screen.getByLabelText(/contraseña/i), VALID_CREDENTIALS.password)
+    await user.click(screen.getByRole('button', { name: /iniciar sesión/i }))
 
     await waitFor(() => expect(screen.getByText('Dashboard Home')).toBeInTheDocument())
   })
@@ -52,10 +52,10 @@ describe('Login', () => {
     const user = userEvent.setup()
     renderLogin()
 
-    await user.type(screen.getByLabelText(/email/i), VALID_CREDENTIALS.email)
-    await user.type(screen.getByLabelText(/password/i), 'wrong-password')
-    await user.click(screen.getByRole('button', { name: /login/i }))
+    await user.type(screen.getByLabelText(/correo electrónico/i), VALID_CREDENTIALS.email)
+    await user.type(screen.getByLabelText(/contraseña/i), 'wrong-password')
+    await user.click(screen.getByRole('button', { name: /iniciar sesión/i }))
 
-    expect(await screen.findByText(/invalid credentials/i)).toBeInTheDocument()
+    expect(await screen.findByText(/credenciales inválidas/i)).toBeInTheDocument()
   })
 })

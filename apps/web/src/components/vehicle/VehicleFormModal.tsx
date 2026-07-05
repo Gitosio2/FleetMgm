@@ -23,18 +23,18 @@ const USAGE_MEASURES: UsageMeasure[] = ['KILOMETERS', 'HOURS']
 const ACQUISITION_TYPES: AcquisitionType[] = ['PURCHASED', 'LEASING', 'RENTING']
 
 const VEHICLE_CATEGORY_LABEL: Record<VehicleCategory, string> = {
-  LIGHT_VEHICLE: 'Light vehicle',
-  HEAVY_VEHICLE: 'Heavy vehicle',
-  HEAVY_MACHINERY: 'Heavy machinery',
+  LIGHT_VEHICLE: 'Vehículo ligero',
+  HEAVY_VEHICLE: 'Vehículo pesado',
+  HEAVY_MACHINERY: 'Maquinaria pesada',
 }
 
 const USAGE_MEASURE_LABEL: Record<UsageMeasure, string> = {
-  KILOMETERS: 'Kilometers',
-  HOURS: 'Hours',
+  KILOMETERS: 'Kilómetros',
+  HOURS: 'Horas',
 }
 
 const ACQUISITION_TYPE_LABEL: Record<AcquisitionType, string> = {
-  PURCHASED: 'Purchased',
+  PURCHASED: 'Compra',
   LEASING: 'Leasing',
   RENTING: 'Renting',
 }
@@ -138,13 +138,13 @@ export function VehicleFormModal({ open, onOpenChange, vehicle }: VehicleFormMod
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{isEditing ? 'Edit vehicle' : 'New vehicle'}</DialogTitle>
+          <DialogTitle>{isEditing ? 'Editar vehículo' : 'Nuevo vehículo'}</DialogTitle>
         </DialogHeader>
 
         <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="vehicle-category">Category</Label>
+              <Label htmlFor="vehicle-category">Categoría</Label>
               <select
                 id="vehicle-category"
                 className={selectClassName}
@@ -160,7 +160,7 @@ export function VehicleFormModal({ open, onOpenChange, vehicle }: VehicleFormMod
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="vehicle-usage-measure">Usage measure</Label>
+              <Label htmlFor="vehicle-usage-measure">Unidad de uso</Label>
               <select
                 id="vehicle-usage-measure"
                 className={selectClassName}
@@ -178,18 +178,18 @@ export function VehicleFormModal({ open, onOpenChange, vehicle }: VehicleFormMod
 
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="vehicle-make">Make</Label>
+              <Label htmlFor="vehicle-make">Marca</Label>
               <Input id="vehicle-make" value={make} onChange={(e) => setMake(e.target.value)} required />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="vehicle-model">Model</Label>
+              <Label htmlFor="vehicle-model">Modelo</Label>
               <Input id="vehicle-model" value={model} onChange={(e) => setModel(e.target.value)} required />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="vehicle-year">Year</Label>
+              <Label htmlFor="vehicle-year">Año</Label>
               <Input
                 id="vehicle-year"
                 type="number"
@@ -199,7 +199,7 @@ export function VehicleFormModal({ open, onOpenChange, vehicle }: VehicleFormMod
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="vehicle-license-plate">License plate</Label>
+              <Label htmlFor="vehicle-license-plate">Matrícula</Label>
               <Input
                 id="vehicle-license-plate"
                 value={licensePlate}
@@ -210,7 +210,7 @@ export function VehicleFormModal({ open, onOpenChange, vehicle }: VehicleFormMod
 
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="vehicle-heavy-subtype">Heavy subtype</Label>
+              <Label htmlFor="vehicle-heavy-subtype">Subtipo pesado</Label>
               <Input
                 id="vehicle-heavy-subtype"
                 value={heavySubtype}
@@ -229,7 +229,7 @@ export function VehicleFormModal({ open, onOpenChange, vehicle }: VehicleFormMod
               <Input id="vehicle-color" value={color} onChange={(e) => setColor(e.target.value)} />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="vehicle-acquisition-type">Acquisition type</Label>
+              <Label htmlFor="vehicle-acquisition-type">Tipo de adquisición</Label>
               <select
                 id="vehicle-acquisition-type"
                 className={selectClassName}
@@ -248,7 +248,7 @@ export function VehicleFormModal({ open, onOpenChange, vehicle }: VehicleFormMod
 
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="vehicle-current-km">Current km</Label>
+              <Label htmlFor="vehicle-current-km">Km actuales</Label>
               <Input
                 id="vehicle-current-km"
                 type="number"
@@ -257,7 +257,7 @@ export function VehicleFormModal({ open, onOpenChange, vehicle }: VehicleFormMod
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="vehicle-current-hours">Current hours</Label>
+              <Label htmlFor="vehicle-current-hours">Horas actuales</Label>
               <Input
                 id="vehicle-current-hours"
                 type="number"
@@ -269,7 +269,7 @@ export function VehicleFormModal({ open, onOpenChange, vehicle }: VehicleFormMod
 
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="vehicle-acquisition-date">Acquisition date</Label>
+              <Label htmlFor="vehicle-acquisition-date">Fecha de adquisición</Label>
               <Input
                 id="vehicle-acquisition-date"
                 type="date"
@@ -278,7 +278,7 @@ export function VehicleFormModal({ open, onOpenChange, vehicle }: VehicleFormMod
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="vehicle-contract-end-date">Contract end date</Label>
+              <Label htmlFor="vehicle-contract-end-date">Fecha de fin de contrato</Label>
               <Input
                 id="vehicle-contract-end-date"
                 type="date"
@@ -290,7 +290,7 @@ export function VehicleFormModal({ open, onOpenChange, vehicle }: VehicleFormMod
 
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="vehicle-purchase-price">Purchase price</Label>
+              <Label htmlFor="vehicle-purchase-price">Precio de compra</Label>
               <Input
                 id="vehicle-purchase-price"
                 type="number"
@@ -299,7 +299,7 @@ export function VehicleFormModal({ open, onOpenChange, vehicle }: VehicleFormMod
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="vehicle-amortization-years">Amortization years</Label>
+              <Label htmlFor="vehicle-amortization-years">Años de amortización</Label>
               <Input
                 id="vehicle-amortization-years"
                 type="number"
@@ -310,7 +310,7 @@ export function VehicleFormModal({ open, onOpenChange, vehicle }: VehicleFormMod
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="vehicle-monthly-fee">Monthly fee</Label>
+            <Label htmlFor="vehicle-monthly-fee">Cuota mensual</Label>
             <Input
               id="vehicle-monthly-fee"
               type="number"
@@ -321,7 +321,7 @@ export function VehicleFormModal({ open, onOpenChange, vehicle }: VehicleFormMod
 
           <DialogFooter>
             <Button type="submit" disabled={isPending}>
-              {isEditing ? 'Save changes' : 'Create vehicle'}
+              {isEditing ? 'Guardar cambios' : 'Crear vehículo'}
             </Button>
           </DialogFooter>
         </form>

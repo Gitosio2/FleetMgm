@@ -15,11 +15,11 @@ export function ClientTable({ clients, canManage, onEdit }: ClientTableProps) {
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>Name</TableHead>
-          <TableHead>Tax ID</TableHead>
-          <TableHead>Email</TableHead>
-          <TableHead>Phone</TableHead>
-          {canManage && <TableHead>Actions</TableHead>}
+          <TableHead>Nombre</TableHead>
+          <TableHead>ID fiscal</TableHead>
+          <TableHead>Correo electrónico</TableHead>
+          <TableHead>Teléfono</TableHead>
+          {canManage && <TableHead>Acciones</TableHead>}
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -35,7 +35,7 @@ export function ClientTable({ clients, canManage, onEdit }: ClientTableProps) {
                   <Button
                     variant="ghost"
                     size="sm"
-                    aria-label="Edit client"
+                    aria-label="Editar cliente"
                     onClick={() => onEdit(client)}
                   >
                     <Pencil className="size-4" />

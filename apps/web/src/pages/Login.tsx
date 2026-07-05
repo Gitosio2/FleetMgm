@@ -25,18 +25,18 @@ export function Login() {
     <div className="flex min-h-screen items-center justify-center bg-surface-dim px-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>Secure Sign In</CardTitle>
-          <CardDescription>Please enter your institutional credentials.</CardDescription>
+          <CardTitle>Inicio de sesión seguro</CardTitle>
+          <CardDescription>Ingresa tus credenciales institucionales.</CardDescription>
         </CardHeader>
         <CardContent>
           <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="email">Email address</Label>
+              <Label htmlFor="email">Correo electrónico</Label>
               <Input
                 id="email"
                 type="email"
                 autoComplete="email"
-                placeholder="operator@enterprise.com"
+                placeholder="operador@empresa.com"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 required
@@ -44,7 +44,7 @@ export function Login() {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">Contraseña</Label>
               <Input
                 id="password"
                 type="password"
@@ -58,18 +58,18 @@ export function Login() {
             <div className="flex items-center gap-2">
               <Checkbox id="remember-device" />
               <Label htmlFor="remember-device" className="normal-case font-normal">
-                Remember this device for 30 days
+                Recordar este dispositivo durante 30 días
               </Label>
             </div>
 
             {login.isError && (
               <p role="alert" className="text-sm text-error">
-                Invalid credentials
+                Credenciales inválidas
               </p>
             )}
 
             <Button type="submit" size="lg" disabled={login.isPending}>
-              Login
+              Iniciar sesión
             </Button>
           </form>
         </CardContent>

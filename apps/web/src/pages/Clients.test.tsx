@@ -51,10 +51,10 @@ describe('Clients', () => {
 
     await screen.findByText(FIRST_CLIENT.name)
 
-    await user.click(screen.getByRole('button', { name: /new client/i }))
-    await user.type(screen.getByLabelText(/^name$/i), 'Nordic Freight')
-    await user.type(screen.getByLabelText(/tax id/i), 'B99999999')
-    await user.click(screen.getByRole('button', { name: /create client/i }))
+    await user.click(screen.getByRole('button', { name: /nuevo cliente/i }))
+    await user.type(screen.getByLabelText(/^nombre$/i), 'Nordic Freight')
+    await user.type(screen.getByLabelText(/id fiscal/i), 'B99999999')
+    await user.click(screen.getByRole('button', { name: /crear cliente/i }))
 
     expect(await screen.findByText('Nordic Freight')).toBeInTheDocument()
   })
@@ -66,11 +66,11 @@ describe('Clients', () => {
 
     await screen.findByText(FIRST_CLIENT.name)
 
-    await user.click(screen.getAllByLabelText("Edit client")[0]!)
-    const nameInput = screen.getByLabelText(/^name$/i)
+    await user.click(screen.getAllByLabelText("Editar cliente")[0]!)
+    const nameInput = screen.getByLabelText(/^nombre$/i)
     await user.clear(nameInput)
     await user.type(nameInput, 'Acme Logistics Renamed')
-    await user.click(screen.getByRole('button', { name: /save changes/i }))
+    await user.click(screen.getByRole('button', { name: /guardar cambios/i }))
 
     expect(await screen.findByText('Acme Logistics Renamed')).toBeInTheDocument()
     expect(screen.queryByText(FIRST_CLIENT.name)).not.toBeInTheDocument()
@@ -83,12 +83,12 @@ describe('Clients', () => {
 
     await screen.findByText(FIRST_CLIENT.name)
 
-    await user.click(screen.getAllByLabelText("Delete client")[0]!)
+    await user.click(screen.getAllByLabelText("Eliminar cliente")[0]!)
     expect(
-      screen.getByText(new RegExp(`Delete ${FIRST_CLIENT.name}\\?`)),
+      screen.getByText(new RegExp(`¿Eliminar a ${FIRST_CLIENT.name}\\?`)),
     ).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: 'Delete' }))
+    await user.click(screen.getByRole('button', { name: 'Eliminar' }))
 
     await waitFor(() =>
       expect(screen.queryByText(FIRST_CLIENT.name)).not.toBeInTheDocument(),
@@ -101,8 +101,8 @@ describe('Clients', () => {
 
     await screen.findByText(FIRST_CLIENT.name)
 
-    expect(screen.queryByRole('button', { name: /new client/i })).not.toBeInTheDocument()
-    expect(screen.queryByLabelText('Edit client')).not.toBeInTheDocument()
-    expect(screen.queryByLabelText('Delete client')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /nuevo cliente/i })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Editar cliente')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Eliminar cliente')).not.toBeInTheDocument()
   })
 })

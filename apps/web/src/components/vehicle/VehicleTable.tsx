@@ -22,11 +22,11 @@ export function VehicleTable({ vehicles, canManage, onEdit }: VehicleTableProps)
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>Vehicle</TableHead>
-          <TableHead>License plate</TableHead>
-          <TableHead>Usage</TableHead>
-          <TableHead>Status</TableHead>
-          {canManage && <TableHead>Actions</TableHead>}
+          <TableHead>Vehículo</TableHead>
+          <TableHead>Matrícula</TableHead>
+          <TableHead>Uso</TableHead>
+          <TableHead>Estado</TableHead>
+          {canManage && <TableHead>Acciones</TableHead>}
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -44,7 +44,7 @@ export function VehicleTable({ vehicles, canManage, onEdit }: VehicleTableProps)
                   <Button
                     variant="ghost"
                     size="sm"
-                    aria-label="Edit vehicle"
+                    aria-label="Editar vehículo"
                     onClick={() => onEdit(vehicle)}
                   >
                     <Pencil className="size-4" />

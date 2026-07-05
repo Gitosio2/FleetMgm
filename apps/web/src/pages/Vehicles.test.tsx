@@ -49,8 +49,8 @@ describe('Vehicles', () => {
 
     await screen.findByText(`${FIRST_VEHICLE!.make} ${FIRST_VEHICLE!.model}`)
 
-    expect(await screen.findByText('Active')).toBeInTheDocument()
-    expect(await screen.findByText('Maintenance')).toBeInTheDocument()
+    expect(await screen.findByText('Activo')).toBeInTheDocument()
+    expect(await screen.findByText('Mantenimiento')).toBeInTheDocument()
   })
 
   it('shows only the assigned vehicle for the DRIVER role', async () => {
@@ -67,8 +67,8 @@ describe('Vehicles', () => {
 
     await screen.findByText(`${FIRST_VEHICLE!.make} ${FIRST_VEHICLE!.model}`)
 
-    expect(screen.queryByRole('button', { name: /new vehicle/i })).not.toBeInTheDocument()
-    expect(screen.queryByLabelText('Edit vehicle')).not.toBeInTheDocument()
-    expect(screen.queryByLabelText('Delete vehicle')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /nuevo vehículo/i })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Editar vehículo')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Eliminar vehículo')).not.toBeInTheDocument()
   })
 })

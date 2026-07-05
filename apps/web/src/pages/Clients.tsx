@@ -34,21 +34,21 @@ export function Clients() {
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display text-2xl font-semibold">Clients</h1>
+          <h1 className="font-display text-2xl font-semibold">Clientes</h1>
           <p className="text-on-surface-variant">
-            Manage the clients billed through completed jobs.
+            Gestiona los clientes facturados a través de trabajos completados.
           </p>
         </div>
         {canManage && (
           <Button onClick={openCreateForm}>
             <Plus className="size-4" />
-            New client
+            Nuevo cliente
           </Button>
         )}
       </div>
 
       {isLoading ? (
-        <p className="text-on-surface-variant">Loading clients…</p>
+        <p className="text-on-surface-variant">Cargando clientes…</p>
       ) : (
         <ClientTable clients={data?.content ?? []} canManage={canManage} onEdit={openEditForm} />
       )}
@@ -61,10 +61,10 @@ export function Clients() {
             disabled={page === 0}
             onClick={() => setPage((current) => current - 1)}
           >
-            Previous
+            Anterior
           </Button>
           <span className="text-sm text-on-surface-variant">
-            Page {page + 1} of {data.totalPages}
+            Página {page + 1} de {data.totalPages}
           </span>
           <Button
             variant="outline"
@@ -72,7 +72,7 @@ export function Clients() {
             disabled={page + 1 >= data.totalPages}
             onClick={() => setPage((current) => current + 1)}
           >
-            Next
+            Siguiente
           </Button>
         </div>
       )}

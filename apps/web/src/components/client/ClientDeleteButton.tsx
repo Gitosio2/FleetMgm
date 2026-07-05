@@ -24,21 +24,21 @@ export function ClientDeleteButton({ clientId, clientName }: ClientDeleteButtonP
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button variant="ghost" size="sm" aria-label="Delete client" disabled={deleteClient.isPending}>
+        <Button variant="ghost" size="sm" aria-label="Eliminar cliente" disabled={deleteClient.isPending}>
           <Trash2 className="size-4" />
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete {clientName}?</AlertDialogTitle>
+          <AlertDialogTitle>¿Eliminar a {clientName}?</AlertDialogTitle>
           <AlertDialogDescription>
-            This removes the client from active lists. This action cannot be undone from here.
+            Esto elimina al cliente de las listas activas. Esta acción no se puede deshacer desde aquí.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogCancel>Cancelar</AlertDialogCancel>
           <AlertDialogAction onClick={() => deleteClient.mutate(clientId)}>
-            Delete
+            Eliminar
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

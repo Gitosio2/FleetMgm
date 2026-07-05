@@ -4,17 +4,17 @@ export function Dashboard() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="font-display text-3xl font-semibold">Fleet Overview</h1>
+        <h1 className="font-display text-3xl font-semibold">Resumen de la flota</h1>
         <p className="text-on-surface-variant">
-          Real-time performance and operational status of your logistics network.
+          Rendimiento en tiempo real y estado operativo de tu red logística.
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Coming soon</CardTitle>
+          <CardTitle>Próximamente</CardTitle>
           <CardDescription>
-            Fleet metrics land progressively as each feature milestone ships.
+            Las métricas de la flota se irán habilitando a medida que se completen los próximos hitos.
           </CardDescription>
         </CardHeader>
         <CardContent />
