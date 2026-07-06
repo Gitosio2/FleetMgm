@@ -466,9 +466,10 @@ FleetMgm/
 ### Hito 17 — Asignaciones conductor↔vehículo: Contrato API
 - [x] `Flyway V4` — tabla `driver_vehicle_assignments` con unique partial index (`WHERE end_date IS NULL`) *(ya aplicada, incluida en la migración de workers)*
 - [x] `DriverVehicleAssignment` entity *(ya scaffoldeada)*
-- [ ] `CreateAssignmentRequest` / `AssignmentResponse` (records)
-- [ ] `AssignmentMapper` (MapStruct)
-- [ ] `AssignmentController` — `POST /api/v1/assignments` (asignar), `PATCH /{id}/end` (finalizar), `GET /api/v1/workers/{id}/assignments` (historial)
+- [x] `CreateAssignmentRequest` / `AssignmentResponse` (records)
+- [x] `AssignmentMapper` (MapStruct)
+- [x] `AssignmentController` — `POST /api/v1/assignments` (asignar), `PATCH /{id}/end` (finalizar), `GET /api/v1/workers/{id}/assignments` (historial)
+  > **Nota (revisión Hito 17):** `AssignmentController` no usa `@RequestMapping` de clase porque el contrato mezcla dos bases de recursos (`/api/v1/assignments` y `/api/v1/workers/{id}/assignments`); cada método declara su ruta completa. `AssignmentService` se creó como stub (`UnsupportedOperationException`, no listado en este checklist) solo para que el controller compile — decisión explícita para que el Hito 18 arranque en RED de verdad, sin lógica adelantada.
 
 ### Hito 18 — Asignaciones: Lógica e implementación
 - [ ] **[RED]** Tests `AssignmentServiceTest` — asignar OK, conductor ya tiene asignación activa → excepción, finalizar asignación, @PreAuthorize solo ADMIN/MANAGER/ADMINISTRATIVE
