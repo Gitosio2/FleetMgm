@@ -1,5 +1,7 @@
 package com.fleetmgm.worker.infrastructure;
 
+import com.fleetmgm.config.AuditorAwareImpl;
+import com.fleetmgm.config.JpaAuditingConfig;
 import com.fleetmgm.worker.domain.Worker;
 import com.fleetmgm.worker.domain.WorkerRole;
 import org.junit.jupiter.api.Tag;
@@ -8,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -24,6 +27,7 @@ import static org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTest
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = NONE)
 @Testcontainers
+@Import({JpaAuditingConfig.class, AuditorAwareImpl.class})
 class WorkerRepositoryTest {
 
     @Container

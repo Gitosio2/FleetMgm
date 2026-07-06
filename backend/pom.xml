@@ -22,6 +22,10 @@
         <jjwt.version>0.12.6</jjwt.version>
         <mapstruct.version>1.6.2</mapstruct.version>
         <testcontainers.version>1.20.3</testcontainers.version>
+        <!-- Bound as a property (not a literal) so the `failsafe` profile can clear it —
+             a profile's plugin <configuration> does not reliably override a literal value
+             declared on the same plugin in the base build. -->
+        <surefire.excludedGroups>integration</surefire.excludedGroups>
         <!-- Overrides on top of the spring-boot-dependencies BOM: OWASP Dependency-Check
              (Hito 11) flagged CVSS >= 7 CVEs still open at the BOM-pinned versions. -->
         <postgresql.version>42.7.12</postgresql.version>
@@ -182,7 +186,7 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
                     <!-- Tests tagged @Tag("integration") require Docker; excluded from default build -->
-                    <excludedGroups>integration</excludedGroups>
+                    <excludedGroups>${surefire.excludedGroups}</excludedGroups>
                     <!-- Required for Mockito/ByteBuddy to work on Java 24+ -->
                     <argLine>-Dnet.bytebuddy.experimental=true</argLine>
                 </configuration>
@@ -205,17 +209,9 @@
     <profiles>
         <profile>
             <id>failsafe</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-surefire-plugin</artifactId>
-                        <configuration>
-                            <excludedGroups/>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
+            <properties>
+                <surefire.excludedGroups></surefire.excludedGroups>
+            </properties>
         </profile>
     </profiles>
 </project>
