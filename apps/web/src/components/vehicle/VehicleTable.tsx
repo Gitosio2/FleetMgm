@@ -1,4 +1,4 @@
-import { Pencil } from 'lucide-react'
+import { Pencil, Users } from 'lucide-react'
 import type { Vehicle } from '@fleetmgm/api'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -9,6 +9,7 @@ type VehicleTableProps = {
   vehicles: Vehicle[]
   canManage: boolean
   onEdit: (vehicle: Vehicle) => void
+  onViewAssignment: (vehicle: Vehicle) => void
 }
 
 function usage(vehicle: Vehicle): string {
@@ -17,7 +18,7 @@ function usage(vehicle: Vehicle): string {
     : `${vehicle.currentHours ?? 0} h`
 }
 
-export function VehicleTable({ vehicles, canManage, onEdit }: VehicleTableProps) {
+export function VehicleTable({ vehicles, canManage, onEdit, onViewAssignment }: VehicleTableProps) {
   return (
     <Table>
       <TableHeader>
@@ -48,6 +49,14 @@ export function VehicleTable({ vehicles, canManage, onEdit }: VehicleTableProps)
                     onClick={() => onEdit(vehicle)}
                   >
                     <Pencil className="size-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    aria-label="Ver asignación"
+                    onClick={() => onViewAssignment(vehicle)}
+                  >
+                    <Users className="size-4" />
                   </Button>
                   <VehicleDeleteButton
                     vehicleId={vehicle.id}

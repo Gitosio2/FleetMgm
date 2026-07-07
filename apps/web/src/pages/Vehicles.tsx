@@ -4,8 +4,10 @@ import type { Vehicle } from '@fleetmgm/api'
 import { useVehicles } from '@fleetmgm/hooks'
 import { useAuthStore } from '@fleetmgm/store'
 import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { VehicleTable } from '@/components/vehicle/VehicleTable'
 import { VehicleFormModal } from '@/components/vehicle/VehicleFormModal'
+import { VehicleAssignmentPanel } from '@/components/assignment/VehicleAssignmentPanel'
 import { MANAGEMENT_ROLES } from '@/components/layout/nav-items'
 
 const PAGE_SIZE = 20
@@ -14,6 +16,7 @@ export function Vehicles() {
   const [page, setPage] = useState(0)
   const [formOpen, setFormOpen] = useState(false)
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | undefined>(undefined)
+  const [assignmentVehicle, setAssignmentVehicle] = useState<Vehicle | undefined>(undefined)
 
   const role = useAuthStore((state) => state.role)
   const canManage = role != null && MANAGEMENT_ROLES.includes(role)
@@ -28,6 +31,10 @@ export function Vehicles() {
   function openEditForm(vehicle: Vehicle) {
     setEditingVehicle(vehicle)
     setFormOpen(true)
+  }
+
+  function openAssignmentPanel(vehicle: Vehicle) {
+    setAssignmentVehicle(vehicle)
   }
 
   return (
@@ -50,7 +57,12 @@ export function Vehicles() {
       {isLoading ? (
         <p className="text-on-surface-variant">Cargando vehículos…</p>
       ) : (
-        <VehicleTable vehicles={data?.content ?? []} canManage={canManage} onEdit={openEditForm} />
+        <VehicleTable
+          vehicles={data?.content ?? []}
+          canManage={canManage}
+          onEdit={openEditForm}
+          onViewAssignment={openAssignmentPanel}
+        />
       )}
 
       {data && data.totalPages > 1 && (
@@ -80,6 +92,26 @@ export function Vehicles() {
       {canManage && (
         <VehicleFormModal open={formOpen} onOpenChange={setFormOpen} vehicle={editingVehicle} />
       )}
+
+      <Dialog
+        open={assignmentVehicle != null}
+        onOpenChange={(open) => !open && setAssignmentVehicle(undefined)}
+      >
+        <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Asignación — {assignmentVehicle && `${assignmentVehicle.make} ${assignmentVehicle.model}`}
+            </DialogTitle>
+          </DialogHeader>
+          {assignmentVehicle && (
+            <VehicleAssignmentPanel
+              vehicleId={assignmentVehicle.id}
+              vehicleLabel={`${assignmentVehicle.make} ${assignmentVehicle.model}`}
+              canManage={canManage}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

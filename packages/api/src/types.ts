@@ -118,3 +118,24 @@ export type UpdateWorkerRequest = {
   licenseType?: string | null
   licenseExpiry?: string | null
 }
+
+export type Assignment = {
+  id: string
+  driverId: string
+  driverName: string
+  vehicleId: string
+  vehicleLicensePlate: string | null
+  startDate: string
+  endDate: string | null
+  assignedByUserId: string
+  notes: string | null
+  createdAt: string
+  active: boolean
+}
+
+export type CreateAssignmentRequest = {
+  driverId: string
+  vehicleId: string
+  startDate: string
+  notes?: string | null
+}
