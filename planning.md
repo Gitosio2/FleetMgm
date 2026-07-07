@@ -483,11 +483,12 @@ FleetMgm/
 
 ### Hito 19 — Frontend: Assignments
 > Requiere: Hitos 17–18 (backend assignments)
-- [ ] **[RED]** Handlers MSW — `POST /api/v1/assignments`, `PATCH /{id}/end`, `GET /api/v1/workers/{id}/assignments`
-- [ ] **[RED]** Tests `Assignments.test.tsx` — modal asignación crea correctamente, finalizar asignación actualiza la lista, historial paginado renderiza, 403 oculta acciones a DRIVER
-- [ ] **[GREEN]** `packages/hooks/src/useAssignments.ts` — assign, endAssignment, historial paginado
-- [ ] **[GREEN]** `apps/web/src/components/assignment/` — `AssignmentModal`, `AssignmentHistory`
-- [ ] **[GREEN]** Panel de asignación integrado en página `Vehicles` (detalle de vehículo)
+- [x] **[RED]** Handlers MSW — `POST /api/v1/assignments`, `PATCH /{id}/end`, `GET /api/v1/workers/{id}/assignments`
+- [x] **[RED]** Tests `Assignments.test.tsx` — modal asignación crea correctamente, finalizar asignación actualiza la lista, historial paginado renderiza, 403 oculta acciones a DRIVER
+- [x] **[GREEN]** `packages/hooks/src/useAssignments.ts` — assign, endAssignment, historial paginado
+- [x] **[GREEN]** `apps/web/src/components/assignment/` — `AssignmentModal`, `AssignmentHistory`
+- [x] **[GREEN]** Panel de asignación integrado en página `Vehicles` (detalle de vehículo)
+  > **Nota (revisión Hito 19):** el backend solo expone historial por conductor (`GET /workers/{id}/assignments`), no por vehículo — no hay endpoint de "asignación activa de este vehículo". `VehicleAssignmentPanel` resuelve esto con un selector de conductor en el modal; el `driverId` asignado queda en estado local del componente (se pierde al recargar la página), decisión tomada con el usuario para no reabrir el backend de los Hitos 17/18 solo por esto. Se agregó un tercer worker semilla (`worker-3`, DRIVER sin asignación activa) en `mocks/handlers.ts` para poder probar el alta sin chocar con el conflicto 409 del conductor ya asignado.
 
 ---
 
