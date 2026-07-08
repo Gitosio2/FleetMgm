@@ -1,46 +1,238 @@
 package com.fleetmgm.job.application;
 
+import com.fleetmgm.auth.infrastructure.UserRepository;
+import com.fleetmgm.client.domain.Client;
+import com.fleetmgm.client.infrastructure.ClientRepository;
+import com.fleetmgm.job.domain.Job;
+import com.fleetmgm.job.domain.JobCompletedEvent;
+import com.fleetmgm.job.domain.JobStatus;
 import com.fleetmgm.job.dto.CreateJobRequest;
+import com.fleetmgm.job.dto.JobMapper;
 import com.fleetmgm.job.dto.JobResponse;
 import com.fleetmgm.job.dto.UpdateJobRequest;
+import com.fleetmgm.job.infrastructure.JobRepository;
 import com.fleetmgm.shared.PageResponse;
+import com.fleetmgm.shared.exception.ConflictException;
+import com.fleetmgm.shared.exception.NotFoundException;
+import com.fleetmgm.vehicle.domain.Vehicle;
+import com.fleetmgm.vehicle.infrastructure.VehicleRepository;
+import com.fleetmgm.worker.domain.Worker;
+import com.fleetmgm.worker.infrastructure.WorkerRepository;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 @Service
 public class JobService {
 
+    private final JobRepository jobRepository;
+    private final VehicleRepository vehicleRepository;
+    private final WorkerRepository workerRepository;
+    private final ClientRepository clientRepository;
+    private final UserRepository userRepository;
+    private final JobMapper jobMapper;
+    private final ApplicationEventPublisher eventPublisher;
+
+    public JobService(JobRepository jobRepository,
+                      VehicleRepository vehicleRepository,
+                      WorkerRepository workerRepository,
+                      ClientRepository clientRepository,
+                      UserRepository userRepository,
+                      JobMapper jobMapper,
+                      ApplicationEventPublisher eventPublisher) {
+        this.jobRepository = jobRepository;
+        this.vehicleRepository = vehicleRepository;
+        this.workerRepository = workerRepository;
+        this.clientRepository = clientRepository;
+        this.userRepository = userRepository;
+        this.jobMapper = jobMapper;
+        this.eventPublisher = eventPublisher;
+    }
+
+    @Transactional(readOnly = true)
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ADMINISTRATIVE', 'DRIVER')")
     public PageResponse<JobResponse> list(Pageable pageable) {
-        throw new UnsupportedOperationException("Pending Hito 21");
+        if (isCurrentUserDriver()) {
+            return listForCurrentDriver(pageable);
+        }
+        return PageResponse.from(jobRepository.findAllJoinFetch(pageable).map(jobMapper::toResponse));
     }
 
+    @Transactional
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ADMINISTRATIVE')")
     public JobResponse create(CreateJobRequest request) {
-        throw new UnsupportedOperationException("Pending Hito 21");
+        Vehicle vehicle = vehicleRepository.findById(request.vehicleId())
+                .orElseThrow(() -> new NotFoundException("VEHICLE_NOT_FOUND",
+                        "Vehicle " + request.vehicleId() + " not found"));
+        Worker assignedDriver = resolveDriver(request.assignedDriverId());
+        Client client = resolveClient(request.clientId());
+
+        Job job = jobMapper.toEntity(request);
+        job.setVehicle(vehicle);
+        job.setAssignedDriver(assignedDriver);
+        job.setClient(client);
+        return jobMapper.toResponse(jobRepository.save(job));
     }
 
+    @Transactional(readOnly = true)
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ADMINISTRATIVE', 'DRIVER')")
     public JobResponse getById(UUID id) {
-        throw new UnsupportedOperationException("Pending Hito 21");
+        Job job = jobRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("JOB_NOT_FOUND", "Job " + id + " not found"));
+        if (isCurrentUserDriver()) {
+            assertDriverOwnsJob(job);
+        }
+        return jobMapper.toResponse(job);
     }
 
+    @Transactional
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ADMINISTRATIVE')")
     public JobResponse update(UUID id, UpdateJobRequest request) {
-        throw new UnsupportedOperationException("Pending Hito 21");
+        Job job = jobRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("JOB_NOT_FOUND", "Job " + id + " not found"));
+        Vehicle vehicle = vehicleRepository.findById(request.vehicleId())
+                .orElseThrow(() -> new NotFoundException("VEHICLE_NOT_FOUND",
+                        "Vehicle " + request.vehicleId() + " not found"));
+        Worker assignedDriver = resolveDriver(request.assignedDriverId());
+        Client client = resolveClient(request.clientId());
+
+        jobMapper.updateEntity(request, job);
+        job.setVehicle(vehicle);
+        job.setAssignedDriver(assignedDriver);
+        job.setClient(client);
+        return jobMapper.toResponse(jobRepository.save(job));
     }
 
+    @Transactional
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ADMINISTRATIVE')")
     public void delete(UUID id) {
-        throw new UnsupportedOperationException("Pending Hito 21");
+        Job job = jobRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("JOB_NOT_FOUND", "Job " + id + " not found"));
+        job.setDeletedAt(Instant.now());
+        jobRepository.save(job);
     }
 
-    public JobResponse start(UUID id) {
-        throw new UnsupportedOperationException("Pending Hito 21");
+    @Transactional
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ADMINISTRATIVE', 'DRIVER')")
+    public JobResponse start(UUID id, Long startUsageValue) {
+        Job job = jobRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("JOB_NOT_FOUND", "Job " + id + " not found"));
+        if (isCurrentUserDriver()) {
+            assertDriverOwnsJob(job);
+        }
+        if (job.getStatus() != JobStatus.PENDING) {
+            throw new ConflictException("JOB_INVALID_STATE_TRANSITION",
+                    "Job " + id + " cannot be started from state " + job.getStatus());
+        }
+        job.setStatus(JobStatus.IN_PROGRESS);
+        job.setActualStart(Instant.now());
+        if (startUsageValue != null) {
+            job.setStartUsageValue(startUsageValue);
+        }
+        return jobMapper.toResponse(jobRepository.save(job));
     }
 
-    public JobResponse complete(UUID id) {
-        throw new UnsupportedOperationException("Pending Hito 21");
+    @Transactional
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ADMINISTRATIVE', 'DRIVER')")
+    public JobResponse complete(UUID id, Long endUsageValue) {
+        Job job = jobRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("JOB_NOT_FOUND", "Job " + id + " not found"));
+        if (isCurrentUserDriver()) {
+            assertDriverOwnsJob(job);
+        }
+        if (job.getStatus() != JobStatus.IN_PROGRESS) {
+            throw new ConflictException("JOB_INVALID_STATE_TRANSITION",
+                    "Job " + id + " cannot be completed from state " + job.getStatus());
+        }
+        job.setStatus(JobStatus.COMPLETED);
+        job.setActualEnd(Instant.now());
+        if (endUsageValue != null) {
+            job.setEndUsageValue(endUsageValue);
+        }
+        Job saved = jobRepository.save(job);
+        eventPublisher.publishEvent(new JobCompletedEvent(
+                saved.getId(), saved.getVehicle().getId(), saved.getEndUsageValue(), saved.getActualEnd()));
+        return jobMapper.toResponse(saved);
     }
 
+    @Transactional
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ADMINISTRATIVE', 'DRIVER')")
     public JobResponse cancel(UUID id) {
-        throw new UnsupportedOperationException("Pending Hito 21");
+        Job job = jobRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("JOB_NOT_FOUND", "Job " + id + " not found"));
+        if (isCurrentUserDriver()) {
+            assertDriverOwnsJob(job);
+        }
+        if (job.getStatus() != JobStatus.PENDING && job.getStatus() != JobStatus.IN_PROGRESS) {
+            throw new ConflictException("JOB_INVALID_STATE_TRANSITION",
+                    "Job " + id + " cannot be cancelled from state " + job.getStatus());
+        }
+        job.setStatus(JobStatus.CANCELLED);
+        return jobMapper.toResponse(jobRepository.save(job));
+    }
+
+    // --- relation resolution helpers ---
+
+    private Worker resolveDriver(UUID driverId) {
+        if (driverId == null) {
+            return null;
+        }
+        return workerRepository.findById(driverId)
+                .orElseThrow(() -> new NotFoundException("WORKER_NOT_FOUND", "Worker " + driverId + " not found"));
+    }
+
+    private Client resolveClient(UUID clientId) {
+        if (clientId == null) {
+            return null;
+        }
+        return clientRepository.findById(clientId)
+                .orElseThrow(() -> new NotFoundException("CLIENT_NOT_FOUND", "Client " + clientId + " not found"));
+    }
+
+    // --- driver helpers ---
+
+    private boolean isCurrentUserDriver() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) return false;
+        return auth.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch("ROLE_DRIVER"::equals);
+    }
+
+    private PageResponse<JobResponse> listForCurrentDriver(Pageable pageable) {
+        Worker driver = currentDriverWorker();
+        if (driver == null) {
+            return new PageResponse<>(List.of(), pageable.getPageNumber(), pageable.getPageSize(), 0L, 0);
+        }
+        List<JobStatus> activeStatuses = List.of(JobStatus.PENDING, JobStatus.IN_PROGRESS);
+        return PageResponse.from(jobRepository
+                .findByAssignedDriverIdAndStatusIn(driver.getId(), activeStatuses, pageable)
+                .map(jobMapper::toResponse));
+    }
+
+    private Worker currentDriverWorker() {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userRepository.findByEmail(email)
+                .flatMap(user -> workerRepository.findByUserId(user.getId()))
+                .orElse(null);
+    }
+
+    private void assertDriverOwnsJob(Job job) {
+        Worker driver = currentDriverWorker();
+        boolean owns = driver != null && job.getAssignedDriver() != null
+                && job.getAssignedDriver().getId().equals(driver.getId());
+        if (!owns) {
+            throw new AccessDeniedException("Driver does not have access to job " + job.getId());
+        }
     }
 }

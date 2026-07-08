@@ -1,8 +1,10 @@
 package com.fleetmgm.job.api;
 
 import com.fleetmgm.job.application.JobService;
+import com.fleetmgm.job.dto.CompleteJobRequest;
 import com.fleetmgm.job.dto.CreateJobRequest;
 import com.fleetmgm.job.dto.JobResponse;
+import com.fleetmgm.job.dto.StartJobRequest;
 import com.fleetmgm.job.dto.UpdateJobRequest;
 import com.fleetmgm.shared.PageResponse;
 import jakarta.validation.Valid;
@@ -59,13 +61,19 @@ public class JobController {
     }
 
     @PatchMapping("/{id}/start")
-    public ResponseEntity<JobResponse> start(@PathVariable UUID id) {
-        return ResponseEntity.ok(jobService.start(id));
+    public ResponseEntity<JobResponse> start(
+            @PathVariable UUID id,
+            @RequestBody(required = false) StartJobRequest request) {
+        Long startUsageValue = request == null ? null : request.startUsageValue();
+        return ResponseEntity.ok(jobService.start(id, startUsageValue));
     }
 
     @PatchMapping("/{id}/complete")
-    public ResponseEntity<JobResponse> complete(@PathVariable UUID id) {
-        return ResponseEntity.ok(jobService.complete(id));
+    public ResponseEntity<JobResponse> complete(
+            @PathVariable UUID id,
+            @RequestBody(required = false) CompleteJobRequest request) {
+        Long endUsageValue = request == null ? null : request.endUsageValue();
+        return ResponseEntity.ok(jobService.complete(id, endUsageValue));
     }
 
     @PatchMapping("/{id}/cancel")
