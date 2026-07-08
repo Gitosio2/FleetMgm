@@ -17,7 +17,7 @@ export function JobActionButtons({ job }: JobActionButtonsProps) {
     return (
       <div className="flex gap-1">
         <Button
-          variant="ghost"
+          variant="default"
           size="sm"
           disabled={isPending}
           onClick={() => startJob.mutate({ id: job.id, startUsageValue: null })}
@@ -25,7 +25,7 @@ export function JobActionButtons({ job }: JobActionButtonsProps) {
           Iniciar
         </Button>
         <Button
-          variant="ghost"
+          variant="outline"
           size="sm"
           disabled={isPending}
           onClick={() => cancelJob.mutate(job.id)}
@@ -40,7 +40,7 @@ export function JobActionButtons({ job }: JobActionButtonsProps) {
     return (
       <div className="flex gap-1">
         <Button
-          variant="ghost"
+          variant="default"
           size="sm"
           disabled={isPending}
           onClick={() => completeJob.mutate({ id: job.id, endUsageValue: null })}
@@ -48,7 +48,7 @@ export function JobActionButtons({ job }: JobActionButtonsProps) {
           Completar
         </Button>
         <Button
-          variant="ghost"
+          variant="outline"
           size="sm"
           disabled={isPending}
           onClick={() => cancelJob.mutate(job.id)}
