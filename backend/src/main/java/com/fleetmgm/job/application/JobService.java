@@ -91,6 +91,7 @@ public class JobService {
                 .orElseThrow(() -> new NotFoundException("JOB_NOT_FOUND", "Job " + id + " not found"));
         if (isCurrentUserDriver()) {
             assertDriverOwnsJob(job);
+            assertJobIsActive(job);
         }
         return jobMapper.toResponse(job);
     }
@@ -201,6 +202,10 @@ public class JobService {
 
     // --- driver helpers ---
 
+    // Matches planning.md's permission matrix: DRIVER only sees/acts on their own PENDING/IN_PROGRESS jobs,
+    // never past history (COMPLETED/CANCELLED) even for jobs assigned to them.
+    private static final List<JobStatus> DRIVER_ACTIVE_STATUSES = List.of(JobStatus.PENDING, JobStatus.IN_PROGRESS);
+
     private boolean isCurrentUserDriver() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null) return false;
@@ -214,9 +219,8 @@ public class JobService {
         if (driver == null) {
             return new PageResponse<>(List.of(), pageable.getPageNumber(), pageable.getPageSize(), 0L, 0);
         }
-        List<JobStatus> activeStatuses = List.of(JobStatus.PENDING, JobStatus.IN_PROGRESS);
         return PageResponse.from(jobRepository
-                .findByAssignedDriverIdAndStatusIn(driver.getId(), activeStatuses, pageable)
+                .findByAssignedDriverIdAndStatusIn(driver.getId(), DRIVER_ACTIVE_STATUSES, pageable)
                 .map(jobMapper::toResponse));
     }
 
@@ -233,6 +237,12 @@ public class JobService {
                 && job.getAssignedDriver().getId().equals(driver.getId());
         if (!owns) {
             throw new AccessDeniedException("Driver does not have access to job " + job.getId());
+        }
+    }
+
+    private void assertJobIsActive(Job job) {
+        if (!DRIVER_ACTIVE_STATUSES.contains(job.getStatus())) {
+            throw new AccessDeniedException("Driver does not have access to job history for job " + job.getId());
         }
     }
 }

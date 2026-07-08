@@ -286,6 +286,59 @@ class JobServiceTest {
         verify(jobRepository, never()).save(any());
     }
 
+    @Test
+    void getById_asDriver_throwsAccessDenied_whenOwnJobIsCompleted() {
+        setDriverAuthentication("driver@example.com");
+        UUID id = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        UUID driverId = UUID.randomUUID();
+
+        User mockedUser = mock(User.class);
+        when(mockedUser.getId()).thenReturn(userId);
+        Worker driver = mock(Worker.class);
+        when(driver.getId()).thenReturn(driverId);
+
+        Job job = new Job();
+        job.setStatus(JobStatus.COMPLETED);
+        job.setAssignedDriver(driver);
+
+        when(jobRepository.findById(id)).thenReturn(Optional.of(job));
+        when(userRepository.findByEmail("driver@example.com")).thenReturn(Optional.of(mockedUser));
+        when(workerRepository.findByUserId(userId)).thenReturn(Optional.of(driver));
+
+        assertThatThrownBy(() -> jobService.getById(id))
+                .isInstanceOf(AccessDeniedException.class);
+
+        verify(jobMapper, never()).toResponse(any(Job.class));
+    }
+
+    @Test
+    void getById_asDriver_succeeds_whenOwnJobIsInProgress() {
+        setDriverAuthentication("driver@example.com");
+        UUID id = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        UUID driverId = UUID.randomUUID();
+
+        User mockedUser = mock(User.class);
+        when(mockedUser.getId()).thenReturn(userId);
+        Worker driver = mock(Worker.class);
+        when(driver.getId()).thenReturn(driverId);
+
+        Job job = new Job();
+        job.setStatus(JobStatus.IN_PROGRESS);
+        job.setAssignedDriver(driver);
+        JobResponse expected = buildJobResponse(id);
+
+        when(jobRepository.findById(id)).thenReturn(Optional.of(job));
+        when(userRepository.findByEmail("driver@example.com")).thenReturn(Optional.of(mockedUser));
+        when(workerRepository.findByUserId(userId)).thenReturn(Optional.of(driver));
+        when(jobMapper.toResponse(job)).thenReturn(expected);
+
+        JobResponse result = jobService.getById(id);
+
+        assertThat(result).isEqualTo(expected);
+    }
+
     // --- helpers ---
 
     private void setDriverAuthentication(String email) {
