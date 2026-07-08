@@ -677,6 +677,17 @@ export const handlers = [
     return HttpResponse.json(active)
   }),
 
+  http.get('/api/v1/assignments/active', ({ request }) => {
+    const url = new URL(request.url)
+    const driverIds = (url.searchParams.get('driverIds') ?? '').split(',').filter(Boolean)
+
+    const content = assignments.filter(
+      (assignment) => assignment.active && driverIds.includes(assignment.driverId),
+    )
+
+    return HttpResponse.json(content)
+  }),
+
   http.post('/api/v1/auth/login', async ({ request }) => {
     const body = (await request.json()) as LoginRequestBody
 

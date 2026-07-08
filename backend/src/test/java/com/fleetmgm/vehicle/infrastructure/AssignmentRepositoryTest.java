@@ -25,6 +25,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -90,6 +91,39 @@ class AssignmentRepositoryTest {
 
         assertThatThrownBy(() -> assignmentRepository.saveAndFlush(second))
                 .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void findActiveByDriverIdIn_returnsOnlyActiveAssignments_forGivenDrivers() {
+        Worker activeDriver = persistDriver("55555555E");
+        Worker endedDriver = persistDriver("66666666F");
+        Worker otherDriver = persistDriver("77777777G");
+        Vehicle activeVehicle = persistVehicle("5555EEE");
+        Vehicle endedVehicle = persistVehicle("6666FFF");
+        Vehicle otherVehicle = persistVehicle("7777GGG");
+        User assignedBy = persistUser("admin5@example.com");
+        assignmentRepository.saveAndFlush(buildAssignment(activeDriver, activeVehicle, assignedBy, null));
+        assignmentRepository.saveAndFlush(buildAssignment(endedDriver, endedVehicle, assignedBy, LocalDate.now()));
+        assignmentRepository.saveAndFlush(buildAssignment(otherDriver, otherVehicle, assignedBy, null));
+
+        List<DriverVehicleAssignment> result = assignmentRepository
+                .findActiveByDriverIdIn(List.of(activeDriver.getId(), endedDriver.getId()));
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getDriver().getId()).isEqualTo(activeDriver.getId());
+    }
+
+    @Test
+    void findActiveByDriverIdIn_returnsEmpty_whenNoDriverIdsMatch() {
+        Worker driver = persistDriver("88888888H");
+        Vehicle vehicle = persistVehicle("8888HHH");
+        User assignedBy = persistUser("admin6@example.com");
+        assignmentRepository.saveAndFlush(buildAssignment(driver, vehicle, assignedBy, null));
+
+        List<DriverVehicleAssignment> result = assignmentRepository
+                .findActiveByDriverIdIn(List.of(java.util.UUID.randomUUID()));
+
+        assertThat(result).isEmpty();
     }
 
     private Worker persistDriver(String nationalId) {

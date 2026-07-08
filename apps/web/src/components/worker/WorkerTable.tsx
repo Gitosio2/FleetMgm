@@ -9,9 +9,10 @@ type WorkerTableProps = {
   workers: Worker[]
   canManage: boolean
   onEdit: (worker: Worker) => void
+  assignedVehicleByDriverId?: Map<string, string>
 }
 
-export function WorkerTable({ workers, canManage, onEdit }: WorkerTableProps) {
+export function WorkerTable({ workers, canManage, onEdit, assignedVehicleByDriverId }: WorkerTableProps) {
   return (
     <Table>
       <TableHeader>
@@ -20,6 +21,7 @@ export function WorkerTable({ workers, canManage, onEdit }: WorkerTableProps) {
           <TableHead>Rol</TableHead>
           <TableHead>Documento</TableHead>
           <TableHead>Teléfono</TableHead>
+          <TableHead>Vehículo asignado</TableHead>
           {canManage && <TableHead>Acciones</TableHead>}
         </TableRow>
       </TableHeader>
@@ -32,6 +34,7 @@ export function WorkerTable({ workers, canManage, onEdit }: WorkerTableProps) {
             </TableCell>
             <TableCell>{worker.nationalId}</TableCell>
             <TableCell>{worker.phone ?? '—'}</TableCell>
+            <TableCell>{assignedVehicleByDriverId?.get(worker.id) ?? '—'}</TableCell>
             {canManage && (
               <TableCell>
                 <div className="flex gap-1">

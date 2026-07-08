@@ -31,6 +31,19 @@ export function useVehicleAssignment(vehicleId: string) {
   })
 }
 
+export function useActiveAssignmentsByDrivers(driverIds: string[]) {
+  return useQuery({
+    queryKey: [ASSIGNMENTS_KEY, 'active-by-drivers', driverIds],
+    queryFn: async () => {
+      const { data } = await apiClient.get<Assignment[]>('/assignments/active', {
+        params: { driverIds: driverIds.join(',') },
+      })
+      return data
+    },
+    enabled: driverIds.length > 0,
+  })
+}
+
 export function useCreateAssignment() {
   const queryClient = useQueryClient()
 

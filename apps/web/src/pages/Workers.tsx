@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Plus } from 'lucide-react'
 import type { Worker } from '@fleetmgm/api'
-import { useWorkers } from '@fleetmgm/hooks'
+import { useActiveAssignmentsByDrivers, useWorkers } from '@fleetmgm/hooks'
 import { useAuthStore } from '@fleetmgm/store'
 import { Button } from '@/components/ui/button'
 import { WorkerTable } from '@/components/worker/WorkerTable'
@@ -19,6 +19,18 @@ export function Workers() {
   const canManage = role != null && MANAGEMENT_ROLES.includes(role)
 
   const { data, isLoading } = useWorkers(page, PAGE_SIZE)
+
+  const driverIds = useMemo(() => data?.content.map((worker) => worker.id) ?? [], [data])
+  const { data: activeAssignments } = useActiveAssignmentsByDrivers(driverIds)
+  const assignedVehicleByDriverId = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const assignment of activeAssignments ?? []) {
+      if (assignment.vehicleLicensePlate) {
+        map.set(assignment.driverId, assignment.vehicleLicensePlate)
+      }
+    }
+    return map
+  }, [activeAssignments])
 
   function openCreateForm() {
     setEditingWorker(undefined)
@@ -50,7 +62,12 @@ export function Workers() {
       {isLoading ? (
         <p className="text-on-surface-variant">Cargando trabajadores…</p>
       ) : (
-        <WorkerTable workers={data?.content ?? []} canManage={canManage} onEdit={openEditForm} />
+        <WorkerTable
+          workers={data?.content ?? []}
+          canManage={canManage}
+          onEdit={openEditForm}
+          assignedVehicleByDriverId={assignedVehicleByDriverId}
+        />
       )}
 
       {data && data.totalPages > 1 && (

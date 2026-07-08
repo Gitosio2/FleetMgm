@@ -135,4 +135,30 @@ class AssignmentControllerTest {
         mockMvc.perform(get("/api/v1/vehicles/{vehicleId}/assignment", vehicleId))
                 .andExpect(status().isNoContent());
     }
+
+    // --- GET /api/v1/assignments/active ---
+
+    @Test
+    void activeByDrivers_returns200_withCommaSeparatedDriverIdsBound() throws Exception {
+        UUID driverId1 = UUID.randomUUID();
+        UUID driverId2 = UUID.randomUUID();
+        when(assignmentService.activeByDrivers(List.of(driverId1, driverId2)))
+                .thenReturn(List.of(sampleResponse()));
+
+        mockMvc.perform(get("/api/v1/assignments/active?driverIds=" + driverId1 + "," + driverId2))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$.length()").value(1));
+    }
+
+    @Test
+    void activeByDrivers_returns200_withEmptyArray_whenNoActiveAssignments() throws Exception {
+        UUID driverId = UUID.randomUUID();
+        when(assignmentService.activeByDrivers(List.of(driverId))).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/v1/assignments/active?driverIds=" + driverId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$.length()").value(0));
+    }
 }

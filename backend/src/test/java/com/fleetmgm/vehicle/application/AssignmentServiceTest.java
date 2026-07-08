@@ -191,6 +191,35 @@ class AssignmentServiceTest {
         assertThat(result).isEmpty();
     }
 
+    // --- activeByDrivers ---
+
+    @Test
+    void activeByDrivers_returnsEmpty_withoutHittingRepository_whenDriverIdsEmpty() {
+        List<AssignmentResponse> result = assignmentService.activeByDrivers(List.of());
+
+        assertThat(result).isEmpty();
+        verifyNoInteractions(assignmentRepository);
+    }
+
+    @Test
+    void activeByDrivers_returnsMappedResponses_whenDriverIdsProvided() {
+        UUID driverId1 = UUID.randomUUID();
+        UUID driverId2 = UUID.randomUUID();
+        DriverVehicleAssignment entity1 = new DriverVehicleAssignment();
+        DriverVehicleAssignment entity2 = new DriverVehicleAssignment();
+        AssignmentResponse expected1 = buildAssignmentResponse(UUID.randomUUID());
+        AssignmentResponse expected2 = buildAssignmentResponse(UUID.randomUUID());
+
+        when(assignmentRepository.findActiveByDriverIdIn(List.of(driverId1, driverId2)))
+                .thenReturn(List.of(entity1, entity2));
+        when(assignmentMapper.toResponse(entity1)).thenReturn(expected1);
+        when(assignmentMapper.toResponse(entity2)).thenReturn(expected2);
+
+        List<AssignmentResponse> result = assignmentService.activeByDrivers(List.of(driverId1, driverId2));
+
+        assertThat(result).containsExactly(expected1, expected2);
+    }
+
     // --- helpers ---
 
     private AssignmentResponse buildAssignmentResponse(UUID id) {
