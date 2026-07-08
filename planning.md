@@ -501,18 +501,19 @@ FleetMgm/
   > `JobService` es un stub (`UnsupportedOperationException("Pending Hito 21")` en cada método), mismo patrón que Hito 17→18 con `AssignmentService`. Sin tests todavía — lógica y tests llegan en Hito 21.
 
 ### Hito 21 — Trabajos: Lógica y eventos
-- [ ] **[RED]** Tests `JobServiceTest` — crear OK, transición PENDING→IN_PROGRESS, retroceder estado → excepción, completar publica `JobCompletedEvent`, cancelar desde COMPLETED → excepción
-- [ ] **[RED]** Tests `JobEventListenerTest` — `JobCompletedEvent` crea `UsageLog` y actualiza `currentKm`/`currentHours` en Vehicle
-- [ ] **[RED]** Tests `JobRepositoryTest` (`@DataJpaTest` + Testcontainers) — findByAssignedDriverIdAndStatusIn, JOIN FETCH no produce N+1
-- [ ] **[RED]** Tests `JobControllerTest` (`@WebMvcTest`) — 201, 400, 404, 403; DRIVER solo ve y cambia estado de sus trabajos
-- [ ] **[GREEN]** `JobRepository` — `findAll` paginado, `findByAssignedDriverIdAndStatusIn`, JOIN FETCH
-- [ ] **[GREEN]** `UsageLogRepository`
-- [ ] **[GREEN]** `JobService.create()` — crear PENDING
-- [ ] **[GREEN]** `JobService.start()` — PENDING → IN_PROGRESS, `actualStart = now()`
-- [ ] **[GREEN]** `JobService.complete()` — IN_PROGRESS → COMPLETED, `actualEnd = now()`, publicar `JobCompletedEvent`
-- [ ] **[GREEN]** `JobService.cancel()` — PENDING/IN_PROGRESS → CANCELLED
-- [ ] **[GREEN]** `JobCompletedEvent` (record) + `JobEventListener` — `@TransactionalEventListener(AFTER_COMMIT)`: crear `UsageLog`, actualizar `currentKm`/`currentHours` en `Vehicle`
-- [ ] **[GREEN]** `@PreAuthorize` — DRIVER solo ve y cambia estado de sus trabajos activos
+- [x] **[RED]** Tests `JobServiceTest` — crear OK, transición PENDING→IN_PROGRESS, retroceder estado → excepción, completar publica `JobCompletedEvent`, cancelar desde COMPLETED → excepción
+- [x] **[RED]** Tests `JobEventListenerTest` — `JobCompletedEvent` crea `UsageLog` y actualiza `currentKm`/`currentHours` en Vehicle
+- [x] **[RED]** Tests `JobRepositoryTest` (`@DataJpaTest` + Testcontainers) — findByAssignedDriverIdAndStatusIn, JOIN FETCH no produce N+1
+- [x] **[RED]** Tests `JobControllerTest` (`@WebMvcTest`) — 201, 400, 404, 409 (transición inválida); DRIVER solo ve y cambia estado de sus trabajos (cubierto en `JobServiceTest`, no en `@WebMvcTest` — mismo gap de `@PreAuthorize`/AOP heredado de Worker/Vehicle/Assignment)
+- [x] **[GREEN]** `JobRepository` — `findAllJoinFetch` paginado, `findByAssignedDriverIdAndStatusIn`, ambos con `JOIN FETCH vehicle` + `LEFT JOIN FETCH assignedDriver/client`
+- [x] **[GREEN]** `UsageLogRepository` — `JpaRepository` plano, sin métodos custom (sin test dedicado, mismo criterio que otros repos triviales del proyecto)
+- [x] **[GREEN]** `JobService.create()` — crear PENDING
+- [x] **[GREEN]** `JobService.start()` — PENDING → IN_PROGRESS, `actualStart = now()`, acepta `startUsageValue` opcional (body opcional en el PATCH, decisión tomada con el usuario: el conductor lee el odómetro al arrancar/terminar, no antes)
+- [x] **[GREEN]** `JobService.complete()` — IN_PROGRESS → COMPLETED, `actualEnd = now()`, `endUsageValue` opcional, publica `JobCompletedEvent`
+- [x] **[GREEN]** `JobService.cancel()` — PENDING/IN_PROGRESS → CANCELLED
+- [x] **[GREEN]** `JobCompletedEvent` (record, `job.domain`) + `JobEventListener` (`vehicle.application` — vive ahí porque actualiza `Vehicle`/crea `UsageLog`, no `Job`; confirma desacoplamiento cross-feature vía evento) — `@TransactionalEventListener(AFTER_COMMIT)` + `@Transactional` propia: crea `UsageLog` (`source = JOB_COMPLETION`) y actualiza `currentKm`/`currentHours` en `Vehicle` según `usageMeasure`; no-op si `endUsageValue` es null
+- [x] **[GREEN]** `@PreAuthorize` — DRIVER solo ve y cambia estado de sus trabajos (ownership check contra `assignedDriver`, mismo patrón `email → User → Worker` que `WorkerService`)
+  > **Nota (revisión Hito 21):** primer evento de dominio del proyecto — no había precedente de `ApplicationEvent`/`@TransactionalEventListener` en el código, se diseñó siguiendo la sección "Inter-module Events" de `CLAUDE.md`. Nuevo código de error `JOB_INVALID_STATE_TRANSITION` (409, sin precedente previo de guarda de transición de estado en el proyecto) reutilizado en `start()`/`complete()`/`cancel()`; `VEHICLE_NOT_FOUND`/`WORKER_NOT_FOUND`/`CLIENT_NOT_FOUND` reutilizados tal cual. `PATCH /{id}/start` y `/complete` ganaron un body opcional (`StartJobRequest`/`CompleteJobRequest`) no contemplado en el contrato original del Hito 20. `JobRepositoryTest` (Testcontainers) no se pudo ejecutar en el entorno de desarrollo (sin Docker) — compila limpio, pendiente correr `./mvnw verify -Pfailsafe` localmente antes de mergear.
 
 ### Hito 22 — Frontend: Jobs
 > Requiere: Hitos 20–21 (backend jobs)
