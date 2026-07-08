@@ -13,6 +13,7 @@ import com.fleetmgm.job.dto.JobResponse;
 import com.fleetmgm.job.infrastructure.JobRepository;
 import com.fleetmgm.shared.exception.ConflictException;
 import com.fleetmgm.shared.exception.NotFoundException;
+import com.fleetmgm.vehicle.domain.UsageMeasure;
 import com.fleetmgm.vehicle.domain.Vehicle;
 import com.fleetmgm.vehicle.infrastructure.VehicleRepository;
 import com.fleetmgm.worker.domain.Worker;
@@ -189,6 +190,70 @@ class JobServiceTest {
                         .isEqualTo("JOB_INVALID_STATE_TRANSITION"));
 
         verifyNoInteractions(eventPublisher);
+    }
+
+    @Test
+    void complete_throwsConflict_whenEndUsageValueBelowVehicleCurrent() {
+        UUID id = UUID.randomUUID();
+        Vehicle vehicle = new Vehicle();
+        vehicle.setUsageMeasure(UsageMeasure.KILOMETERS);
+        vehicle.setCurrentKm(10_000L);
+        Job job = new Job();
+        job.setStatus(JobStatus.IN_PROGRESS);
+        job.setVehicle(vehicle);
+
+        when(jobRepository.findById(id)).thenReturn(Optional.of(job));
+
+        assertThatThrownBy(() -> jobService.complete(id, 9_000L))
+                .isInstanceOf(ConflictException.class)
+                .satisfies(ex -> assertThat(((ConflictException) ex).getCode())
+                        .isEqualTo("JOB_USAGE_VALUE_BELOW_CURRENT"));
+
+        assertThat(job.getStatus()).isEqualTo(JobStatus.IN_PROGRESS);
+        verify(jobRepository, never()).save(any());
+        verifyNoInteractions(eventPublisher);
+    }
+
+    @Test
+    void complete_throwsConflict_whenEndUsageValueBelowJobStartValue() {
+        UUID id = UUID.randomUUID();
+        Vehicle vehicle = new Vehicle();
+        vehicle.setUsageMeasure(UsageMeasure.KILOMETERS);
+        vehicle.setCurrentKm(1_000L);
+        Job job = new Job();
+        job.setStatus(JobStatus.IN_PROGRESS);
+        job.setVehicle(vehicle);
+        job.setStartUsageValue(5_000L);
+
+        when(jobRepository.findById(id)).thenReturn(Optional.of(job));
+
+        assertThatThrownBy(() -> jobService.complete(id, 4_000L))
+                .isInstanceOf(ConflictException.class)
+                .satisfies(ex -> assertThat(((ConflictException) ex).getCode())
+                        .isEqualTo("JOB_USAGE_VALUE_BELOW_CURRENT"));
+
+        verify(jobRepository, never()).save(any());
+    }
+
+    @Test
+    void complete_succeeds_whenEndUsageValueEqualsCurrentVehicleValue() {
+        UUID id = UUID.randomUUID();
+        Vehicle vehicle = new Vehicle();
+        vehicle.setUsageMeasure(UsageMeasure.HOURS);
+        vehicle.setCurrentHours(2_000L);
+        Job job = new Job();
+        job.setStatus(JobStatus.IN_PROGRESS);
+        job.setVehicle(vehicle);
+        JobResponse expected = buildJobResponse(id);
+
+        when(jobRepository.findById(id)).thenReturn(Optional.of(job));
+        when(jobRepository.save(job)).thenReturn(job);
+        when(jobMapper.toResponse(job)).thenReturn(expected);
+
+        JobResponse result = jobService.complete(id, 2_000L);
+
+        assertThat(result).isEqualTo(expected);
+        assertThat(job.getStatus()).isEqualTo(JobStatus.COMPLETED);
     }
 
     // --- cancel ---

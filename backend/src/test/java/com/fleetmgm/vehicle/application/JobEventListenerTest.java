@@ -22,6 +22,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -94,6 +95,25 @@ class JobEventListenerTest {
         jobEventListener.onJobCompleted(event);
 
         verifyNoInteractions(vehicleRepository);
+        verifyNoInteractions(usageLogRepository);
+        verifyNoInteractions(jobRepository);
+    }
+
+    @Test
+    void onJobCompleted_skipsUpdate_whenEndUsageValueRegressesBelowCurrent() {
+        UUID vehicleId = UUID.randomUUID();
+        UUID jobId = UUID.randomUUID();
+        Vehicle vehicle = new Vehicle();
+        vehicle.setUsageMeasure(UsageMeasure.KILOMETERS);
+        vehicle.setCurrentKm(10000L);
+        JobCompletedEvent event = new JobCompletedEvent(jobId, vehicleId, 9000L, Instant.now());
+
+        when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(vehicle));
+
+        jobEventListener.onJobCompleted(event);
+
+        assertThat(vehicle.getCurrentKm()).isEqualTo(10000L);
+        verify(vehicleRepository, never()).save(any());
         verifyNoInteractions(usageLogRepository);
         verifyNoInteractions(jobRepository);
     }

@@ -155,11 +155,12 @@ public class JobService {
             throw new ConflictException("JOB_INVALID_STATE_TRANSITION",
                     "Job " + id + " cannot be completed from state " + job.getStatus());
         }
-        job.setStatus(JobStatus.COMPLETED);
-        job.setActualEnd(Instant.now());
         if (endUsageValue != null) {
+            assertUsageValueNotRegressing(job, endUsageValue);
             job.setEndUsageValue(endUsageValue);
         }
+        job.setStatus(JobStatus.COMPLETED);
+        job.setActualEnd(Instant.now());
         Job saved = jobRepository.save(job);
         eventPublisher.publishEvent(new JobCompletedEvent(
                 saved.getId(), saved.getVehicle().getId(), saved.getEndUsageValue(), saved.getActualEnd()));
@@ -198,6 +199,22 @@ public class JobService {
         }
         return clientRepository.findById(clientId)
                 .orElseThrow(() -> new NotFoundException("CLIENT_NOT_FOUND", "Client " + clientId + " not found"));
+    }
+
+    // Usage counters (km/hours) must be monotonic — reject an endUsageValue lower than either the
+    // vehicle's currently recorded value or this job's own startUsageValue (typo, stale/duplicate
+    // completion, or a job that never actually advanced the odometer).
+    private void assertUsageValueNotRegressing(Job job, long endUsageValue) {
+        Long currentValue = job.getVehicle().getCurrentUsageValue();
+        Long startValue = job.getStartUsageValue();
+        long floor = Math.max(
+                currentValue != null ? currentValue : Long.MIN_VALUE,
+                startValue != null ? startValue : Long.MIN_VALUE);
+        if (floor != Long.MIN_VALUE && endUsageValue < floor) {
+            throw new ConflictException("JOB_USAGE_VALUE_BELOW_CURRENT",
+                    "endUsageValue " + endUsageValue + " for job " + job.getId()
+                            + " is lower than the current recorded usage (" + floor + ")");
+        }
     }
 
     // --- driver helpers ---

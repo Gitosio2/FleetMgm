@@ -132,6 +132,23 @@ public class Vehicle {
     public Long getCurrentHours() { return currentHours; }
     public void setCurrentHours(Long currentHours) { this.currentHours = currentHours; }
 
+    // Reads/writes currentKm or currentHours depending on usageMeasure, so callers don't duplicate the switch.
+    public Long getCurrentUsageValue() {
+        return switch (usageMeasure) {
+            case KILOMETERS -> currentKm;
+            case HOURS -> currentHours;
+            default -> throw new IllegalStateException("Unhandled usage measure: " + usageMeasure);
+        };
+    }
+
+    public void setCurrentUsageValue(Long value) {
+        switch (usageMeasure) {
+            case KILOMETERS -> currentKm = value;
+            case HOURS -> currentHours = value;
+            default -> throw new IllegalStateException("Unhandled usage measure: " + usageMeasure);
+        }
+    }
+
     public AcquisitionType getAcquisitionType() { return acquisitionType; }
     public void setAcquisitionType(AcquisitionType acquisitionType) { this.acquisitionType = acquisitionType; }
 

@@ -8,6 +8,8 @@ import com.fleetmgm.vehicle.domain.UsageSource;
 import com.fleetmgm.vehicle.domain.Vehicle;
 import com.fleetmgm.vehicle.infrastructure.UsageLogRepository;
 import com.fleetmgm.vehicle.infrastructure.VehicleRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
@@ -15,6 +17,8 @@ import org.springframework.transaction.event.TransactionalEventListener;
 
 @Component
 public class JobEventListener {
+
+    private static final Logger log = LoggerFactory.getLogger(JobEventListener.class);
 
     private final VehicleRepository vehicleRepository;
     private final UsageLogRepository usageLogRepository;
@@ -40,11 +44,16 @@ public class JobEventListener {
                 .orElseThrow(() -> new NotFoundException("VEHICLE_NOT_FOUND",
                         "Vehicle " + event.vehicleId() + " not found"));
 
-        switch (vehicle.getUsageMeasure()) {
-            case KILOMETERS -> vehicle.setCurrentKm(event.endUsageValue());
-            case HOURS -> vehicle.setCurrentHours(event.endUsageValue());
-            default -> throw new IllegalStateException("Unhandled usage measure: " + vehicle.getUsageMeasure());
+        // Defense in depth against a regressing value (JobService already rejects it pre-commit); AFTER_COMMIT can't reject the job, so skip instead of corrupting the counter.
+        Long currentValue = vehicle.getCurrentUsageValue();
+        if (currentValue != null && event.endUsageValue() < currentValue) {
+            log.warn("Skipping usage update for job {} on vehicle {}: endUsageValue {} is lower than "
+                            + "the vehicle's current recorded usage {}",
+                    event.jobId(), event.vehicleId(), event.endUsageValue(), currentValue);
+            return;
         }
+
+        vehicle.setCurrentUsageValue(event.endUsageValue());
         vehicleRepository.save(vehicle);
 
         UsageLog usageLog = new UsageLog();
