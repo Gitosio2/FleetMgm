@@ -488,16 +488,17 @@ FleetMgm/
 - [x] **[GREEN]** `packages/hooks/src/useAssignments.ts` — assign, endAssignment, historial paginado
 - [x] **[GREEN]** `apps/web/src/components/assignment/` — `AssignmentModal`, `AssignmentHistory`
 - [x] **[GREEN]** Panel de asignación integrado en página `Vehicles` (detalle de vehículo)
-  > **Nota (revisión Hito 19):** el backend solo expone historial por conductor (`GET /workers/{id}/assignments`), no por vehículo — no hay endpoint de "asignación activa de este vehículo". `VehicleAssignmentPanel` resuelve esto con un selector de conductor en el modal; el `driverId` asignado queda en estado local del componente (se pierde al recargar la página), decisión tomada con el usuario para no reabrir el backend de los Hitos 17/18 solo por esto. Se agregó un tercer worker semilla (`worker-3`, DRIVER sin asignación activa) en `mocks/handlers.ts` para poder probar el alta sin chocar con el conflicto 409 del conductor ya asignado.
+  > **Nota (revisión Hito 19, resuelta en PR #25):** se agregaron `GET /vehicles/{id}/assignment` (asignación activa de un vehículo) y `GET /assignments/active?driverIds=...` (batch, evita N+1) para que el conductor asignado se lea del backend en vez de depender de estado local de sesión. También se agregó fallback marca/modelo (`formatVehicleLabel`) para vehículos sin matrícula (maquinaria pesada).
 
 ---
 
 ### Hito 20 — Trabajos: Contrato API
 - [x] `Flyway V5` — tablas `jobs` + `usage_logs` *(ya aplicada)*
 - [x] `Job` entity — enum `JobStatus` (PENDING/IN_PROGRESS/COMPLETED/CANCELLED), `@SQLRestriction`; `UsageLog` entity *(ya scaffoldeadas)*
-- [ ] `CreateJobRequest` / `UpdateJobRequest` / `JobResponse` (records)
-- [ ] `JobMapper` (MapStruct)
-- [ ] `JobController` — CRUD + `PATCH /{id}/start`, `PATCH /{id}/complete`, `PATCH /{id}/cancel`
+- [x] `CreateJobRequest` / `UpdateJobRequest` / `JobResponse` (records)
+- [x] `JobMapper` (MapStruct)
+- [x] `JobController` — CRUD + `PATCH /{id}/start`, `PATCH /{id}/complete`, `PATCH /{id}/cancel`
+  > `JobService` es un stub (`UnsupportedOperationException("Pending Hito 21")` en cada método), mismo patrón que Hito 17→18 con `AssignmentService`. Sin tests todavía — lógica y tests llegan en Hito 21.
 
 ### Hito 21 — Trabajos: Lógica y eventos
 - [ ] **[RED]** Tests `JobServiceTest` — crear OK, transición PENDING→IN_PROGRESS, retroceder estado → excepción, completar publica `JobCompletedEvent`, cancelar desde COMPLETED → excepción
