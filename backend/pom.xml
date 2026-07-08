@@ -201,6 +201,10 @@
                 <configuration>
                     <failBuildOnCVSS>7</failBuildOnCVSS>
                     <nvdApiKey>${env.NVD_API_KEY}</nvdApiKey>
+                    <!-- Explicit, predictable path so CI can cache it directly (see ci.yml) instead of
+                         relying on the Maven dependency cache, which does not cover this ~500MB+ NVD
+                         database and was silently forcing a multi-hour full re-download on every run. -->
+                    <dataDirectory>${project.basedir}/.owasp-dc-data</dataDirectory>
                 </configuration>
             </plugin>
         </plugins>

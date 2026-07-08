@@ -54,6 +54,21 @@ jobs:
           distribution: temurin
           java-version: "21"
           cache: maven
+      # The NVD database (~500MB+, 360k+ CVE records) is NOT covered by the `cache: maven` step
+      # above — it lives outside ~/.m2 by default. Without this, dependency-check re-downloads
+      # the full database on every single run (observed: 2-4 hours per PR). Keyed by ISO week so
+      # it still periodically refreshes; restore-keys falls back to the latest available cache so
+      # a new week only pays for the incremental NVD update, not a full re-sync.
+      - name: Compute cache week key
+        id: cache-week
+        run: echo "week=$(date -u +%Y-W%V)" >> "$GITHUB_OUTPUT"
+      - name: Cache OWASP dependency-check NVD data
+        uses: actions/cache@v4
+        with:
+          path: backend/.owasp-dc-data
+          key: owasp-dc-data-${{ steps.cache-week.outputs.week }}
+          restore-keys: |
+            owasp-dc-data-
       - run: ./mvnw -B dependency-check:check
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
