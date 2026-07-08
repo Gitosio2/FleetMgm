@@ -141,3 +141,43 @@ export type CreateAssignmentRequest = {
   startDate: string
   notes?: string | null
 }
+
+export type JobStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
+
+export type Job = {
+  id: string
+  title: string
+  description: string | null
+  vehicleId: string
+  vehicleLicensePlate: string | null
+  assignedDriverId: string | null
+  assignedDriverName: string | null
+  clientId: string | null
+  clientName: string | null
+  status: JobStatus
+  originLocation: string
+  destinationLocation: string
+  notes: string | null
+  scheduledStart: string | null
+  scheduledEnd: string | null
+  actualStart: string | null
+  actualEnd: string | null
+  startUsageValue: number | null
+  endUsageValue: number | null
+  createdAt: string
+}
+
+export type CreateJobRequest = {
+  vehicleId: string
+  assignedDriverId?: string | null
+  clientId?: string | null
+  title: string
+  description?: string | null
+  originLocation: string
+  destinationLocation: string
+  notes?: string | null
+  scheduledStart?: string | null
+  scheduledEnd?: string | null
+}
+
+export type UpdateJobRequest = CreateJobRequest

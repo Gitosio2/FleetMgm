@@ -334,6 +334,143 @@ export function resetAssignmentsMock() {
   assignments = [...SEED_ASSIGNMENTS]
 }
 
+type JobStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
+
+type Job = {
+  id: string
+  title: string
+  description: string | null
+  vehicleId: string
+  vehicleLicensePlate: string | null
+  assignedDriverId: string | null
+  assignedDriverName: string | null
+  clientId: string | null
+  clientName: string | null
+  status: JobStatus
+  originLocation: string
+  destinationLocation: string
+  notes: string | null
+  scheduledStart: string | null
+  scheduledEnd: string | null
+  actualStart: string | null
+  actualEnd: string | null
+  startUsageValue: number | null
+  endUsageValue: number | null
+  createdAt: string
+}
+
+type JobRequestBody = {
+  vehicleId: string
+  assignedDriverId?: string | null
+  clientId?: string | null
+  title: string
+  description?: string | null
+  originLocation: string
+  destinationLocation: string
+  notes?: string | null
+  scheduledStart?: string | null
+  scheduledEnd?: string | null
+}
+
+const JOB_ACTIVE_STATUSES: JobStatus[] = ['PENDING', 'IN_PROGRESS']
+
+export const SEED_JOBS: Job[] = [
+  {
+    id: 'job-1',
+    title: 'Entrega urgente',
+    description: null,
+    vehicleId: SEED_VEHICLES[0]!.id,
+    vehicleLicensePlate: SEED_VEHICLES[0]!.licensePlate,
+    assignedDriverId: DRIVER_WORKER_ID,
+    assignedDriverName: SEED_WORKERS[0]!.fullName,
+    clientId: SEED_CLIENTS[0]!.id,
+    clientName: SEED_CLIENTS[0]!.name,
+    status: 'PENDING',
+    originLocation: 'Almacén Central',
+    destinationLocation: 'Cliente Acme',
+    notes: null,
+    scheduledStart: '2026-07-10T08:00:00Z',
+    scheduledEnd: null,
+    actualStart: null,
+    actualEnd: null,
+    startUsageValue: null,
+    endUsageValue: null,
+    createdAt: '2026-07-01T09:00:00Z',
+  },
+  {
+    id: 'job-2',
+    title: 'Reparto semanal',
+    description: 'Ruta habitual de reparto en zona norte',
+    vehicleId: SEED_VEHICLES[0]!.id,
+    vehicleLicensePlate: SEED_VEHICLES[0]!.licensePlate,
+    assignedDriverId: DRIVER_WORKER_ID,
+    assignedDriverName: SEED_WORKERS[0]!.fullName,
+    clientId: null,
+    clientName: null,
+    status: 'IN_PROGRESS',
+    originLocation: 'Almacén Central',
+    destinationLocation: 'Zona Norte',
+    notes: null,
+    scheduledStart: '2026-07-05T08:00:00Z',
+    scheduledEnd: null,
+    actualStart: '2026-07-05T08:10:00Z',
+    actualEnd: null,
+    startUsageValue: 14500,
+    endUsageValue: null,
+    createdAt: '2026-07-04T09:00:00Z',
+  },
+  {
+    id: 'job-3',
+    title: 'Entrega finalizada',
+    description: null,
+    vehicleId: SEED_VEHICLES[0]!.id,
+    vehicleLicensePlate: SEED_VEHICLES[0]!.licensePlate,
+    assignedDriverId: DRIVER_WORKER_ID,
+    assignedDriverName: SEED_WORKERS[0]!.fullName,
+    clientId: SEED_CLIENTS[1]!.id,
+    clientName: SEED_CLIENTS[1]!.name,
+    status: 'COMPLETED',
+    originLocation: 'Almacén Central',
+    destinationLocation: 'Cliente Ibérica',
+    notes: null,
+    scheduledStart: '2026-06-20T08:00:00Z',
+    scheduledEnd: null,
+    actualStart: '2026-06-20T08:05:00Z',
+    actualEnd: '2026-06-20T12:00:00Z',
+    startUsageValue: 14000,
+    endUsageValue: 14300,
+    createdAt: '2026-06-19T09:00:00Z',
+  },
+  {
+    id: 'job-4',
+    title: 'Traslado de excavadora',
+    description: null,
+    vehicleId: SEED_VEHICLES[1]!.id,
+    vehicleLicensePlate: SEED_VEHICLES[1]!.licensePlate,
+    assignedDriverId: null,
+    assignedDriverName: null,
+    clientId: null,
+    clientName: null,
+    status: 'PENDING',
+    originLocation: 'Taller',
+    destinationLocation: 'Obra Norte',
+    notes: null,
+    scheduledStart: null,
+    scheduledEnd: null,
+    actualStart: null,
+    actualEnd: null,
+    startUsageValue: null,
+    endUsageValue: null,
+    createdAt: '2026-07-02T09:00:00Z',
+  },
+]
+
+let jobs: Job[] = [...SEED_JOBS]
+
+export function resetJobsMock() {
+  jobs = [...SEED_JOBS]
+}
+
 export const handlers = [
   http.get('/api/v1/clients', ({ request }) => {
     const url = new URL(request.url)
@@ -720,6 +857,253 @@ export const handlers = [
     )
 
     return HttpResponse.json(content)
+  }),
+
+  http.get('/api/v1/jobs', ({ request }) => {
+    const url = new URL(request.url)
+    const page = Number(url.searchParams.get('page') ?? 0)
+    const size = Number(url.searchParams.get('size') ?? 20)
+
+    const source =
+      useAuthStore.getState().role === 'DRIVER'
+        ? jobs.filter(
+            (job) => job.assignedDriverId === DRIVER_WORKER_ID && JOB_ACTIVE_STATUSES.includes(job.status),
+          )
+        : jobs
+
+    const start = page * size
+    const content = source.slice(start, start + size)
+
+    return HttpResponse.json({
+      content,
+      page,
+      size,
+      totalElements: source.length,
+      totalPages: Math.max(1, Math.ceil(source.length / size)),
+    })
+  }),
+
+  http.post('/api/v1/jobs', async ({ request }) => {
+    const body = (await request.json()) as JobRequestBody
+
+    const vehicle = vehicles.find((v) => v.id === body.vehicleId)
+    if (!vehicle) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'VEHICLE_NOT_FOUND',
+          message: `Vehicle ${body.vehicleId} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    let driver: Worker | undefined
+    if (body.assignedDriverId) {
+      driver = workers.find((w) => w.id === body.assignedDriverId)
+      if (!driver) {
+        return HttpResponse.json(
+          {
+            status: 404,
+            code: 'WORKER_NOT_FOUND',
+            message: `Worker ${body.assignedDriverId} not found`,
+            correlationId: 'test-correlation-id',
+          },
+          { status: 404 },
+        )
+      }
+    }
+
+    let client: Client | undefined
+    if (body.clientId) {
+      client = clients.find((c) => c.id === body.clientId)
+      if (!client) {
+        return HttpResponse.json(
+          {
+            status: 404,
+            code: 'CLIENT_NOT_FOUND',
+            message: `Client ${body.clientId} not found`,
+            correlationId: 'test-correlation-id',
+          },
+          { status: 404 },
+        )
+      }
+    }
+
+    const newJob: Job = {
+      id: `job-${jobs.length + 1}`,
+      title: body.title,
+      description: body.description ?? null,
+      vehicleId: vehicle.id,
+      vehicleLicensePlate: vehicle.licensePlate,
+      assignedDriverId: driver?.id ?? null,
+      assignedDriverName: driver?.fullName ?? null,
+      clientId: client?.id ?? null,
+      clientName: client?.name ?? null,
+      status: 'PENDING',
+      originLocation: body.originLocation,
+      destinationLocation: body.destinationLocation,
+      notes: body.notes ?? null,
+      scheduledStart: body.scheduledStart ?? null,
+      scheduledEnd: body.scheduledEnd ?? null,
+      actualStart: null,
+      actualEnd: null,
+      startUsageValue: null,
+      endUsageValue: null,
+      createdAt: new Date().toISOString(),
+    }
+    jobs = [...jobs, newJob]
+
+    return HttpResponse.json(newJob, { status: 201 })
+  }),
+
+  http.patch('/api/v1/jobs/:id/start', async ({ request, params }) => {
+    const index = jobs.findIndex((job) => job.id === params.id)
+    const existing = jobs[index]
+
+    if (!existing) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'JOB_NOT_FOUND',
+          message: `Job ${params.id} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    if (existing.status !== 'PENDING') {
+      return HttpResponse.json(
+        {
+          status: 409,
+          code: 'JOB_INVALID_STATE_TRANSITION',
+          message: `Job ${params.id} cannot be started from state ${existing.status}`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 409 },
+      )
+    }
+
+    const body = (await request.json().catch(() => null)) as { startUsageValue?: number | null } | null
+
+    const updated: Job = {
+      ...existing,
+      status: 'IN_PROGRESS',
+      actualStart: new Date().toISOString(),
+      startUsageValue: body?.startUsageValue ?? existing.startUsageValue,
+    }
+    jobs = jobs.map((job, i) => (i === index ? updated : job))
+
+    return HttpResponse.json(updated)
+  }),
+
+  http.patch('/api/v1/jobs/:id/complete', async ({ request, params }) => {
+    const index = jobs.findIndex((job) => job.id === params.id)
+    const existing = jobs[index]
+
+    if (!existing) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'JOB_NOT_FOUND',
+          message: `Job ${params.id} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    if (existing.status !== 'IN_PROGRESS') {
+      return HttpResponse.json(
+        {
+          status: 409,
+          code: 'JOB_INVALID_STATE_TRANSITION',
+          message: `Job ${params.id} cannot be completed from state ${existing.status}`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 409 },
+      )
+    }
+
+    const body = (await request.json().catch(() => null)) as { endUsageValue?: number | null } | null
+    const endUsageValue = body?.endUsageValue ?? existing.endUsageValue
+
+    const vehicle = vehicles.find((v) => v.id === existing.vehicleId)
+    const currentUsage = vehicle
+      ? vehicle.usageMeasure === 'KILOMETERS'
+        ? vehicle.currentKm
+        : vehicle.currentHours
+      : null
+    const floor = Math.max(currentUsage ?? -Infinity, existing.startUsageValue ?? -Infinity)
+    if (endUsageValue != null && floor !== -Infinity && endUsageValue < floor) {
+      return HttpResponse.json(
+        {
+          status: 409,
+          code: 'JOB_USAGE_VALUE_BELOW_CURRENT',
+          message: `endUsageValue ${endUsageValue} for job ${params.id} is lower than the current recorded usage (${floor})`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 409 },
+      )
+    }
+
+    const updated: Job = {
+      ...existing,
+      status: 'COMPLETED',
+      actualEnd: new Date().toISOString(),
+      endUsageValue,
+    }
+    jobs = jobs.map((job, i) => (i === index ? updated : job))
+
+    if (vehicle && endUsageValue != null) {
+      vehicles = vehicles.map((v) =>
+        v.id === vehicle.id
+          ? {
+              ...v,
+              currentKm: v.usageMeasure === 'KILOMETERS' ? endUsageValue : v.currentKm,
+              currentHours: v.usageMeasure === 'HOURS' ? endUsageValue : v.currentHours,
+            }
+          : v,
+      )
+    }
+
+    return HttpResponse.json(updated)
+  }),
+
+  http.patch('/api/v1/jobs/:id/cancel', ({ params }) => {
+    const index = jobs.findIndex((job) => job.id === params.id)
+    const existing = jobs[index]
+
+    if (!existing) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'JOB_NOT_FOUND',
+          message: `Job ${params.id} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    if (existing.status !== 'PENDING' && existing.status !== 'IN_PROGRESS') {
+      return HttpResponse.json(
+        {
+          status: 409,
+          code: 'JOB_INVALID_STATE_TRANSITION',
+          message: `Job ${params.id} cannot be cancelled from state ${existing.status}`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 409 },
+      )
+    }
+
+    const updated: Job = { ...existing, status: 'CANCELLED' }
+    jobs = jobs.map((job, i) => (i === index ? updated : job))
+
+    return HttpResponse.json(updated)
   }),
 
   http.post('/api/v1/auth/login', async ({ request }) => {
