@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useAuthStore } from '@fleetmgm/store'
-import { resetWorkersMock, SEED_WORKERS } from '@/mocks/handlers'
+import { resetAssignmentsMock, resetWorkersMock, SEED_ASSIGNMENTS, SEED_WORKERS } from '@/mocks/handlers'
 import { Workers } from './Workers'
 
 function renderWorkers() {
@@ -31,6 +31,7 @@ function loginAs(role: 'ADMIN' | 'DRIVER') {
 describe('Workers', () => {
   beforeEach(() => {
     resetWorkersMock()
+    resetAssignmentsMock()
     useAuthStore.getState().logout()
   })
 
@@ -60,5 +61,32 @@ describe('Workers', () => {
     expect(screen.queryByRole('button', { name: /nuevo trabajador/i })).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Editar trabajador')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Eliminar trabajador')).not.toBeInTheDocument()
+  })
+
+  it('shows the assigned vehicle license plate for a worker with an active assignment', async () => {
+    loginAs('ADMIN')
+    renderWorkers()
+
+    const [activeAssignment] = SEED_ASSIGNMENTS
+    expect(await screen.findByText(activeAssignment!.vehicleLicensePlate!)).toBeInTheDocument()
+  })
+
+  it('shows "<make> <model>" for a worker assigned to a vehicle without a license plate', async () => {
+    loginAs('ADMIN')
+    renderWorkers()
+
+    const heavyMachineryAssignment = SEED_ASSIGNMENTS.find((assignment) => !assignment.vehicleLicensePlate)!
+    expect(
+      await screen.findByText(`${heavyMachineryAssignment.vehicleMake} ${heavyMachineryAssignment.vehicleModel}`),
+    ).toBeInTheDocument()
+  })
+
+  it('shows a dash for a worker without an active assignment', async () => {
+    loginAs('ADMIN')
+    renderWorkers()
+
+    const thirdWorker = SEED_WORKERS.find((worker) => worker.id === 'worker-3')!
+    const row = (await screen.findByText(thirdWorker.fullName)).closest('tr')!
+    expect(row).toHaveTextContent('—')
   })
 })

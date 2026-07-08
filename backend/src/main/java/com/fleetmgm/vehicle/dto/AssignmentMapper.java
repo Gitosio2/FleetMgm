@@ -11,6 +11,8 @@ public interface AssignmentMapper {
     @Mapping(target = "driverName", source = "driver.fullName")
     @Mapping(target = "vehicleId", source = "vehicle.id")
     @Mapping(target = "vehicleLicensePlate", source = "vehicle.licensePlate")
+    @Mapping(target = "vehicleMake", source = "vehicle.make")
+    @Mapping(target = "vehicleModel", source = "vehicle.model")
     @Mapping(target = "assignedByUserId", source = "assignedByUser.id")
     AssignmentResponse toResponse(DriverVehicleAssignment assignment);
 

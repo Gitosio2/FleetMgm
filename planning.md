@@ -472,21 +472,23 @@ FleetMgm/
   > **Nota (revisión Hito 17):** `AssignmentController` no usa `@RequestMapping` de clase porque el contrato mezcla dos bases de recursos (`/api/v1/assignments` y `/api/v1/workers/{id}/assignments`); cada método declara su ruta completa. `AssignmentService` se creó como stub (`UnsupportedOperationException`, no listado en este checklist) solo para que el controller compile — decisión explícita para que el Hito 18 arranque en RED de verdad, sin lógica adelantada.
 
 ### Hito 18 — Asignaciones: Lógica e implementación
-- [ ] **[RED]** Tests `AssignmentServiceTest` — asignar OK, conductor ya tiene asignación activa → excepción, finalizar asignación, @PreAuthorize solo ADMIN/MANAGER/ADMINISTRATIVE
-- [ ] **[RED]** Tests `AssignmentRepositoryTest` (`@DataJpaTest` + Testcontainers) — findActiveByDriverId, unique partial index garantiza una sola activa
-- [ ] **[RED]** Tests `AssignmentControllerTest` (`@WebMvcTest`) — 201, 400, 404, 403 por rol
-- [ ] **[GREEN]** `AssignmentRepository` — ampliar el stub existente (`findActiveByDriverEmail`, usado hoy por `VehicleService`) con `findActiveByDriverId`, `findActiveByVehicleId`, historial paginado
-- [ ] **[GREEN]** `AssignmentService.assign()` — validar una sola asignación activa por conductor, crear asignación
-- [ ] **[GREEN]** `AssignmentService.endAssignment()` — `endDate = now()` en la asignación activa
-- [ ] **[GREEN]** `@PreAuthorize` — solo ADMIN/MANAGER/ADMINISTRATIVE pueden asignar
+- [x] **[RED]** Tests `AssignmentServiceTest` — asignar OK, conductor ya tiene asignación activa → excepción, finalizar asignación, @PreAuthorize solo ADMIN/MANAGER/ADMINISTRATIVE
+- [x] **[RED]** Tests `AssignmentRepositoryTest` (`@DataJpaTest` + Testcontainers) — findActiveByDriverId, unique partial index garantiza una sola activa
+- [x] **[RED]** Tests `AssignmentControllerTest` (`@WebMvcTest`) — 201, 400, 404, 409 (sin 403: `@PreAuthorize` vive en el service y un `@MockBean` en `@WebMvcTest` salta el proxy AOP — mismo gap heredado de Worker/Vehicle, no cerrado acá)
+- [x] **[GREEN]** `AssignmentRepository` — ampliado con `findActiveByDriverId`, `findActiveByVehicleId` (solo query, sin regla de negocio adicional — el índice único solo protege un vehículo activo por conductor, no al revés), historial paginado (`findByDriverId`)
+- [x] **[GREEN]** `AssignmentService.assign()` — 404 si falta driver/vehicle, 409 `ASSIGNMENT_DRIVER_ALREADY_ACTIVE` si el conductor ya tiene asignación activa, resuelve `assignedByUser` desde `SecurityContextHolder` (mismo patrón que `VehicleService`)
+- [x] **[GREEN]** `AssignmentService.endAssignment()` — `endDate = now()` en la asignación
+- [x] **[GREEN]** `@PreAuthorize` — solo ADMIN/MANAGER/ADMINISTRATIVE pueden asignar/finalizar/ver historial
+  > **Nota (revisión Hito 18):** al correr `AssignmentRepositoryTest` con Docker se detectó que ningún `*RepositoryTest` del proyecto corría nunca (ni local ni en CI) — `pom.xml` tenía `excludedGroups=integration` hardcodeado como texto literal, no overrideable por el profile `failsafe`. Arreglado en PR aparte (`fix-backend-integration-test-execution`, base de esta rama) junto con un segundo bug que ese fix destapó: `@DataJpaTest` no escaneaba `JpaAuditingConfig`, así que `createdAt` nunca se poblaba vía `TestEntityManager`. Esta rama depende de esa PR — mergear esa primero.
 
 ### Hito 19 — Frontend: Assignments
 > Requiere: Hitos 17–18 (backend assignments)
-- [ ] **[RED]** Handlers MSW — `POST /api/v1/assignments`, `PATCH /{id}/end`, `GET /api/v1/workers/{id}/assignments`
-- [ ] **[RED]** Tests `Assignments.test.tsx` — modal asignación crea correctamente, finalizar asignación actualiza la lista, historial paginado renderiza, 403 oculta acciones a DRIVER
-- [ ] **[GREEN]** `packages/hooks/src/useAssignments.ts` — assign, endAssignment, historial paginado
-- [ ] **[GREEN]** `apps/web/src/components/assignment/` — `AssignmentModal`, `AssignmentHistory`
-- [ ] **[GREEN]** Panel de asignación integrado en página `Vehicles` (detalle de vehículo)
+- [x] **[RED]** Handlers MSW — `POST /api/v1/assignments`, `PATCH /{id}/end`, `GET /api/v1/workers/{id}/assignments`
+- [x] **[RED]** Tests `Assignments.test.tsx` — modal asignación crea correctamente, finalizar asignación actualiza la lista, historial paginado renderiza, 403 oculta acciones a DRIVER
+- [x] **[GREEN]** `packages/hooks/src/useAssignments.ts` — assign, endAssignment, historial paginado
+- [x] **[GREEN]** `apps/web/src/components/assignment/` — `AssignmentModal`, `AssignmentHistory`
+- [x] **[GREEN]** Panel de asignación integrado en página `Vehicles` (detalle de vehículo)
+  > **Nota (revisión Hito 19):** el backend solo expone historial por conductor (`GET /workers/{id}/assignments`), no por vehículo — no hay endpoint de "asignación activa de este vehículo". `VehicleAssignmentPanel` resuelve esto con un selector de conductor en el modal; el `driverId` asignado queda en estado local del componente (se pierde al recargar la página), decisión tomada con el usuario para no reabrir el backend de los Hitos 17/18 solo por esto. Se agregó un tercer worker semilla (`worker-3`, DRIVER sin asignación activa) en `mocks/handlers.ts` para poder probar el alta sin chocar con el conflicto 409 del conductor ya asignado.
 
 ---
 

@@ -233,6 +233,32 @@ export const SEED_WORKERS: Worker[] = [
     userId: null,
     createdAt: '2026-02-01T09:00:00Z',
   },
+  {
+    id: 'worker-3',
+    firstName: 'Marta',
+    lastName: 'Ruiz',
+    fullName: 'Marta Ruiz',
+    workerRole: 'DRIVER',
+    nationalId: '11223344C',
+    phone: '+34633333333',
+    licenseType: 'C',
+    licenseExpiry: '2028-09-01',
+    userId: 'user-driver-2',
+    createdAt: '2026-03-01T09:00:00Z',
+  },
+  {
+    id: 'worker-4',
+    firstName: 'Pablo',
+    lastName: 'Sánchez',
+    fullName: 'Pablo Sánchez',
+    workerRole: 'DRIVER',
+    nationalId: '55667788D',
+    phone: '+34644444444',
+    licenseType: 'C',
+    licenseExpiry: '2029-01-01',
+    userId: 'user-driver-3',
+    createdAt: '2026-03-05T09:00:00Z',
+  },
 ]
 
 // The mock has no assignment table — the driver's own profile is always the first seed worker.
@@ -242,6 +268,70 @@ let workers: Worker[] = [...SEED_WORKERS]
 
 export function resetWorkersMock() {
   workers = [...SEED_WORKERS]
+}
+
+type Assignment = {
+  id: string
+  driverId: string
+  driverName: string
+  vehicleId: string
+  vehicleLicensePlate: string | null
+  vehicleMake: string | null
+  vehicleModel: string | null
+  startDate: string
+  endDate: string | null
+  assignedByUserId: string
+  notes: string | null
+  createdAt: string
+  active: boolean
+}
+
+type AssignmentRequestBody = {
+  driverId: string
+  vehicleId: string
+  startDate: string
+  notes?: string | null
+}
+
+const ASSIGNED_BY_USER_ID = 'user-admin-1'
+
+export const SEED_ASSIGNMENTS: Assignment[] = [
+  {
+    id: 'assignment-1',
+    driverId: DRIVER_WORKER_ID,
+    driverName: SEED_WORKERS[0]!.fullName,
+    vehicleId: DRIVER_VEHICLE_ID,
+    vehicleLicensePlate: SEED_VEHICLES[0]!.licensePlate,
+    vehicleMake: SEED_VEHICLES[0]!.make,
+    vehicleModel: SEED_VEHICLES[0]!.model,
+    startDate: '2026-01-15',
+    endDate: null,
+    assignedByUserId: ASSIGNED_BY_USER_ID,
+    notes: null,
+    createdAt: '2026-01-15T09:00:00Z',
+    active: true,
+  },
+  {
+    id: 'assignment-2',
+    driverId: SEED_WORKERS[3]!.id,
+    driverName: SEED_WORKERS[3]!.fullName,
+    vehicleId: SEED_VEHICLES[1]!.id,
+    vehicleLicensePlate: SEED_VEHICLES[1]!.licensePlate,
+    vehicleMake: SEED_VEHICLES[1]!.make,
+    vehicleModel: SEED_VEHICLES[1]!.model,
+    startDate: '2026-02-20',
+    endDate: null,
+    assignedByUserId: ASSIGNED_BY_USER_ID,
+    notes: null,
+    createdAt: '2026-02-20T09:00:00Z',
+    active: true,
+  },
+]
+
+let assignments: Assignment[] = [...SEED_ASSIGNMENTS]
+
+export function resetAssignmentsMock() {
+  assignments = [...SEED_ASSIGNMENTS]
 }
 
 export const handlers = [
@@ -502,6 +592,134 @@ export const handlers = [
   http.delete('/api/v1/workers/:id', ({ params }) => {
     workers = workers.filter((worker) => worker.id !== params.id)
     return new HttpResponse(null, { status: 204 })
+  }),
+
+  http.post('/api/v1/assignments', async ({ request }) => {
+    const body = (await request.json()) as AssignmentRequestBody
+
+    const driver = workers.find((worker) => worker.id === body.driverId)
+    if (!driver) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'WORKER_NOT_FOUND',
+          message: `Worker ${body.driverId} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    const vehicle = vehicles.find((v) => v.id === body.vehicleId)
+    if (!vehicle) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'VEHICLE_NOT_FOUND',
+          message: `Vehicle ${body.vehicleId} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    if (assignments.some((assignment) => assignment.driverId === body.driverId && assignment.active)) {
+      return HttpResponse.json(
+        {
+          status: 409,
+          code: 'ASSIGNMENT_DRIVER_ALREADY_ACTIVE',
+          message: `Driver ${body.driverId} already has an active assignment`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 409 },
+      )
+    }
+
+    const newAssignment: Assignment = {
+      id: `assignment-${assignments.length + 1}`,
+      driverId: driver.id,
+      driverName: driver.fullName,
+      vehicleId: vehicle.id,
+      vehicleLicensePlate: vehicle.licensePlate,
+      vehicleMake: vehicle.make,
+      vehicleModel: vehicle.model,
+      startDate: body.startDate,
+      endDate: null,
+      assignedByUserId: ASSIGNED_BY_USER_ID,
+      notes: body.notes ?? null,
+      createdAt: new Date().toISOString(),
+      active: true,
+    }
+    assignments = [...assignments, newAssignment]
+
+    return HttpResponse.json(newAssignment, { status: 201 })
+  }),
+
+  http.patch('/api/v1/assignments/:id/end', ({ params }) => {
+    const index = assignments.findIndex((assignment) => assignment.id === params.id)
+    const existing = assignments[index]
+
+    if (!existing) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'ASSIGNMENT_NOT_FOUND',
+          message: `Assignment ${params.id} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    const updated: Assignment = {
+      ...existing,
+      endDate: new Date().toISOString().slice(0, 10),
+      active: false,
+    }
+    assignments = assignments.map((assignment, i) => (i === index ? updated : assignment))
+
+    return HttpResponse.json(updated)
+  }),
+
+  http.get('/api/v1/workers/:workerId/assignments', ({ request, params }) => {
+    const url = new URL(request.url)
+    const page = Number(url.searchParams.get('page') ?? 0)
+    const size = Number(url.searchParams.get('size') ?? 20)
+
+    const content = assignments.filter((assignment) => assignment.driverId === params.workerId)
+    const start = page * size
+    const pageContent = content.slice(start, start + size)
+
+    return HttpResponse.json({
+      content: pageContent,
+      page,
+      size,
+      totalElements: content.length,
+      totalPages: Math.max(1, Math.ceil(content.length / size)),
+    })
+  }),
+
+  http.get('/api/v1/vehicles/:vehicleId/assignment', ({ params }) => {
+    const active = assignments.find(
+      (assignment) => assignment.vehicleId === params.vehicleId && assignment.active,
+    )
+
+    if (!active) {
+      return new HttpResponse(null, { status: 204 })
+    }
+
+    return HttpResponse.json(active)
+  }),
+
+  http.get('/api/v1/assignments/active', ({ request }) => {
+    const url = new URL(request.url)
+    const driverIds = (url.searchParams.get('driverIds') ?? '').split(',').filter(Boolean)
+
+    const content = assignments.filter(
+      (assignment) => assignment.active && driverIds.includes(assignment.driverId),
+    )
+
+    return HttpResponse.json(content)
   }),
 
   http.post('/api/v1/auth/login', async ({ request }) => {
