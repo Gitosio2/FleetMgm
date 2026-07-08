@@ -517,11 +517,12 @@ FleetMgm/
 
 ### Hito 22 — Frontend: Jobs
 > Requiere: Hitos 20–21 (backend jobs)
-- [ ] **[RED]** Handlers MSW — `GET /api/v1/jobs`, `POST`, `PATCH /{id}/start`, `PATCH /{id}/complete`, `PATCH /{id}/cancel`
-- [ ] **[RED]** Tests `Jobs.test.tsx` — lista renderiza; DRIVER solo ve sus trabajos activos; botones start/complete/cancel aparecen según rol y estado; transición de estado actualiza el badge
-- [ ] **[GREEN]** `packages/hooks/src/useJobs.ts` — lista paginada, create, start, complete, cancel con invalidación de caché
-- [ ] **[GREEN]** `apps/web/src/components/job/` — `JobTable`, `JobStatusBadge`, `JobFormModal`, `JobActionButtons`
-- [ ] **[GREEN]** Página `Jobs` — composición de componentes, filtro por estado
+- [x] **[RED]** Handlers MSW — `GET /api/v1/jobs`, `POST`, `PATCH /{id}/start`, `PATCH /{id}/complete`, `PATCH /{id}/cancel` (incluye los 409 `JOB_INVALID_STATE_TRANSITION`/`JOB_USAGE_VALUE_BELOW_CURRENT` para poder testear esos caminos de error)
+- [x] **[RED]** Tests `Jobs.test.tsx` — lista renderiza; DRIVER solo ve sus trabajos activos; botones start/complete/cancel aparecen según rol y estado; transición de estado actualiza el badge
+- [x] **[GREEN]** `packages/hooks/src/useJobs.ts` — lista paginada, create, update, start, complete, cancel con invalidación de caché
+- [x] **[GREEN]** `apps/web/src/components/job/` — `JobTable`, `JobStatusBadge`, `JobFormModal`, `JobActionButtons`
+- [x] **[GREEN]** Página `Jobs` — composición de componentes, ruta `/jobs` protegida (management + DRIVER)
+  > **Nota (revisión Hito 22):** los botones de acción (Iniciar/Completar/Cancelar) no están condicionados por rol, solo por el estado del trabajo — cualquiera que pueda ver un trabajo en esta página ya tiene permiso para actuar sobre él (management sin restricción; DRIVER porque `list()` ya le filtra el backend a sus propios trabajos activos, blindado en el Hito 21). Solo "Nuevo trabajo" es management-only. Cancelar está disponible tanto en `PENDING` como en `IN_PROGRESS` (coincide con lo que ya permite `JobService.cancel()`). `JobResponse` no desnormaliza `vehicleMake`/`vehicleModel` (a diferencia de `AssignmentResponse`), así que un trabajo con vehículo sin matrícula muestra "—" en la columna Vehículo — pendiente si se decide extenderlo. Verificado además a mano en navegador real (Playwright, no incluido en el repo) contra el dev server con MSW activo, sin errores de consola.
 
 ---
 

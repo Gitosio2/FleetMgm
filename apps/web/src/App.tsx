@@ -6,6 +6,7 @@ import { Dashboard } from '@/pages/Dashboard'
 import { Clients } from '@/pages/Clients'
 import { Vehicles } from '@/pages/Vehicles'
 import { Workers } from '@/pages/Workers'
+import { Jobs } from '@/pages/Jobs'
 import { NotImplemented } from '@/pages/NotImplemented'
 import { NAV_ITEMS, MANAGEMENT_ROLES } from '@/components/layout/nav-items'
 
@@ -46,9 +47,21 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/jobs"
+          element={
+            <ProtectedRoute allowedRoles={[...MANAGEMENT_ROLES, 'DRIVER']}>
+              <Jobs />
+            </ProtectedRoute>
+          }
+        />
         {NAV_ITEMS.filter(
           (item) =>
-            item.to !== '/' && item.to !== '/clients' && item.to !== '/vehicles' && item.to !== '/workers',
+            item.to !== '/' &&
+            item.to !== '/clients' &&
+            item.to !== '/vehicles' &&
+            item.to !== '/workers' &&
+            item.to !== '/jobs',
         ).map((item) => (
           <Route key={item.to} path={item.to} element={<NotImplemented />} />
         ))}
