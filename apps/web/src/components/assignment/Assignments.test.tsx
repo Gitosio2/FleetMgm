@@ -12,6 +12,7 @@ import {
 } from '@/mocks/handlers'
 import { AssignmentModal } from './AssignmentModal'
 import { AssignmentHistory } from './AssignmentHistory'
+import { VehicleAssignmentPanel } from './VehicleAssignmentPanel'
 
 function renderWithClient(ui: ReactNode) {
   const queryClient = new QueryClient({
@@ -83,5 +84,41 @@ describe('Assignments', () => {
 
     await screen.findByText('Activa')
     expect(screen.queryByRole('button', { name: /finalizar asignación/i })).not.toBeInTheDocument()
+  })
+
+  it('shows the Spanish error message when the assignment conflicts', async () => {
+    const user = userEvent.setup()
+    const onAssigned = vi.fn()
+    const alreadyAssignedDriver = SEED_WORKERS.find((worker) => worker.id === FIRST_ASSIGNMENT!.driverId)!
+
+    renderWithClient(
+      <AssignmentModal
+        open
+        onOpenChange={() => {}}
+        vehicleId={SECOND_VEHICLE!.id}
+        vehicleLabel={`${SECOND_VEHICLE!.make} ${SECOND_VEHICLE!.model}`}
+        drivers={[alreadyAssignedDriver]}
+        onAssigned={onAssigned}
+      />,
+    )
+
+    await user.selectOptions(screen.getByLabelText('Conductor'), alreadyAssignedDriver.id)
+    await user.type(screen.getByLabelText('Fecha de inicio'), '2026-03-01')
+    await user.click(screen.getByRole('button', { name: /^asignar$/i }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Este conductor ya tiene un vehículo asignado.')
+    expect(onAssigned).not.toHaveBeenCalled()
+  })
+
+  it('shows the currently assigned driver for a vehicle on mount', async () => {
+    renderWithClient(
+      <VehicleAssignmentPanel
+        vehicleId={FIRST_ASSIGNMENT!.vehicleId}
+        vehicleLabel="Vehicle"
+        canManage
+      />,
+    )
+
+    expect(await screen.findByText(`Conductor asignado: ${FIRST_ASSIGNMENT!.driverName}`)).toBeInTheDocument()
   })
 })

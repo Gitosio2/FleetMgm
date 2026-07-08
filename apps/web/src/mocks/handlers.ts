@@ -665,6 +665,18 @@ export const handlers = [
     })
   }),
 
+  http.get('/api/v1/vehicles/:vehicleId/assignment', ({ params }) => {
+    const active = assignments.find(
+      (assignment) => assignment.vehicleId === params.vehicleId && assignment.active,
+    )
+
+    if (!active) {
+      return new HttpResponse(null, { status: 204 })
+    }
+
+    return HttpResponse.json(active)
+  }),
+
   http.post('/api/v1/auth/login', async ({ request }) => {
     const body = (await request.json()) as LoginRequestBody
 

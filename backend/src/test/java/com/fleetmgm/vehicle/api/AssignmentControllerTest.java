@@ -19,6 +19,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -112,5 +113,26 @@ class AssignmentControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content").isArray())
                 .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    // --- GET /api/v1/vehicles/{vehicleId}/assignment ---
+
+    @Test
+    void activeByVehicle_returns200_withBody_whenPresent() throws Exception {
+        UUID vehicleId = UUID.randomUUID();
+        when(assignmentService.activeByVehicle(vehicleId)).thenReturn(Optional.of(sampleResponse()));
+
+        mockMvc.perform(get("/api/v1/vehicles/{vehicleId}/assignment", vehicleId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(ASSIGNMENT_ID.toString()));
+    }
+
+    @Test
+    void activeByVehicle_returns204_whenAbsent() throws Exception {
+        UUID vehicleId = UUID.randomUUID();
+        when(assignmentService.activeByVehicle(vehicleId)).thenReturn(Optional.empty());
+
+        mockMvc.perform(get("/api/v1/vehicles/{vehicleId}/assignment", vehicleId))
+                .andExpect(status().isNoContent());
     }
 }

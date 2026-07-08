@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -81,5 +82,11 @@ public class AssignmentService {
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ADMINISTRATIVE')")
     public PageResponse<AssignmentResponse> historyByWorker(UUID workerId, Pageable pageable) {
         return PageResponse.from(assignmentRepository.findByDriverId(workerId, pageable).map(assignmentMapper::toResponse));
+    }
+
+    @Transactional(readOnly = true)
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ADMINISTRATIVE')")
+    public Optional<AssignmentResponse> activeByVehicle(UUID vehicleId) {
+        return assignmentRepository.findActiveByVehicleId(vehicleId).map(assignmentMapper::toResponse);
     }
 }

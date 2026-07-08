@@ -18,6 +18,19 @@ export function useWorkerAssignments(workerId: string, page = 0, size = 20) {
   })
 }
 
+export function useVehicleAssignment(vehicleId: string) {
+  return useQuery({
+    queryKey: [ASSIGNMENTS_KEY, 'vehicle', vehicleId],
+    queryFn: async () => {
+      const { data } = await apiClient.get<Assignment | ''>(`/vehicles/${vehicleId}/assignment`, {
+        validateStatus: (status) => status === 200 || status === 204,
+      })
+      return data === '' || data == null ? null : data
+    },
+    enabled: Boolean(vehicleId),
+  })
+}
+
 export function useCreateAssignment() {
   const queryClient = useQueryClient()
 
@@ -26,8 +39,10 @@ export function useCreateAssignment() {
       const { data } = await apiClient.post<Assignment>('/assignments', request)
       return data
     },
-    onSuccess: (assignment) =>
-      queryClient.invalidateQueries({ queryKey: [ASSIGNMENTS_KEY, 'worker', assignment.driverId] }),
+    onSuccess: (assignment) => {
+      queryClient.invalidateQueries({ queryKey: [ASSIGNMENTS_KEY, 'worker', assignment.driverId] })
+      queryClient.invalidateQueries({ queryKey: [ASSIGNMENTS_KEY, 'vehicle', assignment.vehicleId] })
+    },
   })
 }
 
@@ -39,7 +54,9 @@ export function useEndAssignment() {
       const { data } = await apiClient.patch<Assignment>(`/assignments/${id}/end`)
       return data
     },
-    onSuccess: (assignment) =>
-      queryClient.invalidateQueries({ queryKey: [ASSIGNMENTS_KEY, 'worker', assignment.driverId] }),
+    onSuccess: (assignment) => {
+      queryClient.invalidateQueries({ queryKey: [ASSIGNMENTS_KEY, 'worker', assignment.driverId] })
+      queryClient.invalidateQueries({ queryKey: [ASSIGNMENTS_KEY, 'vehicle', assignment.vehicleId] })
+    },
   })
 }

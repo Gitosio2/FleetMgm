@@ -43,4 +43,11 @@ public class AssignmentController {
             @PageableDefault(size = 20, sort = "startDate") Pageable pageable) {
         return ResponseEntity.ok(assignmentService.historyByWorker(workerId, pageable));
     }
+
+    @GetMapping("/api/v1/vehicles/{vehicleId}/assignment")
+    public ResponseEntity<AssignmentResponse> activeByVehicle(@PathVariable UUID vehicleId) {
+        return assignmentService.activeByVehicle(vehicleId)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.noContent().build());
+    }
 }

@@ -165,6 +165,32 @@ class AssignmentServiceTest {
                         .isEqualTo("ASSIGNMENT_NOT_FOUND"));
     }
 
+    // --- activeByVehicle ---
+
+    @Test
+    void activeByVehicle_returnsMappedResponse_whenPresent() {
+        UUID vehicleId = UUID.randomUUID();
+        DriverVehicleAssignment entity = new DriverVehicleAssignment();
+        AssignmentResponse expected = buildAssignmentResponse(UUID.randomUUID());
+
+        when(assignmentRepository.findActiveByVehicleId(vehicleId)).thenReturn(Optional.of(entity));
+        when(assignmentMapper.toResponse(entity)).thenReturn(expected);
+
+        Optional<AssignmentResponse> result = assignmentService.activeByVehicle(vehicleId);
+
+        assertThat(result).contains(expected);
+    }
+
+    @Test
+    void activeByVehicle_returnsEmpty_whenAbsent() {
+        UUID vehicleId = UUID.randomUUID();
+        when(assignmentRepository.findActiveByVehicleId(vehicleId)).thenReturn(Optional.empty());
+
+        Optional<AssignmentResponse> result = assignmentService.activeByVehicle(vehicleId);
+
+        assertThat(result).isEmpty();
+    }
+
     // --- helpers ---
 
     private AssignmentResponse buildAssignmentResponse(UUID id) {
