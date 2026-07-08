@@ -10,6 +10,8 @@ public record AssignmentResponse(
         String driverName,
         UUID vehicleId,
         String vehicleLicensePlate,
+        String vehicleMake,
+        String vehicleModel,
         LocalDate startDate,
         LocalDate endDate,
         UUID assignedByUserId,

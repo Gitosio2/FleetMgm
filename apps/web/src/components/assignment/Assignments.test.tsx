@@ -69,6 +69,16 @@ describe('Assignments', () => {
     expect(screen.getByText('Activa')).toBeInTheDocument()
   })
 
+  it('shows "<make> <model>" in the history when the vehicle has no license plate', async () => {
+    const heavyMachineryAssignment = SEED_ASSIGNMENTS.find((assignment) => !assignment.vehicleLicensePlate)!
+
+    renderWithClient(<AssignmentHistory workerId={heavyMachineryAssignment.driverId} canManage />)
+
+    expect(
+      await screen.findByText(`${heavyMachineryAssignment.vehicleMake} ${heavyMachineryAssignment.vehicleModel}`),
+    ).toBeInTheDocument()
+  })
+
   it('finalizing an assignment updates the history list', async () => {
     const user = userEvent.setup()
     renderWithClient(<AssignmentHistory workerId={FIRST_ASSIGNMENT!.driverId} canManage />)

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { WorkerTable } from '@/components/worker/WorkerTable'
 import { WorkerFormModal } from '@/components/worker/WorkerFormModal'
 import { MANAGEMENT_ROLES } from '@/components/layout/nav-items'
+import { formatVehicleLabel } from '@/lib/vehicle-label'
 
 const PAGE_SIZE = 20
 
@@ -25,9 +26,7 @@ export function Workers() {
   const assignedVehicleByDriverId = useMemo(() => {
     const map = new Map<string, string>()
     for (const assignment of activeAssignments ?? []) {
-      if (assignment.vehicleLicensePlate) {
-        map.set(assignment.driverId, assignment.vehicleLicensePlate)
-      }
+      map.set(assignment.driverId, formatVehicleLabel(assignment))
     }
     return map
   }, [activeAssignments])

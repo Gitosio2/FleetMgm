@@ -246,6 +246,19 @@ export const SEED_WORKERS: Worker[] = [
     userId: 'user-driver-2',
     createdAt: '2026-03-01T09:00:00Z',
   },
+  {
+    id: 'worker-4',
+    firstName: 'Pablo',
+    lastName: 'Sánchez',
+    fullName: 'Pablo Sánchez',
+    workerRole: 'DRIVER',
+    nationalId: '55667788D',
+    phone: '+34644444444',
+    licenseType: 'C',
+    licenseExpiry: '2029-01-01',
+    userId: 'user-driver-3',
+    createdAt: '2026-03-05T09:00:00Z',
+  },
 ]
 
 // The mock has no assignment table — the driver's own profile is always the first seed worker.
@@ -263,6 +276,8 @@ type Assignment = {
   driverName: string
   vehicleId: string
   vehicleLicensePlate: string | null
+  vehicleMake: string | null
+  vehicleModel: string | null
   startDate: string
   endDate: string | null
   assignedByUserId: string
@@ -287,11 +302,28 @@ export const SEED_ASSIGNMENTS: Assignment[] = [
     driverName: SEED_WORKERS[0]!.fullName,
     vehicleId: DRIVER_VEHICLE_ID,
     vehicleLicensePlate: SEED_VEHICLES[0]!.licensePlate,
+    vehicleMake: SEED_VEHICLES[0]!.make,
+    vehicleModel: SEED_VEHICLES[0]!.model,
     startDate: '2026-01-15',
     endDate: null,
     assignedByUserId: ASSIGNED_BY_USER_ID,
     notes: null,
     createdAt: '2026-01-15T09:00:00Z',
+    active: true,
+  },
+  {
+    id: 'assignment-2',
+    driverId: SEED_WORKERS[3]!.id,
+    driverName: SEED_WORKERS[3]!.fullName,
+    vehicleId: SEED_VEHICLES[1]!.id,
+    vehicleLicensePlate: SEED_VEHICLES[1]!.licensePlate,
+    vehicleMake: SEED_VEHICLES[1]!.make,
+    vehicleModel: SEED_VEHICLES[1]!.model,
+    startDate: '2026-02-20',
+    endDate: null,
+    assignedByUserId: ASSIGNED_BY_USER_ID,
+    notes: null,
+    createdAt: '2026-02-20T09:00:00Z',
     active: true,
   },
 ]
@@ -609,6 +641,8 @@ export const handlers = [
       driverName: driver.fullName,
       vehicleId: vehicle.id,
       vehicleLicensePlate: vehicle.licensePlate,
+      vehicleMake: vehicle.make,
+      vehicleModel: vehicle.model,
       startDate: body.startDate,
       endDate: null,
       assignedByUserId: ASSIGNED_BY_USER_ID,

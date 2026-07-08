@@ -224,6 +224,6 @@ class AssignmentServiceTest {
 
     private AssignmentResponse buildAssignmentResponse(UUID id) {
         return new AssignmentResponse(id, UUID.randomUUID(), "Juan García", UUID.randomUUID(), "1234ABC",
-                LocalDate.now(), null, UUID.randomUUID(), "notes", Instant.now(), true);
+                "Toyota", "Corolla", LocalDate.now(), null, UUID.randomUUID(), "notes", Instant.now(), true);
     }
 }

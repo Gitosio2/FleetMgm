@@ -41,7 +41,7 @@ class AssignmentControllerTest {
 
     private AssignmentResponse sampleResponse() {
         return new AssignmentResponse(ASSIGNMENT_ID, UUID.randomUUID(), "Juan García",
-                UUID.randomUUID(), "1234ABC", LocalDate.now(), null, UUID.randomUUID(),
+                UUID.randomUUID(), "1234ABC", "Toyota", "Corolla", LocalDate.now(), null, UUID.randomUUID(),
                 "notes", Instant.now(), true);
     }
 
@@ -124,7 +124,9 @@ class AssignmentControllerTest {
 
         mockMvc.perform(get("/api/v1/vehicles/{vehicleId}/assignment", vehicleId))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(ASSIGNMENT_ID.toString()));
+                .andExpect(jsonPath("$.id").value(ASSIGNMENT_ID.toString()))
+                .andExpect(jsonPath("$.vehicleMake").value("Toyota"))
+                .andExpect(jsonPath("$.vehicleModel").value("Corolla"));
     }
 
     @Test

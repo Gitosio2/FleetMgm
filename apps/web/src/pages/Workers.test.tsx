@@ -71,6 +71,16 @@ describe('Workers', () => {
     expect(await screen.findByText(activeAssignment!.vehicleLicensePlate!)).toBeInTheDocument()
   })
 
+  it('shows "<make> <model>" for a worker assigned to a vehicle without a license plate', async () => {
+    loginAs('ADMIN')
+    renderWorkers()
+
+    const heavyMachineryAssignment = SEED_ASSIGNMENTS.find((assignment) => !assignment.vehicleLicensePlate)!
+    expect(
+      await screen.findByText(`${heavyMachineryAssignment.vehicleMake} ${heavyMachineryAssignment.vehicleModel}`),
+    ).toBeInTheDocument()
+  })
+
   it('shows a dash for a worker without an active assignment', async () => {
     loginAs('ADMIN')
     renderWorkers()

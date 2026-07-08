@@ -125,6 +125,8 @@ export type Assignment = {
   driverName: string
   vehicleId: string
   vehicleLicensePlate: string | null
+  vehicleMake: string | null
+  vehicleModel: string | null
   startDate: string
   endDate: string | null
   assignedByUserId: string

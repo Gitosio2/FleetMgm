@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useEndAssignment, useWorkerAssignments } from '@fleetmgm/hooks'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { formatVehicleLabel } from '@/lib/vehicle-label'
 
 const PAGE_SIZE = 10
 
@@ -38,7 +39,7 @@ export function AssignmentHistory({ workerId, canManage }: AssignmentHistoryProp
         <TableBody>
           {assignments.map((assignment) => (
             <TableRow key={assignment.id}>
-              <TableCell>{assignment.vehicleLicensePlate ?? '—'}</TableCell>
+              <TableCell>{formatVehicleLabel(assignment)}</TableCell>
               <TableCell>{assignment.startDate}</TableCell>
               <TableCell>{assignment.endDate ?? '—'}</TableCell>
               <TableCell>{assignment.active ? 'Activa' : 'Finalizada'}</TableCell>
