@@ -4,6 +4,7 @@ import com.fleetmgm.billing.domain.Invoice;
 import com.fleetmgm.vehicle.domain.Vehicle;
 import com.fleetmgm.worker.domain.Worker;
 import jakarta.persistence.*;
+import org.hibernate.annotations.SQLRestriction;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -15,6 +16,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "maintenance_records")
+@SQLRestriction("deleted_at IS NULL")
 @EntityListeners(AuditingEntityListener.class)
 public class MaintenanceRecord {
 
@@ -64,6 +66,9 @@ public class MaintenanceRecord {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    @Column(name = "deleted_at")
+    private Instant deletedAt;
+
     public UUID getId() { return id; }
 
     public Vehicle getVehicle() { return vehicle; }
@@ -98,4 +103,7 @@ public class MaintenanceRecord {
 
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
+
+    public Instant getDeletedAt() { return deletedAt; }
+    public void setDeletedAt(Instant deletedAt) { this.deletedAt = deletedAt; }
 }

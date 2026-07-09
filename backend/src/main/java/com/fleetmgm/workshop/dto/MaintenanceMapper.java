@@ -26,6 +26,7 @@ public interface MaintenanceMapper {
     @Mapping(target = "status", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "deletedAt", ignore = true)
     MaintenanceRecord toEntity(CreateMaintenanceRequest request);
 
     @Mapping(target = "id", ignore = true)
@@ -39,5 +40,6 @@ public interface MaintenanceMapper {
     @Mapping(target = "status", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "deletedAt", ignore = true)
     void updateEntity(UpdateMaintenanceRequest request, @MappingTarget MaintenanceRecord maintenanceRecord);
 }
