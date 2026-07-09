@@ -573,16 +573,23 @@ FleetMgm/
 ### Hito 25 — Agenda del taller: Contrato API
 - [x] `Flyway V6` — tabla `workshop_schedules` *(ya aplicada, misma migración que maintenance_records)*
 - [x] `WorkshopSchedule` entity — prioridad, estado *(ya scaffoldeada)*
-- [ ] `CreateScheduleRequest` / `ScheduleResponse` (records)
-- [ ] `ScheduleMapper` (MapStruct)
-- [ ] `WorkshopController` — CRUD + `GET /api/v1/workshop/schedules?range=today|week|month`
+- [x] `CreateScheduleRequest` / `UpdateScheduleRequest` / `ScheduleResponse` (records) — `ScheduleResponse` denormaliza `maintenanceCategory` (`PREVENTIVE`/`CORRECTIVE`) del `MaintenanceRecord` enlazado, null si no hay link
+- [x] `ScheduleMapper` (MapStruct) — `toEntity` ignora `priority` (mismo motivo que `category` en `MaintenanceMapper`: el default `MEDIUM` de la entidad no debe ser sobreescrito por un `null` del request; el service resuelve el default en Hito 26)
+- [x] `WorkshopController` — CRUD (incluye `PUT`/`DELETE`) + `GET /api/v1/workshop/schedules?range=today|week|month` + `PATCH /{id}/start` + `PATCH /{id}/cancel`
+  > **Nota (revisión Hito 25):** (1) **Infra nueva compartida:** `BadRequestException` (`shared/exception/`, simétrica a `NotFoundException`/`ConflictException`) + handler 400 en `GlobalExceptionHandler` — no existía ningún mecanismo para devolver 400 en un query param inválido fuera de `@Valid` en un body; sin esto, un `range` malformado caía al handler genérico → 500 (violaba la regla N de `CLAUDE.md`). (2) Enum `ScheduleRange` (`TODAY`/`WEEK`/`MONTH`) con `fromValue()` case-insensitive — el contrato pide minúsculas (`range=today`) pero `Enum.valueOf()` de Spring es case-sensitive por defecto. (3) `/start` y `/cancel` sin body — la entidad no tiene `actualStart`/`actualEnd` (a diferencia de `Job`/`MaintenanceRecord`), son simples cambios de estado. (4) **Decisión de diseño clave:** NO hay `/complete` manual — `WorkshopSchedule.status` pasa a `COMPLETED` solo vía evento cuando el `MaintenanceCompletedEvent` del mantenimiento enlazado se dispare (Hito 26), evitando el mismo antipatrón de "dos caminos al mismo estado" que se descartó para el listener de borrado en Hito 24. (5) `WorkshopScheduleService` es un stub (`UnsupportedOperationException("Pending Hito 26")` en los 7 métodos) — sin tests todavía, mismo patrón que Hito 23→24.
 
 ### Hito 26 — Agenda del taller: Lógica e implementación
-- [ ] **[RED]** Tests `WorkshopScheduleServiceTest` — listar hoy, listar semana, listar mes, cancelar, @PreAuthorize WORKSHOP_STAFF y superiores
-- [ ] **[RED]** Tests `WorkshopScheduleRepositoryTest` (`@DataJpaTest` + Testcontainers) — queries por rango de fecha devuelven solo registros del periodo correcto
-- [ ] **[RED]** Tests `WorkshopControllerTest` (`@WebMvcTest`) — 201, 400, 404, 403 por rol; parámetro `range` inválido → 400
+- [ ] **[RED]** Tests `WorkshopScheduleServiceTest` — crear (PENDING), listar hoy/semana/mes, `start()` PENDING→IN_PROGRESS, `cancel()` PENDING/IN_PROGRESS→CANCELLED, transición inválida → 409, borrar restringido a PENDING → 409 en otro estado, @PreAuthorize WORKSHOP_STAFF y superiores
+- [ ] **[RED]** Tests `ScheduleCompletionListenerTest` (o equivalente) — `MaintenanceCompletedEvent` con `maintenanceRecordId` enlazado a un schedule → `WorkshopSchedule.status` pasa a `COMPLETED`; sin schedule enlazado → no-op
+- [ ] **[RED]** Tests `WorkshopScheduleRepositoryTest` (`@DataJpaTest` + Testcontainers) — queries por rango de fecha devuelven solo registros del periodo correcto; excluye soft-deleted
+- [ ] **[RED]** Tests `WorkshopControllerTest` (`@WebMvcTest`) — 201, 400, 404, 409; parámetro `range` inválido → 400 (ya cubierto en Hito 25 vía `ScheduleRange.fromValue`, pero el `@WebMvcTest` completo llega acá)
+- [ ] **[GREEN]** Migración `V13__add_workshop_schedule_deleted_at.sql` (`ALTER TABLE workshop_schedules ADD COLUMN deleted_at TIMESTAMPTZ`) + `deletedAt` + `@SQLRestriction` en la entidad + ignore en el mapper *(la seed de datos, hasta ahora V13, pasa a **V14**/Hito 41 — misma corrección de numeración que ya se hizo dos veces; actualizar `planning.md` línea del árbol de arquitectura, Hito 41, y `CLAUDE.md`)*
 - [ ] **[GREEN]** `WorkshopScheduleRepository` — queries por rango de fecha: hoy, semana actual, mes actual
-- [ ] **[GREEN]** `WorkshopScheduleService` — crear, editar, cancelar, listar por rango
+- [ ] **[GREEN]** `WorkshopScheduleService.create()` — crear `PENDING`; default `priority = MEDIUM` si viene null (mismo patrón que `category` en `MaintenanceService`)
+- [ ] **[GREEN]** `WorkshopScheduleService.start()` — `PENDING` → `IN_PROGRESS`
+- [ ] **[GREEN]** `WorkshopScheduleService.cancel()` — `PENDING`/`IN_PROGRESS` → `CANCELLED`
+- [ ] **[GREEN]** `WorkshopScheduleService.delete()` — soft delete restringido a `PENDING` (409 en otro estado, mismo criterio que mantenimiento con `SCHEDULED`), audita vía `AuditLog`
+- [ ] **[GREEN]** Listener — `MaintenanceCompletedEvent` → si existe un `WorkshopSchedule` con ese `maintenanceRecordId`, pasa a `COMPLETED` (sin endpoint manual `/complete`, decisión del Hito 25)
 - [ ] **[GREEN]** `@PreAuthorize` — WORKSHOP_STAFF y superiores
 
 ### Hito 27 — Frontend: Workshop
