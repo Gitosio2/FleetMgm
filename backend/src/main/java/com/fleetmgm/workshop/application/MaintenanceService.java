@@ -11,6 +11,7 @@ import com.fleetmgm.vehicle.domain.Vehicle;
 import com.fleetmgm.vehicle.infrastructure.VehicleRepository;
 import com.fleetmgm.worker.domain.Worker;
 import com.fleetmgm.worker.infrastructure.WorkerRepository;
+import com.fleetmgm.workshop.domain.MaintenanceCategory;
 import com.fleetmgm.workshop.domain.MaintenanceCompletedEvent;
 import com.fleetmgm.workshop.domain.MaintenanceRecord;
 import com.fleetmgm.workshop.domain.MaintenanceStatus;
@@ -77,6 +78,7 @@ public class MaintenanceService {
         record.setVehicle(vehicle);
         record.setTechnician(technician);
         record.setStatus(MaintenanceStatus.SCHEDULED);
+        record.setCategory(request.category() != null ? request.category() : MaintenanceCategory.PREVENTIVE);
         return maintenanceMapper.toResponse(maintenanceRepository.save(record));
     }
 

@@ -12,6 +12,7 @@ import com.fleetmgm.vehicle.domain.Vehicle;
 import com.fleetmgm.vehicle.infrastructure.VehicleRepository;
 import com.fleetmgm.worker.domain.Worker;
 import com.fleetmgm.worker.infrastructure.WorkerRepository;
+import com.fleetmgm.workshop.domain.MaintenanceCategory;
 import com.fleetmgm.workshop.domain.MaintenanceCompletedEvent;
 import com.fleetmgm.workshop.domain.MaintenanceRecord;
 import com.fleetmgm.workshop.domain.MaintenanceStatus;
@@ -71,7 +72,7 @@ class MaintenanceServiceTest {
     @Test
     void create_persistsScheduledRecord_withoutPublishingEvent() {
         UUID vehicleId = UUID.randomUUID();
-        CreateMaintenanceRequest request = new CreateMaintenanceRequest(vehicleId, "Oil change", null, null);
+        CreateMaintenanceRequest request = new CreateMaintenanceRequest(vehicleId, "Oil change", null, null, null);
 
         Vehicle vehicle = new Vehicle();
         MaintenanceRecord entity = new MaintenanceRecord();
@@ -94,9 +95,52 @@ class MaintenanceServiceTest {
     }
 
     @Test
+    void create_defaultsToPreventive_whenCategoryNotProvided() {
+        UUID vehicleId = UUID.randomUUID();
+        CreateMaintenanceRequest request = new CreateMaintenanceRequest(vehicleId, "Oil change", null, null, null);
+
+        Vehicle vehicle = new Vehicle();
+        MaintenanceRecord entity = new MaintenanceRecord();
+        MaintenanceResponse expected = buildResponse(UUID.randomUUID());
+
+        when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(vehicle));
+        when(maintenanceMapper.toEntity(request)).thenReturn(entity);
+        when(maintenanceRepository.save(entity)).thenReturn(entity);
+        when(maintenanceMapper.toResponse(entity)).thenReturn(expected);
+
+        maintenanceService.create(request);
+
+        ArgumentCaptor<MaintenanceRecord> captor = ArgumentCaptor.forClass(MaintenanceRecord.class);
+        verify(maintenanceRepository).save(captor.capture());
+        assertThat(captor.getValue().getCategory()).isEqualTo(MaintenanceCategory.PREVENTIVE);
+    }
+
+    @Test
+    void create_persistsCorrective_whenProvided() {
+        UUID vehicleId = UUID.randomUUID();
+        CreateMaintenanceRequest request = new CreateMaintenanceRequest(
+                vehicleId, "Brake repair", null, null, MaintenanceCategory.CORRECTIVE);
+
+        Vehicle vehicle = new Vehicle();
+        MaintenanceRecord entity = new MaintenanceRecord();
+        MaintenanceResponse expected = buildResponse(UUID.randomUUID());
+
+        when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(vehicle));
+        when(maintenanceMapper.toEntity(request)).thenReturn(entity);
+        when(maintenanceRepository.save(entity)).thenReturn(entity);
+        when(maintenanceMapper.toResponse(entity)).thenReturn(expected);
+
+        maintenanceService.create(request);
+
+        ArgumentCaptor<MaintenanceRecord> captor = ArgumentCaptor.forClass(MaintenanceRecord.class);
+        verify(maintenanceRepository).save(captor.capture());
+        assertThat(captor.getValue().getCategory()).isEqualTo(MaintenanceCategory.CORRECTIVE);
+    }
+
+    @Test
     void create_throwsNotFound_whenVehicleMissing() {
         UUID vehicleId = UUID.randomUUID();
-        CreateMaintenanceRequest request = new CreateMaintenanceRequest(vehicleId, "Oil change", null, null);
+        CreateMaintenanceRequest request = new CreateMaintenanceRequest(vehicleId, "Oil change", null, null, null);
 
         when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.empty());
 
@@ -111,7 +155,7 @@ class MaintenanceServiceTest {
     void create_wiresTechnician_whenProvided() {
         UUID vehicleId = UUID.randomUUID();
         UUID technicianId = UUID.randomUUID();
-        CreateMaintenanceRequest request = new CreateMaintenanceRequest(vehicleId, "Oil change", null, technicianId);
+        CreateMaintenanceRequest request = new CreateMaintenanceRequest(vehicleId, "Oil change", null, technicianId, null);
 
         Vehicle vehicle = new Vehicle();
         Worker technician = new Worker();
@@ -135,7 +179,7 @@ class MaintenanceServiceTest {
     void create_throwsNotFound_whenTechnicianMissing() {
         UUID vehicleId = UUID.randomUUID();
         UUID technicianId = UUID.randomUUID();
-        CreateMaintenanceRequest request = new CreateMaintenanceRequest(vehicleId, "Oil change", null, technicianId);
+        CreateMaintenanceRequest request = new CreateMaintenanceRequest(vehicleId, "Oil change", null, technicianId, null);
 
         when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(new Vehicle()));
         when(workerRepository.findById(technicianId)).thenReturn(Optional.empty());
@@ -276,7 +320,8 @@ class MaintenanceServiceTest {
         UUID id = UUID.randomUUID();
         UUID vehicleId = UUID.randomUUID();
         UUID technicianId = UUID.randomUUID();
-        UpdateMaintenanceRequest request = new UpdateMaintenanceRequest(vehicleId, "Brake check", "front pads", technicianId);
+        UpdateMaintenanceRequest request = new UpdateMaintenanceRequest(
+                vehicleId, "Brake check", "front pads", technicianId, MaintenanceCategory.CORRECTIVE);
         MaintenanceRecord record = new MaintenanceRecord();
         Vehicle vehicle = new Vehicle();
         Worker technician = new Worker();
@@ -299,7 +344,8 @@ class MaintenanceServiceTest {
     @Test
     void update_throwsNotFound_whenMissing() {
         UUID id = UUID.randomUUID();
-        UpdateMaintenanceRequest request = new UpdateMaintenanceRequest(UUID.randomUUID(), "Brake check", null, null);
+        UpdateMaintenanceRequest request = new UpdateMaintenanceRequest(
+                UUID.randomUUID(), "Brake check", null, null, MaintenanceCategory.PREVENTIVE);
 
         when(maintenanceRepository.findById(id)).thenReturn(Optional.empty());
 
@@ -376,6 +422,7 @@ class MaintenanceServiceTest {
 
     private MaintenanceResponse buildResponse(UUID id) {
         return new MaintenanceResponse(id, UUID.randomUUID(), "1234-ABC", "Oil change", null,
-                null, null, null, null, null, null, null, MaintenanceStatus.SCHEDULED, null);
+                null, null, null, null, null, null, null, MaintenanceStatus.SCHEDULED,
+                MaintenanceCategory.PREVENTIVE, null);
     }
 }

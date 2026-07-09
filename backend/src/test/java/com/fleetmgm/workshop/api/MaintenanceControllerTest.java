@@ -5,6 +5,7 @@ import com.fleetmgm.shared.PageResponse;
 import com.fleetmgm.shared.exception.ConflictException;
 import com.fleetmgm.shared.exception.NotFoundException;
 import com.fleetmgm.workshop.application.MaintenanceService;
+import com.fleetmgm.workshop.domain.MaintenanceCategory;
 import com.fleetmgm.workshop.domain.MaintenanceStatus;
 import com.fleetmgm.workshop.dto.MaintenanceResponse;
 import org.junit.jupiter.api.Test;
@@ -42,7 +43,8 @@ class MaintenanceControllerTest {
 
     private MaintenanceResponse sampleResponse() {
         return new MaintenanceResponse(MAINTENANCE_ID, VEHICLE_ID, "1234ABC", "Oil change", null,
-                null, null, null, null, null, null, null, MaintenanceStatus.SCHEDULED, Instant.now());
+                null, null, null, null, null, null, null, MaintenanceStatus.SCHEDULED,
+                MaintenanceCategory.PREVENTIVE, Instant.now());
     }
 
     // --- GET /api/v1/maintenance ---
@@ -118,7 +120,7 @@ class MaintenanceControllerTest {
 
         mockMvc.perform(put("/api/v1/maintenance/{id}", MAINTENANCE_ID)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"vehicleId\":\"" + VEHICLE_ID + "\",\"type\":\"Brake check\"}"))
+                        .content("{\"vehicleId\":\"" + VEHICLE_ID + "\",\"type\":\"Brake check\",\"category\":\"PREVENTIVE\"}"))
                 .andExpect(status().isOk());
     }
 

@@ -1,5 +1,6 @@
 package com.fleetmgm.workshop.dto;
 
+import com.fleetmgm.workshop.domain.MaintenanceCategory;
 import com.fleetmgm.workshop.domain.MaintenanceStatus;
 
 import java.math.BigDecimal;
@@ -21,5 +22,6 @@ public record MaintenanceResponse(
         String technicianName,
         UUID invoiceId,
         MaintenanceStatus status,
+        MaintenanceCategory category,
         Instant createdAt
 ) {}
