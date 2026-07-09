@@ -28,7 +28,7 @@ public class WorkshopController {
 
     @GetMapping
     public ResponseEntity<PageResponse<ScheduleResponse>> list(
-            @RequestParam String range,
+            @RequestParam(required = false) String range,
             @PageableDefault(size = 20, sort = "scheduledDate") Pageable pageable) {
         ScheduleRange parsedRange = ScheduleRange.fromValue(range);
         return ResponseEntity.ok(workshopScheduleService.listByRange(parsedRange, pageable));

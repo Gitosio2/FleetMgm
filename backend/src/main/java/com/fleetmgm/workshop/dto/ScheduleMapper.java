@@ -24,6 +24,7 @@ public interface ScheduleMapper {
     @Mapping(target = "status", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "deletedAt", ignore = true)
     WorkshopSchedule toEntity(CreateScheduleRequest request);
 
     @Mapping(target = "id", ignore = true)
@@ -33,5 +34,6 @@ public interface ScheduleMapper {
     @Mapping(target = "status", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "deletedAt", ignore = true)
     void updateEntity(UpdateScheduleRequest request, @MappingTarget WorkshopSchedule workshopSchedule);
 }
