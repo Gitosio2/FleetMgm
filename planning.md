@@ -529,19 +529,22 @@ FleetMgm/
 ### Hito 23 — Mantenimiento: Contrato API
 - [x] `Flyway V6` — tabla `maintenance_records` *(ya aplicada)*
 - [x] `MaintenanceRecord` entity — enum `MaintenanceStatus` (SCHEDULED/IN_PROGRESS/COMPLETED) *(ya scaffoldeada)*
-- [ ] `CreateMaintenanceRequest` / `MaintenanceResponse` (records)
-- [ ] `MaintenanceMapper` (MapStruct)
-- [ ] `MaintenanceController` — CRUD + `PATCH /{id}/start`, `PATCH /{id}/complete`
+- [x] `CreateMaintenanceRequest` / `UpdateMaintenanceRequest` / `MaintenanceResponse` / `StartMaintenanceRequest` / `CompleteMaintenanceRequest` (records)
+- [x] `MaintenanceMapper` (MapStruct)
+- [x] `MaintenanceController` — CRUD (incluye `PUT`/`DELETE`) + `PATCH /{id}/start`, `PATCH /{id}/complete`
+  > **Nota (revisión Hito 23):** `maintenance_records` se scaffoldeó sin columna `deleted_at` (el modelo de datos tampoco la lista como `soft-delete`), pero **se decidió con el usuario mantener soft-delete por consistencia** con todo el resto del proyecto (`@SQLRestriction("deleted_at IS NULL")`) y para conservar visibilidad/recuperabilidad de los borrados. El *quién* borró va por `AuditLog` (`shared/domain/AuditLog.java` ya tiene `performedByUserId`/`performedByEmail`; hoy solo lo usa `AuthService`), **no** por la columna `deleted_at` (que solo da el *cuándo*). La plomería del soft-delete (migración `V11__add_maintenance_deleted_at.sql` → la seed de datos se corre a V12/Hito 41; campo `deletedAt` + `@SQLRestriction` en la entidad; `@Mapping(target = "deletedAt", ignore = true)` en `toEntity`/`updateEntity` del mapper) aterriza en Hito 24, no acá — este contrato es solo stub (`MaintenanceService` con `UnsupportedOperationException("Pending Hito 24")` en cada método, mismo patrón que Hito 17→18 y 20→21). Borrado permitido **solo en `SCHEDULED`** (ver Hito 24): no se construye ningún listener `onDeleteMaintenance` — con el vehículo entrando a `MAINTENANCE` en `start()` (no en `create()`), un `SCHEDULED` nunca tocó el estado del vehículo, así que no hay efecto que compensar. Borrar un `IN_PROGRESS` sería un *abort* (transición de estado, futuro `cancel()` + enum `CANCELLED` espejo de `Job`), no un `DELETE`.
 
 ### Hito 24 — Mantenimiento: Lógica y eventos
-- [ ] **[RED]** Tests `MaintenanceServiceTest` — crear publica `VehicleEntersWorkshopEvent`, completar publica `MaintenanceCompletedEvent`, transiciones de estado inválidas → excepción
+- [ ] **[RED]** Tests `MaintenanceServiceTest` — iniciar (`start`) publica `VehicleEntersWorkshopEvent`, completar publica `MaintenanceCompletedEvent`, transiciones de estado inválidas → excepción, borrar un registro no-`SCHEDULED` (IN_PROGRESS/COMPLETED) → 409
 - [ ] **[RED]** Tests `VehicleStatusEventTest` — `VehicleEntersWorkshopEvent` cambia Vehicle a MAINTENANCE; `MaintenanceCompletedEvent` lo devuelve a ACTIVE
 - [ ] **[RED]** Tests `MaintenanceControllerTest` (`@WebMvcTest`) — 201, 400, 404, 403; WORKSHOP_STAFF puede crear/editar
 - [ ] **[GREEN]** `MaintenanceRepository`
 - [ ] **[GREEN]** `VehicleEntersWorkshopEvent` + `MaintenanceCompletedEvent` (records)
-- [ ] **[GREEN]** `MaintenanceService.create()` — crear SCHEDULED, publicar `VehicleEntersWorkshopEvent`
-- [ ] **[GREEN]** `MaintenanceService.start()` — SCHEDULED → IN_PROGRESS
+- [ ] **[GREEN]** Migración `V11__add_maintenance_deleted_at.sql` (`ALTER TABLE maintenance_records ADD COLUMN deleted_at TIMESTAMPTZ`) + campo `deletedAt` y `@SQLRestriction("deleted_at IS NULL")` en la entidad + `@Mapping(target = "deletedAt", ignore = true)` en `toEntity`/`updateEntity` del mapper *(la seed de datos, antes reservada como V11, pasa a V12/Hito 41)*
+- [ ] **[GREEN]** `MaintenanceService.create()` — crear SCHEDULED (sin efecto sobre el vehículo todavía)
+- [ ] **[GREEN]** `MaintenanceService.start()` — SCHEDULED → IN_PROGRESS, publicar `VehicleEntersWorkshopEvent` (el vehículo entra a `MAINTENANCE` acá, no en `create()`)
 - [ ] **[GREEN]** `MaintenanceService.complete()` — IN_PROGRESS → COMPLETED, `workshopExitDate = now()`, publicar `MaintenanceCompletedEvent`
+- [ ] **[GREEN]** `MaintenanceService.delete()` — soft delete (`deletedAt = now()` + `save()`); rechaza con 409 si `status != SCHEDULED` (IN_PROGRESS toca el estado del vehículo, COMPLETED es historial de costes); escribe fila `AuditLog` (acción DELETE, `performedByUserId`/`performedByEmail`) para registrar el *quién*
 - [ ] **[GREEN]** `VehicleService` — `@TransactionalEventListener`: `VehicleEntersWorkshopEvent` → status `MAINTENANCE`; `MaintenanceCompletedEvent` → status `ACTIVE`
 - [ ] **[GREEN]** `@PreAuthorize` — WORKSHOP_STAFF puede crear/editar; ADMIN/MANAGER/ADMINISTRATIVE también
 
