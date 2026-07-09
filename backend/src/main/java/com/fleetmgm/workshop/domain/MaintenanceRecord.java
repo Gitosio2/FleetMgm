@@ -58,6 +58,10 @@ public class MaintenanceRecord {
     @Column(nullable = false, length = 15)
     private MaintenanceStatus status = MaintenanceStatus.SCHEDULED;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 10)
+    private MaintenanceCategory category = MaintenanceCategory.PREVENTIVE;
+
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
@@ -100,6 +104,9 @@ public class MaintenanceRecord {
 
     public MaintenanceStatus getStatus() { return status; }
     public void setStatus(MaintenanceStatus status) { this.status = status; }
+
+    public MaintenanceCategory getCategory() { return category; }
+    public void setCategory(MaintenanceCategory category) { this.category = category; }
 
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }

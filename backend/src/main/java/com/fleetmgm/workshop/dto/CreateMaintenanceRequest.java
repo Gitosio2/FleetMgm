@@ -1,5 +1,6 @@
 package com.fleetmgm.workshop.dto;
 
+import com.fleetmgm.workshop.domain.MaintenanceCategory;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
@@ -9,5 +10,6 @@ public record CreateMaintenanceRequest(
         @NotNull UUID vehicleId,
         @NotBlank String type,
         String description,
-        UUID technicianId
+        UUID technicianId,
+        MaintenanceCategory category
 ) {}
