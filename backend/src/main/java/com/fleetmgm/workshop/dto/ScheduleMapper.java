@@ -1,46 +1,39 @@
 package com.fleetmgm.workshop.dto;
 
-import com.fleetmgm.workshop.domain.MaintenanceRecord;
+import com.fleetmgm.workshop.domain.WorkshopSchedule;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
 
 @Mapper(componentModel = "spring")
-public interface MaintenanceMapper {
+public interface ScheduleMapper {
 
     @Mapping(target = "vehicleId", source = "vehicle.id")
     @Mapping(target = "vehicleLicensePlate", source = "vehicle.licensePlate")
     @Mapping(target = "technicianId", source = "technician.id")
     @Mapping(target = "technicianName", source = "technician.fullName")
-    @Mapping(target = "invoiceId", source = "invoice.id")
-    MaintenanceResponse toResponse(MaintenanceRecord maintenanceRecord);
+    @Mapping(target = "maintenanceRecordId", source = "maintenanceRecord.id")
+    @Mapping(target = "maintenanceCategory", source = "maintenanceRecord.category")
+    ScheduleResponse toResponse(WorkshopSchedule workshopSchedule);
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "vehicle", ignore = true)
     @Mapping(target = "technician", ignore = true)
-    @Mapping(target = "invoice", ignore = true)
-    @Mapping(target = "usageAtService", ignore = true)
-    @Mapping(target = "cost", ignore = true)
-    @Mapping(target = "workshopEntryDate", ignore = true)
-    @Mapping(target = "workshopExitDate", ignore = true)
+    @Mapping(target = "maintenanceRecord", ignore = true)
+    @Mapping(target = "priority", ignore = true)
     @Mapping(target = "status", ignore = true)
-    @Mapping(target = "category", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deletedAt", ignore = true)
-    MaintenanceRecord toEntity(CreateMaintenanceRequest request);
+    WorkshopSchedule toEntity(CreateScheduleRequest request);
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "vehicle", ignore = true)
     @Mapping(target = "technician", ignore = true)
-    @Mapping(target = "invoice", ignore = true)
-    @Mapping(target = "usageAtService", ignore = true)
-    @Mapping(target = "cost", ignore = true)
-    @Mapping(target = "workshopEntryDate", ignore = true)
-    @Mapping(target = "workshopExitDate", ignore = true)
+    @Mapping(target = "maintenanceRecord", ignore = true)
     @Mapping(target = "status", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deletedAt", ignore = true)
-    void updateEntity(UpdateMaintenanceRequest request, @MappingTarget MaintenanceRecord maintenanceRecord);
+    void updateEntity(UpdateScheduleRequest request, @MappingTarget WorkshopSchedule workshopSchedule);
 }

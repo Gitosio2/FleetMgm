@@ -23,6 +23,12 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse(401, "INVALID_CREDENTIALS", ex.getMessage(), correlationId()));
     }
 
+    @ExceptionHandler(BadRequestException.class)
+    public ResponseEntity<ErrorResponse> handleBadRequest(BadRequestException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ErrorResponse(400, ex.getCode(), ex.getMessage(), correlationId()));
+    }
+
     @ExceptionHandler(ConflictException.class)
     public ResponseEntity<ErrorResponse> handleConflict(ConflictException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
