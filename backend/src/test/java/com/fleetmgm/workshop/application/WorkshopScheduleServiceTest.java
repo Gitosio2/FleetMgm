@@ -510,7 +510,7 @@ class WorkshopScheduleServiceTest {
     }
 
     private ScheduleResponse buildResponse(UUID id) {
-        return new ScheduleResponse(id, UUID.randomUUID(), "1234-ABC", null, null, null, null,
+        return new ScheduleResponse(id, UUID.randomUUID(), "1234-ABC", null, null, null, null, null, null,
                 LocalDate.now(), "Oil change", SchedulePriority.MEDIUM, WorkshopStatus.PENDING, null, null);
     }
 }

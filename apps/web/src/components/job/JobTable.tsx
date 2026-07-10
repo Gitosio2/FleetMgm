@@ -2,6 +2,7 @@ import { Pencil } from 'lucide-react'
 import type { Job } from '@fleetmgm/api'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { formatVehicleLabel } from '@/lib/vehicle-label'
 import { JobStatusBadge } from './JobStatusBadge'
 import { JobActionButtons } from './JobActionButtons'
 
@@ -31,7 +32,7 @@ export function JobTable({ jobs, canManage, onEdit }: JobTableProps) {
             <TableCell>
               {job.originLocation} → {job.destinationLocation}
             </TableCell>
-            <TableCell>{job.vehicleLicensePlate ?? '—'}</TableCell>
+            <TableCell>{formatVehicleLabel(job)}</TableCell>
             <TableCell>{job.assignedDriverName ?? '—'}</TableCell>
             <TableCell>
               <JobStatusBadge status={job.status} />

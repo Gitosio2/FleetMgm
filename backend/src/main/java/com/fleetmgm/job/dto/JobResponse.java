@@ -11,6 +11,8 @@ public record JobResponse(
         String description,
         UUID vehicleId,
         String vehicleLicensePlate,
+        String vehicleMake,
+        String vehicleModel,
         UUID assignedDriverId,
         String assignedDriverName,
         UUID clientId,

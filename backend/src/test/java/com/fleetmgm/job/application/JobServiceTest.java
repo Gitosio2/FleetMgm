@@ -413,7 +413,7 @@ class JobServiceTest {
     }
 
     private JobResponse buildJobResponse(UUID id) {
-        return new JobResponse(id, "Delivery", null, UUID.randomUUID(), "1234ABC",
+        return new JobResponse(id, "Delivery", null, UUID.randomUUID(), "1234ABC", null, null,
                 null, null, null, null, JobStatus.PENDING,
                 "Origin", "Destination", null, null, null, null, null, null, null, Instant.now());
     }

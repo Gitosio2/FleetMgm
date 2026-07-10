@@ -12,6 +12,8 @@ public record ScheduleResponse(
         UUID id,
         UUID vehicleId,
         String vehicleLicensePlate,
+        String vehicleMake,
+        String vehicleModel,
         UUID technicianId,
         String technicianName,
         UUID maintenanceRecordId,

@@ -42,7 +42,7 @@ class MaintenanceControllerTest {
     private static final UUID VEHICLE_ID = UUID.randomUUID();
 
     private MaintenanceResponse sampleResponse() {
-        return new MaintenanceResponse(MAINTENANCE_ID, VEHICLE_ID, "1234ABC", "Oil change", null,
+        return new MaintenanceResponse(MAINTENANCE_ID, VEHICLE_ID, "1234ABC", "Toyota", "Corolla", "Oil change", null,
                 null, null, null, null, null, null, null, MaintenanceStatus.SCHEDULED,
                 MaintenanceCategory.PREVENTIVE, Instant.now());
     }
@@ -99,7 +99,9 @@ class MaintenanceControllerTest {
 
         mockMvc.perform(get("/api/v1/maintenance/{id}", MAINTENANCE_ID))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(MAINTENANCE_ID.toString()));
+                .andExpect(jsonPath("$.id").value(MAINTENANCE_ID.toString()))
+                .andExpect(jsonPath("$.vehicleMake").value("Toyota"))
+                .andExpect(jsonPath("$.vehicleModel").value("Corolla"));
     }
 
     @Test

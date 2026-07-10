@@ -10,6 +10,8 @@ public interface JobMapper {
 
     @Mapping(target = "vehicleId", source = "vehicle.id")
     @Mapping(target = "vehicleLicensePlate", source = "vehicle.licensePlate")
+    @Mapping(target = "vehicleMake", source = "vehicle.make")
+    @Mapping(target = "vehicleModel", source = "vehicle.model")
     @Mapping(target = "assignedDriverId", source = "assignedDriver.id")
     @Mapping(target = "assignedDriverName", source = "assignedDriver.fullName")
     @Mapping(target = "clientId", source = "client.id")

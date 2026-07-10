@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useAuthStore } from '@fleetmgm/store'
-import { resetJobsMock, resetVehiclesMock, resetWorkersMock } from '@/mocks/handlers'
+import { resetJobsMock, resetVehiclesMock, resetWorkersMock, SEED_VEHICLES } from '@/mocks/handlers'
 import { Jobs } from './Jobs'
 
 function renderJobs() {
@@ -111,6 +111,17 @@ describe('Jobs', () => {
     await user.click(within(row).getByRole('button', { name: /cancelar/i }))
 
     await waitFor(() => expect(within(row).getByText('Cancelado')).toBeInTheDocument())
+  })
+
+  it('shows "<make> <model>" in the job list when the vehicle has no license plate', async () => {
+    loginAs('ADMIN')
+    renderJobs()
+
+    const row = (await screen.findByText('Traslado de excavadora')).closest('tr')!
+    const [, heavyMachinery] = SEED_VEHICLES
+    expect(
+      within(row).getByText(`${heavyMachinery!.make} ${heavyMachinery!.model}`),
+    ).toBeInTheDocument()
   })
 
   it('hides the create button for the DRIVER role', async () => {
