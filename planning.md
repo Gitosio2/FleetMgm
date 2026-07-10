@@ -604,37 +604,97 @@ FleetMgm/
 - [x] **[GREEN]** `packages/hooks/src/useMaintenance.ts` — lista, create, start, complete
 - [x] **[GREEN]** `apps/web/src/components/workshop/` — `ScheduleTable`, `ScheduleRangeSelector`, `MaintenanceTable`, `MaintenanceFormModal`
 - [x] **[GREEN]** Página `Workshop` — vista unificada de agenda y mantenimientos
-  > **Nota (revisión Hito 27):** (1) **`useWorkshop.ts` deliberadamente sin `start`:** aunque `WorkshopController` expone `PATCH /{id}/start`, el checklist de este hito solo pedía `list/create/cancel` y así se implementó — el frontend no ofrece un botón "Iniciar" para la agenda. La transición real de estado la conduce `MaintenanceTable` (`start`/`complete` sobre la orden de mantenimiento, que es donde ocurre el trabajo físico); el `WorkshopSchedule` pasa a `IN_PROGRESS` únicamente si alguien invoca ese endpoint directamente (fuera de esta UI) y a `COMPLETED` solo vía el listener del backend (`MaintenanceCompletedEvent` → `ScheduleCompletionListener`, Hito 26) — coherente con la decisión de no exponer un `/complete` manual para la agenda. (2) **Sin botón "Iniciar" ni "Completar" propios para `ScheduleTable`:** solo "Cancelar" (`PENDING`/`IN_PROGRESS` → `CANCELLED`), simétrico con el punto anterior. (3) **Sin componentes de badge/acciones separados:** el checklist enumera exactamente 4 componentes (`ScheduleTable`, `ScheduleRangeSelector`, `MaintenanceTable`, `MaintenanceFormModal`) — a diferencia de Jobs (que separa `JobStatusBadge`/`JobActionButtons`), aquí los mapas de etiquetas de estado y los botones de acción viven inline dentro de `ScheduleTable`/`MaintenanceTable` para no introducir archivos no listados. (4) **`useCompleteMaintenance` invalida ambas claves de caché** (`['maintenance']` y `['workshop']`), a diferencia de `useCompleteJob` en Hito 22 (que solo invalida `['jobs']` pese a que `JobCompletedEvent` también actualiza `Vehicle`) — decisión consciente: `Workshop` es una vista unificada de agenda + órdenes en la misma página, así que sin la invalidación cruzada la agenda quedaría visualmente desactualizada tras completar la orden enlazada. (5) **`MaintenanceFormModal` solo se usa para crear** en esta página (no hay tabla de edición inline), pero soporta `record` opcional para reutilizarse como editor si una futura vista lo requiere, replicando el patrón de `JobFormModal`. (6) **Mocks MSW — filtrado por rango:** en vez de reproducir la aritmética real de fechas del backend (semana ISO lunes-domingo, mes calendario — ya cubierta por `WorkshopScheduleRepositoryTest`), el mock etiqueta cada `WorkshopSchedule` seed con `rangeTags: ('today'|'week'|'month')[]` explícitos y filtra por pertenencia; evita que el test dependa de en qué día del mes/semana se ejecute la suite. (7) **`range` es obligatorio en el hook** (`useWorkshopSchedules(range, page?, size?)`, sin default) — refleja que `ScheduleRange.fromValue(null)` lanza `BadRequestException` en el backend (Hito 25/26): no existe un "rango por defecto" server-side, así que el frontend siempre debe enviar uno explícito (la página inicializa `range` en `'today'`). (8) Verificado: `apps/web` 40/40 tests (`vitest run`), suite completa del monorepo 43/43 (`turbo test`), `tsc -b` limpio, `oxlint` sin errores nuevos (1 warning preexistente en `AssignmentModal.tsx`, no tocado en este hito).
+  > **Nota (revisión Hito 27):** (1) **`useWorkshop.ts` deliberadamente sin `start`:** aunque `WorkshopController` expone `PATCH /{id}/start`, el checklist de este hito solo pedía `list/create/cancel` y así se implementó — el frontend no ofrece un botón "Iniciar" para la agenda. La transición real de estado la conduce `MaintenanceTable` (`start`/`complete` sobre la orden de mantenimiento, que es donde ocurre el trabajo físico); el `WorkshopSchedule` pasa a `IN_PROGRESS` únicamente si alguien invoca ese endpoint directamente (fuera de esta UI) y a `COMPLETED` solo vía el listener del backend (`MaintenanceCompletedEvent` → `ScheduleCompletionListener`, Hito 26) — coherente con la decisión de no exponer un `/complete` manual para la agenda. (2) **Sin botón "Iniciar" ni "Completar" propios para `ScheduleTable`:** solo "Cancelar" (`PENDING`/`IN_PROGRESS` → `CANCELLED`), simétrico con el punto anterior. (3) ~~Sin componentes de badge/acciones separados~~ — **corregido en `fixing-hito27-review-findings`:** ver nota de fixing más abajo, ahora sí existen `ScheduleStatusBadge`/`MaintenanceStatusBadge`. (4) **`useCompleteMaintenance` invalida ambas claves de caché** (`['maintenance']` y `['workshop']`), a diferencia de `useCompleteJob` en Hito 22 (que solo invalida `['jobs']` pese a que `JobCompletedEvent` también actualiza `Vehicle`) — decisión consciente: `Workshop` es una vista unificada de agenda + órdenes en la misma página, así que sin la invalidación cruzada la agenda quedaría visualmente desactualizada tras completar la orden enlazada. (5) ~~`MaintenanceFormModal` solo se usa para crear en esta página, pero soporta `record` opcional para reutilizarse como editor~~ — **corregido en `fixing-hito27-review-findings`:** la rama de edición nunca llegó a invocarse desde ningún lado (`MaintenanceTable` no tiene `onEdit`); se eliminó, el modal es create-only. (6) **Mocks MSW — filtrado por rango:** en vez de reproducir la aritmética real de fechas del backend (semana ISO lunes-domingo, mes calendario — ya cubierta por `WorkshopScheduleRepositoryTest`), el mock etiqueta cada `WorkshopSchedule` seed con `rangeTags: ('today'|'week'|'month')[]` explícitos y filtra por pertenencia; evita que el test dependa de en qué día del mes/semana se ejecute la suite. (7) **`range` es obligatorio en el hook** (`useWorkshopSchedules(range, page?, size?)`, sin default) — refleja que `ScheduleRange.fromValue(null)` lanza `BadRequestException` en el backend (Hito 25/26): no existe un "rango por defecto" server-side, así que el frontend siempre debe enviar uno explícito (la página inicializa `range` en `'today'`). (8) Verificado: `apps/web` 40/40 tests (`vitest run`), suite completa del monorepo 43/43 (`turbo test`), `tsc -b` limpio, `oxlint` sin errores nuevos (1 warning preexistente en `AssignmentModal.tsx`, no tocado en este hito).
+  > **Nota (rama `fixing-hito27-review-findings`, limpieza post-revisión 4R):** además de implementar el `cancel()` de mantenimiento (adenda siguiente), esta rama corrigió hallazgos de una revisión de código de 4 lentes (risk/resilience/readability/reliability) sobre el diff ya mergeado de este Hito 27: (1) eliminado el código muerto de `MaintenanceFormModal` (ver punto 5 arriba). (2) Extraídos `ScheduleStatusBadge`/`MaintenanceStatusBadge` a sus propios archivos en `apps/web/src/components/workshop/`, mismo patrón que `JobStatusBadge`, reemplazando los mapas de etiqueta/clase que vivían inline duplicados en `ScheduleTable`/`MaintenanceTable`. (3) Eliminado el gate `canManage`/`WORKSHOP_MANAGE_ROLES` de `Workshop.tsx` — era tautológico (la ruta `/workshop` en `App.tsx` ya restringe a ese mismo conjunto de roles; a diferencia de `Jobs`, aquí no existe ningún rol "solo visor"). (4) Añadido manejo visible de errores (`role="alert"`, mensajes "No se pudo completar la acción."/"No se pudieron cargar los datos.") en `MaintenanceTable`, `ScheduleTable`, `MaintenanceFormModal`, `JobActionButtons`, `JobFormModal`, y estados de error a nivel de lista (distintos de "cargando"/"vacío") en `Workshop.tsx`/`Jobs.tsx` — antes un 409/404 o un fallo de red fallaban en silencio. (5) Añadido `apps/web/src/lib/vehicle-label.test.ts` (las 3 ramas de `formatVehicleLabel`) y tests de camino triste (409 por doble clic) en `Jobs.test.tsx`/`Workshop.test.tsx`. Verificado: backend 208 tests, frontend 52 tests (tras sumar también los del `cancel()` de mantenimiento — ver adenda), `turbo build lint test` 7/7. Quedan como deuda documentada (no bloqueante, revisados y aceptados conscientemente): hooks de mutación compartidos por tabla en vez de por fila en `MaintenanceTable`/`ScheduleTable` (un error en una fila puede desaparecer visualmente si otra fila tiene éxito después — a diferencia de `JobActionButtons`, que sí es por fila), sin `AuditLog` en ningún `cancel()`/`start()`/`complete()` de `workshop` (gap preexistente, no introducido aquí), el test de doble-clic depende de una carrera de timing real en vez de un mock determinista, y el mensaje de error repetido inline en 6 archivos en vez de extraído a un componente compartido.
 
-### Adenda — Cancelación de mantenimiento y su relación con la agenda *(deuda documentada, sin implementar — post-Hito 27)*
-> Surgió al probar el flujo real en el frontend del Hito 27: cancelar un `WorkshopSchedule` no tiene ningún
-> efecto sobre su `MaintenanceRecord` enlazado. Investigado y confirmado que **no es un artefacto del mock
-> MSW** — es el comportamiento real del backend: `WorkshopScheduleService.cancel()` solo muta el propio
-> `WorkshopSchedule` (no publica evento), y `MaintenanceRecord` directamente **no tiene forma de cancelarse**
-> (`MaintenanceStatus` solo tiene `SCHEDULED`/`IN_PROGRESS`/`COMPLETED` — sin `CANCELLED`, sin endpoint
+### Adenda — Cancelación de mantenimiento y su relación con la agenda *(implementado en `fixing-hito27-review-findings`)*
+> Surgió al probar el flujo real en el frontend del Hito 27: cancelar un `WorkshopSchedule` no tenía ningún
+> efecto sobre su `MaintenanceRecord` enlazado. Investigado y confirmado que **no era un artefacto del mock
+> MSW** — era el comportamiento real del backend: `WorkshopScheduleService.cancel()` solo mutaba el propio
+> `WorkshopSchedule` (no publicaba evento), y `MaintenanceRecord` directamente **no tenía forma de cancelarse**
+> (`MaintenanceStatus` solo tenía `SCHEDULED`/`IN_PROGRESS`/`COMPLETED` — sin `CANCELLED`, sin endpoint
 > `/cancel`). Ya estaba parcialmente anotado en la revisión del Hito 23 ("borrar un `IN_PROGRESS` sería un
-> abort... futuro `cancel()` + enum `CANCELLED` espejo de `Job`, no un `DELETE`") pero nunca se implementó.
-> Diseño acordado con el usuario para cuando se aborde (sin hito fijo todavía):
-> 1. **`MaintenanceRecord.cancel()`** — nuevo estado `CANCELLED` en `MaintenanceStatus`, alcanzable desde
->    `SCHEDULED`/`IN_PROGRESS` (no desde `COMPLETED`, estado terminal) — mismo patrón que `Job`/`WorkshopSchedule`.
->    Nuevo endpoint `PATCH /api/v1/maintenance/{id}/cancel`, sin body. Motivos de negocio: técnico no
->    disponible, vehículo requerido en otro sitio, etc.
-> 2. **Efecto sobre el vehículo** — si se cancela un mantenimiento `IN_PROGRESS` (el vehículo está en
->    `MAINTENANCE` por su causa), el vehículo debe volver a `ACTIVE`, igual que en `complete()`: nuevo evento
->    `MaintenanceCancelledEvent` consumido por el `MaintenanceEventListener` ya existente (mismo guard
->    `existsByVehicleIdAndStatus` para no reactivar el vehículo si tiene otro mantenimiento `IN_PROGRESS`
->    simultáneo). Cancelar desde `SCHEDULED` no toca el vehículo (nunca entró a `MAINTENANCE` por su causa —
->    mismo razonamiento ya documentado para `delete()` en Hito 23).
-> 3. **Cascada bidireccional con `WorkshopSchedule`** — cancelar el schedule cancela su mantenimiento
->    enlazado (si existe y no está en estado terminal), y cancelar el mantenimiento cancela su schedule
->    enlazado (si existe y no está en estado terminal): simétrico a como ya funciona completar
->    (`MaintenanceCompletedEvent` → `ScheduleCompletionListener`, Hito 26). Cada lado debe ser no-op si la
->    entidad relacionada ya está en estado terminal (`CANCELLED`/`COMPLETED`), para no generar un ciclo
->    infinito entre los dos listeners (A cancela B → evento → B intenta cancelar A → ya terminal → no-op).
->    Un `WorkshopSchedule` sin mantenimiento enlazado (`maintenanceRecordId == null`, flujo de avería no
->    planificada aún no derivada) simplemente no dispara nada al cancelarse.
-> 4. **Frontend** — botón "Cancelar" en `MaintenanceTable` (hoy ausente, ver nota Hito 27 punto 2) una vez
->    exista el endpoint; `useMaintenance.ts` necesitaría una mutación `cancel` análoga a `useCancelJob`.
+> abort... futuro `cancel()` + enum `CANCELLED` espejo de `Job`, no un `DELETE`") pero nunca se había implementado.
+> Diseño acordado con el usuario, implementado en la rama `fixing-hito27-review-findings` (backend):
+> 1. **`MaintenanceService.cancel(UUID id)`** — nuevo estado `CANCELLED` en `MaintenanceStatus`, alcanzable
+>    desde `SCHEDULED`/`IN_PROGRESS` (no desde `COMPLETED`/`CANCELLED`, estados terminales — lanza
+>    `ConflictException("MAINTENANCE_INVALID_STATE_TRANSITION", ...)`) — mismo patrón que `Job`/`WorkshopSchedule`.
+>    Nuevo endpoint `PATCH /api/v1/maintenance/{id}/cancel`, sin body, mismo `@PreAuthorize` que `start`/`complete`.
+> 2. **Efecto sobre el vehículo** — `MaintenanceEventListener` gana `onMaintenanceCancelled`, con el mismo
+>    guard `existsByVehicleIdAndStatus(vehicleId, IN_PROGRESS)` que `onMaintenanceCompleted`: si otro
+>    mantenimiento sigue `IN_PROGRESS`, no toca el vehículo; si no, lo pone `ACTIVE`. Cancelar desde
+>    `SCHEDULED` es un no-op real sobre el vehículo porque este nunca entró a `MAINTENANCE` por su causa.
+> 3. **Cascada bidireccional con `WorkshopSchedule`** — implementada con dos eventos nuevos:
+>    `MaintenanceCancelledEvent` (`workshop.domain`, publicado siempre por `MaintenanceService.cancel()`,
+>    independientemente del estado previo — necesario para que la cascada hacia `WorkshopSchedule` funcione
+>    también al cancelar un mantenimiento `SCHEDULED`) y `ScheduleCancelledEvent` (`workshop.domain`, publicado
+>    siempre por `WorkshopScheduleService.cancel()`, con `maintenanceRecordId` nulleable). Un nuevo
+>    `ScheduleCancellationListener` (`workshop.application`, sibling de `ScheduleCompletionListener`) consume
+>    ambos eventos: `onScheduleCancelled` cancela el `MaintenanceRecord` enlazado si existe y no es terminal;
+>    `onMaintenanceCancelled` cancela el `WorkshopSchedule` enlazado (vía `findByMaintenanceRecordId`, ya
+>    existente) si existe y no es terminal. El ciclo A-cancela-B → evento → B-intenta-cancelar-A se rompe
+>    porque cada listener comprueba el estado *actual* de la entidad relacionada **antes** de llamar a su
+>    `cancel()` y hace no-op si ya es terminal (opción preferida sobre capturar `ConflictException`) — para
+>    cuando el evento recíproco llega, la entidad ya está en estado terminal y el listener no hace nada.
+>    Un `WorkshopSchedule` sin mantenimiento enlazado (`maintenanceRecordId == null`) resuelve el evento con
+>    valor `null` y el listener no-opea.
+> 4. **Frontend** — fuera del alcance de este trabajo (agente en paralelo); el contrato quedó fijado arriba
+>    para que `useMaintenance.ts` añada una mutación `cancel` y `MaintenanceTable` un botón "Cancelar".
+>
+> **Desviación de diseño respecto al texto original:** el punto 2 original decía "cancelar desde `SCHEDULED`
+> no toca el vehículo", lo que podía leerse como "el evento no debe publicarse" en ese caso. Se implementó
+> en cambio publicando `MaintenanceCancelledEvent` siempre (symmetric con `ScheduleCancelledEvent`, y
+> necesario para que la cascada del punto 3 funcione también al cancelar un `SCHEDULED`), y delegando la
+> garantía de "no tocar el vehículo" al guard ya existente en el listener (`existsByVehicleIdAndStatus`):
+> como un mantenimiento `SCHEDULED` nunca puso el vehículo en `MAINTENANCE`, el guard reactivador es un
+> no-op semántico en ese caso (mismo comportamiento observable, un único punto de publicación del evento).
+>
+> **Tests (TDD, rama `fixing-hito27-review-findings`):** 20 tests nuevos — `MaintenanceServiceTest` (+4:
+> cancel desde `SCHEDULED`/`IN_PROGRESS`, 409 desde `COMPLETED`, 404 si no existe, evento publicado con
+> `maintenanceId`/`vehicleId` correctos), `MaintenanceControllerTest` (+3: 200/404/409 en
+> `PATCH /{id}/cancel`), `WorkshopScheduleServiceTest` (+2 modificados para verificar `ScheduleCancelledEvent`
+> +2 nuevos para el caso `maintenanceRecordId` nulo/no nulo), `MaintenanceEventListenerTest` (+2:
+> `onMaintenanceCancelled` reactiva el vehículo / no-op si otro mantenimiento sigue `IN_PROGRESS`),
+> `ScheduleCancellationListenerTest` (+9, archivo nuevo: cascada en ambas direcciones, no-op en terminal,
+> no-op en `maintenanceRecordId == null`, no-op si no se encuentra la entidad enlazada). Suite completa del
+> backend: 188 → 208 tests, 0 fallos (`./mvnw test`; `-Pfailsafe`/Testcontainers no ejecutado, sin Docker
+> disponible en el entorno — igual que en hitos anteriores).
+>
+> **2ª revisión 4R y bugs reales encontrados en esta misma rama:** la implementación de arriba, al pasar por
+> una segunda ronda de revisión de 4 lentes antes de comitear, resultó tener 2 bugs de comportamiento real
+> (no solo hallazgos de estilo):
+> 1. **BLOCKER — reactivación indebida del vehículo:** `onMaintenanceCompleted`/`onMaintenanceCancelled` en
+>    `MaintenanceEventListener` solo comprobaban que ningún *otro* mantenimiento siguiera `IN_PROGRESS` antes
+>    de poner el vehículo en `ACTIVE` — nunca comprobaban el estado *actual* del vehículo. Cancelar un
+>    mantenimiento `SCHEDULED` sobre un vehículo que hubiera pasado a `INACTIVE`/`DECOMMISSIONED` por una vía
+>    no relacionada lo reactivaba a `ACTIVE` silenciosamente. Fix: ambos métodos ahora comparten un helper
+>    `reactivateVehicleIfNoOtherActiveMaintenance()` que además exige `vehicle.getStatus() == MAINTENANCE`
+>    antes de tocarlo — si el vehículo no estaba en `MAINTENANCE`, no hay nada que deshacer. Confirmado con
+>    TDD: 2 tests nuevos fallaban contra el código viejo (vehículo `DECOMMISSIONED`/`INACTIVE` que debía
+>    permanecer así) y pasan con el fix.
+> 2. **CRITICAL — fallos de cascada silenciosos:** los listeners `AFTER_COMMIT` (`ScheduleCancellationListener`,
+>    `MaintenanceEventListener`) no tenían manejo de errores — al haber ya hecho commit la transacción
+>    original, una excepción ahí no se puede revertir y Spring la registra solo a su propio nivel interno,
+>    sin visibilidad de aplicación, mientras el cliente ya recibió `200 OK`. Fix: cada método de listener
+>    envuelve su lógica en try/catch y registra a nivel ERROR (SLF4J) con los IDs relevantes (vehicleId/
+>    maintenanceId/scheduleId) sin relanzar — nunca queda en silencio, aunque tampoco hay nada que
+>    reintentar automáticamente (deuda: no hay mecanismo de reintento/alerta, solo logging).
+> 3. **BLOCKER (frontend) — mock de cascada asimétrico:** el handler MSW de cancelar *schedule* no cascadeaba
+>    a *maintenance* (al revés que el de cancelar *maintenance*, que sí lo hacía) — corregido para espejar
+>    el comportamiento real del backend. `useCancelWorkshopSchedule` tampoco invalidaba la caché de
+>    `['maintenance']` — corregido, mismo patrón que `useCancelMaintenance`/`useCompleteMaintenance`.
+> 4. **CRITICAL (cobertura) — la cascada bidireccional no tenía ningún test que la verificara en ninguna
+>    dirección**, pese a ser la funcionalidad central de esta adenda; corregido extendiendo los tests de
+>    cancelar en `Workshop.test.tsx` para verificar que la entidad enlazada también cambia de estado, en
+>    ambas direcciones. También se añadió cobertura para los nuevos estados de error de carga en
+>    `Jobs.tsx`/`Workshop.tsx` (antes sin ningún test).
+> Suite final tras ambos rounds de fix: backend 208 → 215 tests (0 fallos), frontend 50 → 52 tests (0
+> fallos), `turbo build lint test` 7/7. Quedan como deuda documentada (no bloqueante, aceptada
+> conscientemente sin arreglar en esta rama): hooks de mutación por tabla en vez de por fila en
+> `MaintenanceTable`/`ScheduleTable`, sin `AuditLog` en `cancel()` (gap preexistente en `start()`/`complete()`
+> también), test de doble-clic dependiente de timing real, sin test de integración `@SpringBootTest` del
+> cascade de dos saltos end-to-end (solo unit tests mockeados), y el mensaje de error repetido inline en
+> vez de extraído a un componente compartido.
 
 ---
 
