@@ -4,7 +4,7 @@ import type { CreateMaintenanceRequest, MaintenanceRecord, UpdateMaintenanceRequ
 import { createCrudHooks } from './createCrudHooks'
 import { WORKSHOP_KEY } from './useWorkshop'
 
-const MAINTENANCE_KEY = 'maintenance'
+export const MAINTENANCE_KEY = 'maintenance'
 
 const maintenanceHooks = createCrudHooks<MaintenanceRecord, CreateMaintenanceRequest, UpdateMaintenanceRequest>(
   MAINTENANCE_KEY,
@@ -13,7 +13,6 @@ const maintenanceHooks = createCrudHooks<MaintenanceRecord, CreateMaintenanceReq
 
 export const useMaintenanceRecords = maintenanceHooks.useList
 export const useCreateMaintenance = maintenanceHooks.useCreate
-export const useUpdateMaintenance = maintenanceHooks.useUpdate
 
 export function useStartMaintenance() {
   const queryClient = useQueryClient()
@@ -40,6 +39,24 @@ export function useCompleteMaintenance() {
     // agenda has no manual "/complete" endpoint of its own, so this is the only mutation that
     // can change a schedule's status to COMPLETED. Invalidate both feature keys so the
     // Workshop page's unified view (agenda + orders) reflects it without a manual refresh.
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: [MAINTENANCE_KEY] }),
+        queryClient.invalidateQueries({ queryKey: [WORKSHOP_KEY] }),
+      ]),
+  })
+}
+
+export function useCancelMaintenance() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data } = await apiClient.patch<MaintenanceRecord>(`/maintenance/${id}/cancel`)
+      return data
+    },
+    // Mirrors useCompleteMaintenance: cancelling a maintenance record can cascade to a linked
+    // WorkshopSchedule server-side, so invalidate both feature keys.
     onSuccess: () =>
       Promise.all([
         queryClient.invalidateQueries({ queryKey: [MAINTENANCE_KEY] }),

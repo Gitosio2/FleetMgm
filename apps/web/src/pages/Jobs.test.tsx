@@ -1,9 +1,11 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { http, HttpResponse } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useAuthStore } from '@fleetmgm/store'
 import { resetJobsMock, resetVehiclesMock, resetWorkersMock, SEED_VEHICLES } from '@/mocks/handlers'
+import { server } from '@/mocks/server'
 import { Jobs } from './Jobs'
 
 function renderJobs() {
@@ -113,6 +115,21 @@ describe('Jobs', () => {
     await waitFor(() => expect(within(row).getByText('Cancelado')).toBeInTheDocument())
   })
 
+  it('shows an error message when a double "Iniciar" click causes an invalid state transition', async () => {
+    loginAs('ADMIN')
+    const user = userEvent.setup()
+    renderJobs()
+
+    const row = (await screen.findByText('Entrega urgente')).closest('tr')!
+    const button = within(row).getByRole('button', { name: /iniciar/i })
+
+    await Promise.all([user.click(button), user.click(button)])
+
+    await waitFor(() =>
+      expect(within(row).getByRole('alert')).toHaveTextContent(/no se pudo completar la acción/i),
+    )
+  })
+
   it('shows "<make> <model>" in the job list when the vehicle has no license plate', async () => {
     loginAs('ADMIN')
     renderJobs()
@@ -130,5 +147,26 @@ describe('Jobs', () => {
 
     await screen.findByText('Entrega urgente')
     expect(screen.queryByRole('button', { name: /nuevo trabajo/i })).not.toBeInTheDocument()
+  })
+
+  it('shows an error message when the job list query fails', async () => {
+    loginAs('ADMIN')
+    server.use(
+      http.get('/api/v1/jobs', () =>
+        HttpResponse.json(
+          {
+            status: 500,
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Unexpected error',
+            correlationId: 'test-correlation-id',
+          },
+          { status: 500 },
+        ),
+      ),
+    )
+    renderJobs()
+
+    expect(await screen.findByText('No se pudieron cargar los datos.')).toBeInTheDocument()
+    expect(screen.queryByText('Entrega urgente')).not.toBeInTheDocument()
   })
 })

@@ -481,7 +481,7 @@ export function resetJobsMock() {
   jobs = [...SEED_JOBS]
 }
 
-type MaintenanceStatus = 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED'
+type MaintenanceStatus = 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
 type MaintenanceCategory = 'PREVENTIVE' | 'CORRECTIVE'
 
 type MaintenanceRecordMock = {
@@ -1479,6 +1479,46 @@ export const handlers = [
     return HttpResponse.json(updated)
   }),
 
+  http.patch('/api/v1/maintenance/:id/cancel', ({ params }) => {
+    const index = maintenanceRecords.findIndex((record) => record.id === params.id)
+    const existing = maintenanceRecords[index]
+
+    if (!existing) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'MAINTENANCE_NOT_FOUND',
+          message: `Maintenance ${params.id} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    if (existing.status !== 'SCHEDULED' && existing.status !== 'IN_PROGRESS') {
+      return HttpResponse.json(
+        {
+          status: 409,
+          code: 'MAINTENANCE_INVALID_STATE_TRANSITION',
+          message: `Maintenance ${params.id} cannot be cancelled from state ${existing.status}`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 409 },
+      )
+    }
+
+    const updated: MaintenanceRecordMock = { ...existing, status: 'CANCELLED' }
+    maintenanceRecords = maintenanceRecords.map((record, i) => (i === index ? updated : record))
+
+    // Mirrors the schedule-cancel handler: a WorkshopSchedule linked to this maintenance
+    // record is cancelled too, so the agenda stays consistent with the order.
+    workshopSchedules = workshopSchedules.map((schedule) =>
+      schedule.maintenanceRecordId === updated.id ? { ...schedule, status: 'CANCELLED' } : schedule,
+    )
+
+    return HttpResponse.json(updated)
+  }),
+
   http.get('/api/v1/workshop/schedules', ({ request }) => {
     const url = new URL(request.url)
     const rangeParam = url.searchParams.get('range')
@@ -1614,6 +1654,16 @@ export const handlers = [
 
     const updated: WorkshopScheduleMock = { ...existing, status: 'CANCELLED' }
     workshopSchedules = workshopSchedules.map((schedule, i) => (i === index ? updated : schedule))
+
+    // Mirrors the maintenance-cancel handler in the opposite direction: cancelling a schedule
+    // cascades to its linked MaintenanceRecord too (backend: MaintenanceCancelledEvent's
+    // ScheduleCancellationListener runs the same guard symmetrically), unless that record is
+    // already in a terminal state (COMPLETED/CANCELLED).
+    maintenanceRecords = maintenanceRecords.map((record) =>
+      record.id === updated.maintenanceRecordId && record.status !== 'COMPLETED' && record.status !== 'CANCELLED'
+        ? { ...record, status: 'CANCELLED' }
+        : record,
+    )
 
     const { rangeTags: _rangeTags, ...response } = updated
     return HttpResponse.json(response)

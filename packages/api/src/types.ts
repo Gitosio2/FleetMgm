@@ -184,7 +184,7 @@ export type CreateJobRequest = {
 
 export type UpdateJobRequest = CreateJobRequest
 
-export type MaintenanceStatus = 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED'
+export type MaintenanceStatus = 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
 export type MaintenanceCategory = 'PREVENTIVE' | 'CORRECTIVE'
 
 export type MaintenanceRecord = {

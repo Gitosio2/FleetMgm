@@ -216,6 +216,12 @@ export function JobFormModal({ open, onOpenChange, job }: JobFormModalProps) {
             <Input id="job-notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
           </div>
 
+          {(createJob.isError || updateJob.isError) && (
+            <p role="alert" className="text-sm text-error">
+              No se pudo completar la acción.
+            </p>
+          )}
+
           <DialogFooter>
             <Button type="submit" disabled={isPending}>
               {isEditing ? 'Guardar cambios' : 'Crear trabajo'}

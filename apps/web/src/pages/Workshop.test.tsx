@@ -1,6 +1,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { http, HttpResponse } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useAuthStore } from '@fleetmgm/store'
 import {
@@ -10,6 +11,7 @@ import {
   resetWorkshopSchedulesMock,
   SEED_VEHICLES,
 } from '@/mocks/handlers'
+import { server } from '@/mocks/server'
 import { Workshop } from './Workshop'
 
 function renderWorkshop() {
@@ -108,6 +110,21 @@ describe('Workshop', () => {
     await waitFor(() => expect(within(scheduleRow).getByText('Completado')).toBeInTheDocument())
   })
 
+  it('shows an error message when a double "Iniciar" click causes an invalid state transition', async () => {
+    loginAs('ADMIN')
+    const user = userEvent.setup()
+    renderWorkshop()
+
+    const row = (await screen.findByText('Cambio de aceite y filtro')).closest('tr')!
+    const button = within(row).getByRole('button', { name: /iniciar/i })
+
+    await Promise.all([user.click(button), user.click(button)])
+
+    await waitFor(() =>
+      expect(within(row).getByRole('alert')).toHaveTextContent(/no se pudo completar la acción/i),
+    )
+  })
+
   it('shows "<make> <model>" in the maintenance list when the vehicle has no license plate', async () => {
     loginAs('ADMIN')
     renderWorkshop()
@@ -132,15 +149,71 @@ describe('Workshop', () => {
     ).toBeInTheDocument()
   })
 
+  it('cancelling a scheduled maintenance order transitions its badge to Cancelado', async () => {
+    loginAs('ADMIN')
+    const user = userEvent.setup()
+    renderWorkshop()
+
+    const row = (await screen.findByText('Cambio de aceite y filtro')).closest('tr')!
+    // maintenance-1 is linked to schedule-1 ('Cambio de aceite', visible in the default
+    // 'today' range) — cancelling the maintenance order must cascade-cancel its schedule too.
+    const scheduleRow = (await screen.findByText('Cambio de aceite')).closest('tr')!
+
+    await user.click(within(row).getByRole('button', { name: /cancelar/i }))
+
+    await waitFor(() => expect(within(row).getByText('Cancelado')).toBeInTheDocument())
+    await waitFor(() => expect(within(scheduleRow).getByText('Cancelado')).toBeInTheDocument())
+  })
+
+  it('shows an error message when a double "Cancelar" click on a maintenance order causes an invalid state transition', async () => {
+    loginAs('ADMIN')
+    const user = userEvent.setup()
+    renderWorkshop()
+
+    const row = (await screen.findByText('Cambio de aceite y filtro')).closest('tr')!
+    const button = within(row).getByRole('button', { name: /cancelar/i })
+
+    await Promise.all([user.click(button), user.click(button)])
+
+    await waitFor(() =>
+      expect(within(row).getByRole('alert')).toHaveTextContent(/no se pudo completar la acción/i),
+    )
+  })
+
   it('cancelling a pending schedule transitions its badge to Cancelado', async () => {
     loginAs('ADMIN')
     const user = userEvent.setup()
     renderWorkshop()
 
     const row = (await screen.findByText('Cambio de aceite')).closest('tr')!
+    // schedule-1 is linked to maintenance-1 ('Cambio de aceite y filtro') — cancelling the
+    // schedule must cascade-cancel its linked maintenance order too (mirror direction).
+    const maintenanceRow = (await screen.findByText('Cambio de aceite y filtro')).closest('tr')!
 
     await user.click(within(row).getByRole('button', { name: /cancelar/i }))
 
     await waitFor(() => expect(within(row).getByText('Cancelado')).toBeInTheDocument())
+    await waitFor(() => expect(within(maintenanceRow).getByText('Cancelado')).toBeInTheDocument())
+  })
+
+  it('shows an error message when the schedule agenda query fails', async () => {
+    loginAs('ADMIN')
+    server.use(
+      http.get('/api/v1/workshop/schedules', () =>
+        HttpResponse.json(
+          {
+            status: 500,
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Unexpected error',
+            correlationId: 'test-correlation-id',
+          },
+          { status: 500 },
+        ),
+      ),
+    )
+    renderWorkshop()
+
+    expect(await screen.findByText('No se pudieron cargar los datos.')).toBeInTheDocument()
+    expect(screen.queryByText('Cambio de aceite')).not.toBeInTheDocument()
   })
 })

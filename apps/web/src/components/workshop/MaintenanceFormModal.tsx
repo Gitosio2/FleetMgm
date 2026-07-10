@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import type { CreateMaintenanceRequest, MaintenanceCategory, MaintenanceRecord } from '@fleetmgm/api'
-import { useCreateMaintenance, useUpdateMaintenance, useVehicles, useWorkers } from '@fleetmgm/hooks'
+import type { CreateMaintenanceRequest, MaintenanceCategory } from '@fleetmgm/api'
+import { useCreateMaintenance, useVehicles, useWorkers } from '@fleetmgm/hooks'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -23,17 +23,14 @@ const CATEGORY_LABEL: Record<MaintenanceCategory, string> = {
 type MaintenanceFormModalProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
-  record?: MaintenanceRecord
 }
 
 function toNullableString(value: string): string | null {
   return value === '' ? null : value
 }
 
-export function MaintenanceFormModal({ open, onOpenChange, record }: MaintenanceFormModalProps) {
-  const isEditing = record != null
+export function MaintenanceFormModal({ open, onOpenChange }: MaintenanceFormModalProps) {
   const createMaintenance = useCreateMaintenance()
-  const updateMaintenance = useUpdateMaintenance()
 
   const { data: vehiclesPage } = useVehicles(0, 100)
   const { data: workersPage } = useWorkers(0, 100)
@@ -52,14 +49,12 @@ export function MaintenanceFormModal({ open, onOpenChange, record }: Maintenance
     if (!open) {
       return
     }
-    setVehicleId(record?.vehicleId ?? '')
-    setType(record?.type ?? '')
-    setDescription(record?.description ?? '')
-    setTechnicianId(record?.technicianId ?? '')
-    setCategory(record?.category ?? 'PREVENTIVE')
-  }, [open, record])
-
-  const isPending = createMaintenance.isPending || updateMaintenance.isPending
+    setVehicleId('')
+    setType('')
+    setDescription('')
+    setTechnicianId('')
+    setCategory('PREVENTIVE')
+  }, [open])
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -72,14 +67,6 @@ export function MaintenanceFormModal({ open, onOpenChange, record }: Maintenance
       category,
     }
 
-    if (record) {
-      updateMaintenance.mutate(
-        { id: record.id, request: { ...request, category } },
-        { onSuccess: () => onOpenChange(false) },
-      )
-      return
-    }
-
     createMaintenance.mutate(request, { onSuccess: () => onOpenChange(false) })
   }
 
@@ -87,7 +74,7 @@ export function MaintenanceFormModal({ open, onOpenChange, record }: Maintenance
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{isEditing ? 'Editar orden' : 'Nueva orden'}</DialogTitle>
+          <DialogTitle>Nueva orden</DialogTitle>
         </DialogHeader>
 
         <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
@@ -162,9 +149,15 @@ export function MaintenanceFormModal({ open, onOpenChange, record }: Maintenance
             />
           </div>
 
+          {createMaintenance.isError && (
+            <p role="alert" className="text-sm text-error">
+              No se pudo completar la acción.
+            </p>
+          )}
+
           <DialogFooter>
-            <Button type="submit" disabled={isPending}>
-              {isEditing ? 'Guardar cambios' : 'Crear orden'}
+            <Button type="submit" disabled={createMaintenance.isPending}>
+              Crear orden
             </Button>
           </DialogFooter>
         </form>
