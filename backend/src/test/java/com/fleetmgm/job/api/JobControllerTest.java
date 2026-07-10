@@ -42,7 +42,7 @@ class JobControllerTest {
     private static final UUID VEHICLE_ID = UUID.randomUUID();
 
     private JobResponse sampleResponse() {
-        return new JobResponse(JOB_ID, "Delivery", "desc", VEHICLE_ID, "1234ABC",
+        return new JobResponse(JOB_ID, "Delivery", "desc", VEHICLE_ID, "1234ABC", "Toyota", "Corolla",
                 null, null, null, null, JobStatus.PENDING,
                 "Origin", "Destination", null, null, null, null, null, null, null, Instant.now());
     }
@@ -102,7 +102,9 @@ class JobControllerTest {
 
         mockMvc.perform(get("/api/v1/jobs/{id}", JOB_ID))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(JOB_ID.toString()));
+                .andExpect(jsonPath("$.id").value(JOB_ID.toString()))
+                .andExpect(jsonPath("$.vehicleMake").value("Toyota"))
+                .andExpect(jsonPath("$.vehicleModel").value("Corolla"));
     }
 
     @Test

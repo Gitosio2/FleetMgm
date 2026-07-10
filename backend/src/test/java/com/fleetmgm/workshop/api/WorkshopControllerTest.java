@@ -41,7 +41,7 @@ class WorkshopControllerTest {
     private static final UUID VEHICLE_ID = UUID.randomUUID();
 
     private ScheduleResponse sampleResponse() {
-        return new ScheduleResponse(SCHEDULE_ID, VEHICLE_ID, "1234ABC", null, null, null, null,
+        return new ScheduleResponse(SCHEDULE_ID, VEHICLE_ID, "1234ABC", "Toyota", "Corolla", null, null, null, null,
                 LocalDate.now(), "Oil change", SchedulePriority.MEDIUM, WorkshopStatus.PENDING, null, null);
     }
 
@@ -122,7 +122,9 @@ class WorkshopControllerTest {
 
         mockMvc.perform(get("/api/v1/workshop/schedules/{id}", SCHEDULE_ID))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(SCHEDULE_ID.toString()));
+                .andExpect(jsonPath("$.id").value(SCHEDULE_ID.toString()))
+                .andExpect(jsonPath("$.vehicleMake").value("Toyota"))
+                .andExpect(jsonPath("$.vehicleModel").value("Corolla"));
     }
 
     @Test

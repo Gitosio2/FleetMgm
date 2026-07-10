@@ -150,6 +150,8 @@ export type Job = {
   description: string | null
   vehicleId: string
   vehicleLicensePlate: string | null
+  vehicleMake: string | null
+  vehicleModel: string | null
   assignedDriverId: string | null
   assignedDriverName: string | null
   clientId: string | null
@@ -181,3 +183,74 @@ export type CreateJobRequest = {
 }
 
 export type UpdateJobRequest = CreateJobRequest
+
+export type MaintenanceStatus = 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED'
+export type MaintenanceCategory = 'PREVENTIVE' | 'CORRECTIVE'
+
+export type MaintenanceRecord = {
+  id: string
+  vehicleId: string
+  vehicleLicensePlate: string | null
+  vehicleMake: string | null
+  vehicleModel: string | null
+  type: string
+  description: string | null
+  usageAtService: number | null
+  cost: number | null
+  workshopEntryDate: string | null
+  workshopExitDate: string | null
+  technicianId: string | null
+  technicianName: string | null
+  invoiceId: string | null
+  status: MaintenanceStatus
+  category: MaintenanceCategory
+  createdAt: string
+}
+
+export type CreateMaintenanceRequest = {
+  vehicleId: string
+  type: string
+  description?: string | null
+  technicianId?: string | null
+  category?: MaintenanceCategory | null
+}
+
+export type UpdateMaintenanceRequest = {
+  vehicleId: string
+  type: string
+  description?: string | null
+  technicianId?: string | null
+  category: MaintenanceCategory
+}
+
+export type SchedulePriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
+export type WorkshopStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
+export type ScheduleRange = 'today' | 'week' | 'month'
+
+export type WorkshopSchedule = {
+  id: string
+  vehicleId: string
+  vehicleLicensePlate: string | null
+  vehicleMake: string | null
+  vehicleModel: string | null
+  technicianId: string | null
+  technicianName: string | null
+  maintenanceRecordId: string | null
+  maintenanceCategory: MaintenanceCategory | null
+  scheduledDate: string
+  type: string
+  priority: SchedulePriority
+  status: WorkshopStatus
+  notes: string | null
+  createdAt: string
+}
+
+export type CreateScheduleRequest = {
+  vehicleId: string
+  technicianId?: string | null
+  maintenanceRecordId?: string | null
+  scheduledDate: string
+  type: string
+  priority?: SchedulePriority | null
+  notes?: string | null
+}

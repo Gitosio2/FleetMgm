@@ -342,6 +342,8 @@ type Job = {
   description: string | null
   vehicleId: string
   vehicleLicensePlate: string | null
+  vehicleMake: string | null
+  vehicleModel: string | null
   assignedDriverId: string | null
   assignedDriverName: string | null
   clientId: string | null
@@ -381,6 +383,8 @@ export const SEED_JOBS: Job[] = [
     description: null,
     vehicleId: SEED_VEHICLES[0]!.id,
     vehicleLicensePlate: SEED_VEHICLES[0]!.licensePlate,
+    vehicleMake: SEED_VEHICLES[0]!.make,
+    vehicleModel: SEED_VEHICLES[0]!.model,
     assignedDriverId: DRIVER_WORKER_ID,
     assignedDriverName: SEED_WORKERS[0]!.fullName,
     clientId: SEED_CLIENTS[0]!.id,
@@ -403,6 +407,8 @@ export const SEED_JOBS: Job[] = [
     description: 'Ruta habitual de reparto en zona norte',
     vehicleId: SEED_VEHICLES[0]!.id,
     vehicleLicensePlate: SEED_VEHICLES[0]!.licensePlate,
+    vehicleMake: SEED_VEHICLES[0]!.make,
+    vehicleModel: SEED_VEHICLES[0]!.model,
     assignedDriverId: DRIVER_WORKER_ID,
     assignedDriverName: SEED_WORKERS[0]!.fullName,
     clientId: null,
@@ -425,6 +431,8 @@ export const SEED_JOBS: Job[] = [
     description: null,
     vehicleId: SEED_VEHICLES[0]!.id,
     vehicleLicensePlate: SEED_VEHICLES[0]!.licensePlate,
+    vehicleMake: SEED_VEHICLES[0]!.make,
+    vehicleModel: SEED_VEHICLES[0]!.model,
     assignedDriverId: DRIVER_WORKER_ID,
     assignedDriverName: SEED_WORKERS[0]!.fullName,
     clientId: SEED_CLIENTS[1]!.id,
@@ -447,6 +455,8 @@ export const SEED_JOBS: Job[] = [
     description: null,
     vehicleId: SEED_VEHICLES[1]!.id,
     vehicleLicensePlate: SEED_VEHICLES[1]!.licensePlate,
+    vehicleMake: SEED_VEHICLES[1]!.make,
+    vehicleModel: SEED_VEHICLES[1]!.model,
     assignedDriverId: null,
     assignedDriverName: null,
     clientId: null,
@@ -469,6 +479,205 @@ let jobs: Job[] = [...SEED_JOBS]
 
 export function resetJobsMock() {
   jobs = [...SEED_JOBS]
+}
+
+type MaintenanceStatus = 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED'
+type MaintenanceCategory = 'PREVENTIVE' | 'CORRECTIVE'
+
+type MaintenanceRecordMock = {
+  id: string
+  vehicleId: string
+  vehicleLicensePlate: string | null
+  vehicleMake: string | null
+  vehicleModel: string | null
+  type: string
+  description: string | null
+  usageAtService: number | null
+  cost: number | null
+  workshopEntryDate: string | null
+  workshopExitDate: string | null
+  technicianId: string | null
+  technicianName: string | null
+  invoiceId: string | null
+  status: MaintenanceStatus
+  category: MaintenanceCategory
+  createdAt: string
+}
+
+type MaintenanceRequestBody = {
+  vehicleId: string
+  type: string
+  description?: string | null
+  technicianId?: string | null
+  category?: MaintenanceCategory | null
+}
+
+const TECHNICIAN_WORKER_ID = SEED_WORKERS[1]!.id
+
+export const SEED_MAINTENANCE: MaintenanceRecordMock[] = [
+  {
+    id: 'maintenance-1',
+    vehicleId: SEED_VEHICLES[0]!.id,
+    vehicleLicensePlate: SEED_VEHICLES[0]!.licensePlate,
+    vehicleMake: SEED_VEHICLES[0]!.make,
+    vehicleModel: SEED_VEHICLES[0]!.model,
+    type: 'Cambio de aceite y filtro',
+    description: null,
+    usageAtService: null,
+    cost: null,
+    workshopEntryDate: null,
+    workshopExitDate: null,
+    technicianId: TECHNICIAN_WORKER_ID,
+    technicianName: SEED_WORKERS[1]!.fullName,
+    invoiceId: null,
+    status: 'SCHEDULED',
+    category: 'PREVENTIVE',
+    createdAt: '2026-07-01T09:00:00Z',
+  },
+  {
+    id: 'maintenance-2',
+    vehicleId: SEED_VEHICLES[0]!.id,
+    vehicleLicensePlate: SEED_VEHICLES[0]!.licensePlate,
+    vehicleMake: SEED_VEHICLES[0]!.make,
+    vehicleModel: SEED_VEHICLES[0]!.model,
+    type: 'Cambio de pastillas de freno',
+    description: 'Ruido al frenar reportado por el conductor',
+    usageAtService: 14800,
+    cost: null,
+    workshopEntryDate: '2026-07-03',
+    workshopExitDate: null,
+    technicianId: TECHNICIAN_WORKER_ID,
+    technicianName: SEED_WORKERS[1]!.fullName,
+    invoiceId: null,
+    status: 'IN_PROGRESS',
+    category: 'CORRECTIVE',
+    createdAt: '2026-07-02T09:00:00Z',
+  },
+  {
+    id: 'maintenance-3',
+    vehicleId: SEED_VEHICLES[1]!.id,
+    vehicleLicensePlate: SEED_VEHICLES[1]!.licensePlate,
+    vehicleMake: SEED_VEHICLES[1]!.make,
+    vehicleModel: SEED_VEHICLES[1]!.model,
+    type: 'Cambio de filtro',
+    description: null,
+    usageAtService: 3100,
+    cost: 85.5,
+    workshopEntryDate: '2026-06-10',
+    workshopExitDate: '2026-06-11',
+    technicianId: null,
+    technicianName: null,
+    invoiceId: null,
+    status: 'COMPLETED',
+    category: 'PREVENTIVE',
+    createdAt: '2026-06-09T09:00:00Z',
+  },
+]
+
+let maintenanceRecords: MaintenanceRecordMock[] = [...SEED_MAINTENANCE]
+
+export function resetMaintenanceMock() {
+  maintenanceRecords = [...SEED_MAINTENANCE]
+}
+
+type SchedulePriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
+type WorkshopStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
+type ScheduleRangeValue = 'today' | 'week' | 'month'
+
+// The mock filters by an explicit `rangeTags` membership list instead of replicating the
+// backend's real date-window math (ISO week / calendar month) — that boundary logic is
+// already covered by WorkshopScheduleRepositoryTest on the backend; here we only need the
+// range selector to request a different range and receive a different filtered list.
+type WorkshopScheduleMock = {
+  id: string
+  vehicleId: string
+  vehicleLicensePlate: string | null
+  vehicleMake: string | null
+  vehicleModel: string | null
+  technicianId: string | null
+  technicianName: string | null
+  maintenanceRecordId: string | null
+  maintenanceCategory: MaintenanceCategory | null
+  scheduledDate: string
+  type: string
+  priority: SchedulePriority
+  status: WorkshopStatus
+  notes: string | null
+  createdAt: string
+  rangeTags: ScheduleRangeValue[]
+}
+
+type ScheduleRequestBody = {
+  vehicleId: string
+  technicianId?: string | null
+  maintenanceRecordId?: string | null
+  scheduledDate: string
+  type: string
+  priority?: SchedulePriority | null
+  notes?: string | null
+}
+
+export const SEED_SCHEDULES: WorkshopScheduleMock[] = [
+  {
+    id: 'schedule-1',
+    vehicleId: SEED_VEHICLES[0]!.id,
+    vehicleLicensePlate: SEED_VEHICLES[0]!.licensePlate,
+    vehicleMake: SEED_VEHICLES[0]!.make,
+    vehicleModel: SEED_VEHICLES[0]!.model,
+    technicianId: TECHNICIAN_WORKER_ID,
+    technicianName: SEED_WORKERS[1]!.fullName,
+    maintenanceRecordId: SEED_MAINTENANCE[0]!.id,
+    maintenanceCategory: SEED_MAINTENANCE[0]!.category,
+    scheduledDate: '2026-07-09',
+    type: 'Cambio de aceite',
+    priority: 'MEDIUM',
+    status: 'PENDING',
+    notes: null,
+    createdAt: '2026-07-01T09:00:00Z',
+    rangeTags: ['today', 'week', 'month'],
+  },
+  {
+    id: 'schedule-2',
+    vehicleId: SEED_VEHICLES[0]!.id,
+    vehicleLicensePlate: SEED_VEHICLES[0]!.licensePlate,
+    vehicleMake: SEED_VEHICLES[0]!.make,
+    vehicleModel: SEED_VEHICLES[0]!.model,
+    technicianId: TECHNICIAN_WORKER_ID,
+    technicianName: SEED_WORKERS[1]!.fullName,
+    maintenanceRecordId: SEED_MAINTENANCE[1]!.id,
+    maintenanceCategory: SEED_MAINTENANCE[1]!.category,
+    scheduledDate: '2026-07-11',
+    type: 'Revisión de frenos',
+    priority: 'HIGH',
+    status: 'IN_PROGRESS',
+    notes: null,
+    createdAt: '2026-07-02T09:00:00Z',
+    rangeTags: ['week', 'month'],
+  },
+  {
+    id: 'schedule-3',
+    vehicleId: SEED_VEHICLES[1]!.id,
+    vehicleLicensePlate: SEED_VEHICLES[1]!.licensePlate,
+    vehicleMake: SEED_VEHICLES[1]!.make,
+    vehicleModel: SEED_VEHICLES[1]!.model,
+    technicianId: null,
+    technicianName: null,
+    maintenanceRecordId: null,
+    maintenanceCategory: null,
+    scheduledDate: '2026-07-25',
+    type: 'Revisión general',
+    priority: 'LOW',
+    status: 'PENDING',
+    notes: null,
+    createdAt: '2026-07-03T09:00:00Z',
+    rangeTags: ['month'],
+  },
+]
+
+let workshopSchedules: WorkshopScheduleMock[] = [...SEED_SCHEDULES]
+
+export function resetWorkshopSchedulesMock() {
+  workshopSchedules = [...SEED_SCHEDULES]
 }
 
 export const handlers = [
@@ -937,6 +1146,8 @@ export const handlers = [
       description: body.description ?? null,
       vehicleId: vehicle.id,
       vehicleLicensePlate: vehicle.licensePlate,
+      vehicleMake: vehicle.make,
+      vehicleModel: vehicle.model,
       assignedDriverId: driver?.id ?? null,
       assignedDriverName: driver?.fullName ?? null,
       clientId: client?.id ?? null,
@@ -1104,6 +1315,308 @@ export const handlers = [
     jobs = jobs.map((job, i) => (i === index ? updated : job))
 
     return HttpResponse.json(updated)
+  }),
+
+  http.get('/api/v1/maintenance', ({ request }) => {
+    const url = new URL(request.url)
+    const page = Number(url.searchParams.get('page') ?? 0)
+    const size = Number(url.searchParams.get('size') ?? 20)
+    const start = page * size
+    const content = maintenanceRecords.slice(start, start + size)
+
+    return HttpResponse.json({
+      content,
+      page,
+      size,
+      totalElements: maintenanceRecords.length,
+      totalPages: Math.max(1, Math.ceil(maintenanceRecords.length / size)),
+    })
+  }),
+
+  http.post('/api/v1/maintenance', async ({ request }) => {
+    const body = (await request.json()) as MaintenanceRequestBody
+
+    const vehicle = vehicles.find((v) => v.id === body.vehicleId)
+    if (!vehicle) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'VEHICLE_NOT_FOUND',
+          message: `Vehicle ${body.vehicleId} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    let technician: Worker | undefined
+    if (body.technicianId) {
+      technician = workers.find((w) => w.id === body.technicianId)
+      if (!technician) {
+        return HttpResponse.json(
+          {
+            status: 404,
+            code: 'WORKER_NOT_FOUND',
+            message: `Worker ${body.technicianId} not found`,
+            correlationId: 'test-correlation-id',
+          },
+          { status: 404 },
+        )
+      }
+    }
+
+    const newRecord: MaintenanceRecordMock = {
+      id: `maintenance-${maintenanceRecords.length + 1}`,
+      vehicleId: vehicle.id,
+      vehicleLicensePlate: vehicle.licensePlate,
+      vehicleMake: vehicle.make,
+      vehicleModel: vehicle.model,
+      type: body.type,
+      description: body.description ?? null,
+      usageAtService: null,
+      cost: null,
+      workshopEntryDate: null,
+      workshopExitDate: null,
+      technicianId: technician?.id ?? null,
+      technicianName: technician?.fullName ?? null,
+      invoiceId: null,
+      status: 'SCHEDULED',
+      category: body.category ?? 'PREVENTIVE',
+      createdAt: new Date().toISOString(),
+    }
+    maintenanceRecords = [...maintenanceRecords, newRecord]
+
+    return HttpResponse.json(newRecord, { status: 201 })
+  }),
+
+  http.patch('/api/v1/maintenance/:id/start', async ({ request, params }) => {
+    const index = maintenanceRecords.findIndex((record) => record.id === params.id)
+    const existing = maintenanceRecords[index]
+
+    if (!existing) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'MAINTENANCE_NOT_FOUND',
+          message: `Maintenance ${params.id} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    if (existing.status !== 'SCHEDULED') {
+      return HttpResponse.json(
+        {
+          status: 409,
+          code: 'MAINTENANCE_INVALID_STATE_TRANSITION',
+          message: `Maintenance ${params.id} cannot be started from state ${existing.status}`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 409 },
+      )
+    }
+
+    const body = (await request.json().catch(() => null)) as { usageAtService?: number | null } | null
+
+    const updated: MaintenanceRecordMock = {
+      ...existing,
+      status: 'IN_PROGRESS',
+      workshopEntryDate: new Date().toISOString().slice(0, 10),
+      usageAtService: body?.usageAtService ?? existing.usageAtService,
+    }
+    maintenanceRecords = maintenanceRecords.map((record, i) => (i === index ? updated : record))
+
+    return HttpResponse.json(updated)
+  }),
+
+  http.patch('/api/v1/maintenance/:id/complete', async ({ request, params }) => {
+    const index = maintenanceRecords.findIndex((record) => record.id === params.id)
+    const existing = maintenanceRecords[index]
+
+    if (!existing) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'MAINTENANCE_NOT_FOUND',
+          message: `Maintenance ${params.id} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    if (existing.status !== 'IN_PROGRESS') {
+      return HttpResponse.json(
+        {
+          status: 409,
+          code: 'MAINTENANCE_INVALID_STATE_TRANSITION',
+          message: `Maintenance ${params.id} cannot be completed from state ${existing.status}`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 409 },
+      )
+    }
+
+    const body = (await request.json().catch(() => null)) as { cost?: number | null } | null
+
+    const updated: MaintenanceRecordMock = {
+      ...existing,
+      status: 'COMPLETED',
+      workshopExitDate: new Date().toISOString().slice(0, 10),
+      cost: body?.cost ?? existing.cost,
+    }
+    maintenanceRecords = maintenanceRecords.map((record, i) => (i === index ? updated : record))
+
+    // Mirrors the backend's MaintenanceCompletedEvent -> ScheduleCompletionListener: a
+    // WorkshopSchedule linked to this maintenance record transitions to COMPLETED too.
+    // There is no manual "/complete" endpoint for schedules (Hito 25/26 decision) — this
+    // is the only way a schedule ever reaches COMPLETED.
+    workshopSchedules = workshopSchedules.map((schedule) =>
+      schedule.maintenanceRecordId === updated.id ? { ...schedule, status: 'COMPLETED' } : schedule,
+    )
+
+    return HttpResponse.json(updated)
+  }),
+
+  http.get('/api/v1/workshop/schedules', ({ request }) => {
+    const url = new URL(request.url)
+    const rangeParam = url.searchParams.get('range')
+
+    if (!rangeParam) {
+      return HttpResponse.json(
+        {
+          status: 400,
+          code: 'INVALID_RANGE',
+          message: 'range is required — must be one of: today, week, month',
+          correlationId: 'test-correlation-id',
+        },
+        { status: 400 },
+      )
+    }
+
+    const range = rangeParam.toLowerCase() as ScheduleRangeValue
+    if (range !== 'today' && range !== 'week' && range !== 'month') {
+      return HttpResponse.json(
+        {
+          status: 400,
+          code: 'INVALID_RANGE',
+          message: `range '${rangeParam}' is invalid — must be one of: today, week, month`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 400 },
+      )
+    }
+
+    const page = Number(url.searchParams.get('page') ?? 0)
+    const size = Number(url.searchParams.get('size') ?? 20)
+
+    const source = workshopSchedules.filter((schedule) => schedule.rangeTags.includes(range))
+    const start = page * size
+    const content = source.slice(start, start + size).map(({ rangeTags: _rangeTags, ...schedule }) => schedule)
+
+    return HttpResponse.json({
+      content,
+      page,
+      size,
+      totalElements: source.length,
+      totalPages: Math.max(1, Math.ceil(source.length / size)),
+    })
+  }),
+
+  http.post('/api/v1/workshop/schedules', async ({ request }) => {
+    const body = (await request.json()) as ScheduleRequestBody
+
+    const vehicle = vehicles.find((v) => v.id === body.vehicleId)
+    if (!vehicle) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'VEHICLE_NOT_FOUND',
+          message: `Vehicle ${body.vehicleId} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    let technician: Worker | undefined
+    if (body.technicianId) {
+      technician = workers.find((w) => w.id === body.technicianId)
+      if (!technician) {
+        return HttpResponse.json(
+          {
+            status: 404,
+            code: 'WORKER_NOT_FOUND',
+            message: `Worker ${body.technicianId} not found`,
+            correlationId: 'test-correlation-id',
+          },
+          { status: 404 },
+        )
+      }
+    }
+
+    const linkedMaintenance = body.maintenanceRecordId
+      ? maintenanceRecords.find((record) => record.id === body.maintenanceRecordId)
+      : undefined
+
+    const newSchedule: WorkshopScheduleMock = {
+      id: `schedule-${workshopSchedules.length + 1}`,
+      vehicleId: vehicle.id,
+      vehicleLicensePlate: vehicle.licensePlate,
+      vehicleMake: vehicle.make,
+      vehicleModel: vehicle.model,
+      technicianId: technician?.id ?? null,
+      technicianName: technician?.fullName ?? null,
+      maintenanceRecordId: linkedMaintenance?.id ?? null,
+      maintenanceCategory: linkedMaintenance?.category ?? null,
+      scheduledDate: body.scheduledDate,
+      type: body.type,
+      priority: body.priority ?? 'MEDIUM',
+      status: 'PENDING',
+      notes: body.notes ?? null,
+      createdAt: new Date().toISOString(),
+      rangeTags: ['today', 'week', 'month'],
+    }
+    workshopSchedules = [...workshopSchedules, newSchedule]
+
+    const { rangeTags: _rangeTags, ...response } = newSchedule
+    return HttpResponse.json(response, { status: 201 })
+  }),
+
+  http.patch('/api/v1/workshop/schedules/:id/cancel', ({ params }) => {
+    const index = workshopSchedules.findIndex((schedule) => schedule.id === params.id)
+    const existing = workshopSchedules[index]
+
+    if (!existing) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'SCHEDULE_NOT_FOUND',
+          message: `Schedule ${params.id} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    if (existing.status !== 'PENDING' && existing.status !== 'IN_PROGRESS') {
+      return HttpResponse.json(
+        {
+          status: 409,
+          code: 'SCHEDULE_INVALID_STATE_TRANSITION',
+          message: `Schedule ${params.id} cannot be cancelled from state ${existing.status}`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 409 },
+      )
+    }
+
+    const updated: WorkshopScheduleMock = { ...existing, status: 'CANCELLED' }
+    workshopSchedules = workshopSchedules.map((schedule, i) => (i === index ? updated : schedule))
+
+    const { rangeTags: _rangeTags, ...response } = updated
+    return HttpResponse.json(response)
   }),
 
   http.post('/api/v1/auth/login', async ({ request }) => {

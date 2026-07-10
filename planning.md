@@ -526,6 +526,8 @@ FleetMgm/
 - [x] **[GREEN]** `apps/web/src/components/job/` — `JobTable`, `JobStatusBadge`, `JobFormModal`, `JobActionButtons`
 - [x] **[GREEN]** Página `Jobs` — composición de componentes, ruta `/jobs` protegida (management + DRIVER)
   > **Nota (revisión Hito 22):** los botones de acción (Iniciar/Completar/Cancelar) no están condicionados por rol, solo por el estado del trabajo — cualquiera que pueda ver un trabajo en esta página ya tiene permiso para actuar sobre él (management sin restricción; DRIVER porque `list()` ya le filtra el backend a sus propios trabajos activos, blindado en el Hito 21). Solo "Nuevo trabajo" es management-only. Cancelar está disponible tanto en `PENDING` como en `IN_PROGRESS` (coincide con lo que ya permite `JobService.cancel()`). `JobResponse` no desnormaliza `vehicleMake`/`vehicleModel` (a diferencia de `AssignmentResponse`), así que un trabajo con vehículo sin matrícula muestra "—" en la columna Vehículo — pendiente si se decide extenderlo. Verificado además a mano en navegador real (Playwright, no incluido en el repo) contra el dev server con MSW activo, sin errores de consola.
+  > **Nota (fix de consistencia posterior, tras Hito 27):** el gap anterior se cerró — `JobResponse`/`JobMapper`, `MaintenanceResponse`/`MaintenanceMapper` y `ScheduleResponse`/`ScheduleMapper` ahora desnormalizan `vehicleMake`/`vehicleModel` exactamente igual que `AssignmentResponse`/`AssignmentMapper` (mismo par de `@Mapping`, ningún cambio de query — el `vehicle` ya venía cargado vía `JOIN FETCH` en los tres repositorios). En frontend, `formatVehicleLabel()` (`apps/web/src/lib/vehicle-label.ts`) se generalizó de `Pick<Assignment, ...>` a un tipo estructural local para poder reutilizarse en `JobTable`, `MaintenanceTable` y `ScheduleTable` además de `AssignmentHistory`/`Workers`; los tres ahora muestran "`<make> <model>`" en vez de "—" cuando el vehículo no tiene matrícula (probado con el vehículo pesado sin matrícula ya presente en los seeds — `job-4`/`maintenance-3`/`schedule-3`). `VehicleTable.tsx` no se tocó (ya tiene columnas `make`/`model` propias). Backend: 188 tests (`./mvnw test`, sin Docker en este entorno — Testcontainers no verificado en este pase). Frontend: 43 tests (`vitest run`), `turbo test lint` verde en las 6 tareas, único warning preexistente de `oxlint` en `AssignmentModal.tsx` sin relación con este cambio.
+  > **Nota (revisión 4R pre-commit):** el primer pase de este fix mockeaba `JobMapper`/`MaintenanceMapper`/`ScheduleMapper` en los tests de servicio y no aserciones nuevas en los de controller — un typo en el `@Mapping` de `vehicleMake`/`vehicleModel` habría compilado y pasado toda la suite sin que nada lo detectara. Cerrado añadiendo `jsonPath("$.vehicleMake")`/`jsonPath("$.vehicleModel")` a `getById_returns200_whenFound` en `JobControllerTest`, `MaintenanceControllerTest` y `WorkshopControllerTest`, mismo patrón que ya usaba `AssignmentControllerTest`. El resto de hallazgos de esa revisión (código muerto en `MaintenanceFormModal`, badge de estado duplicado en vez de extraído, gate `canManage` tautológico en `Workshop.tsx`, mutaciones sin manejo de `isError`, cobertura de caminos tristes) quedan documentados como deuda para una rama de fixing posterior — no bloquean este commit.
 
 ---
 
@@ -596,12 +598,43 @@ FleetMgm/
 
 ### Hito 27 — Frontend: Workshop
 > Requiere: Hitos 23–26 (backend maintenance + workshop schedules)
-- [ ] **[RED]** Handlers MSW — `GET /api/v1/workshop/schedules?range=today|week|month`, `POST`, `PATCH /{id}/cancel`; `GET /api/v1/maintenance`, `POST`, `PATCH /{id}/start`, `PATCH /{id}/complete`
-- [ ] **[RED]** Tests `Workshop.test.tsx` — selector de rango filtra la lista correctamente; WORKSHOP_STAFF ve y crea órdenes; cambio de estado actualiza badge
-- [ ] **[GREEN]** `packages/hooks/src/useWorkshop.ts` — lista por rango, create, cancel
-- [ ] **[GREEN]** `packages/hooks/src/useMaintenance.ts` — lista, create, start, complete
-- [ ] **[GREEN]** `apps/web/src/components/workshop/` — `ScheduleTable`, `ScheduleRangeSelector`, `MaintenanceTable`, `MaintenanceFormModal`
-- [ ] **[GREEN]** Página `Workshop` — vista unificada de agenda y mantenimientos
+- [x] **[RED]** Handlers MSW — `GET /api/v1/workshop/schedules?range=today|week|month`, `POST`, `PATCH /{id}/cancel`; `GET /api/v1/maintenance`, `POST`, `PATCH /{id}/start`, `PATCH /{id}/complete`
+- [x] **[RED]** Tests `Workshop.test.tsx` — selector de rango filtra la lista correctamente; WORKSHOP_STAFF ve y crea órdenes; cambio de estado actualiza badge
+- [x] **[GREEN]** `packages/hooks/src/useWorkshop.ts` — lista por rango, create, cancel
+- [x] **[GREEN]** `packages/hooks/src/useMaintenance.ts` — lista, create, start, complete
+- [x] **[GREEN]** `apps/web/src/components/workshop/` — `ScheduleTable`, `ScheduleRangeSelector`, `MaintenanceTable`, `MaintenanceFormModal`
+- [x] **[GREEN]** Página `Workshop` — vista unificada de agenda y mantenimientos
+  > **Nota (revisión Hito 27):** (1) **`useWorkshop.ts` deliberadamente sin `start`:** aunque `WorkshopController` expone `PATCH /{id}/start`, el checklist de este hito solo pedía `list/create/cancel` y así se implementó — el frontend no ofrece un botón "Iniciar" para la agenda. La transición real de estado la conduce `MaintenanceTable` (`start`/`complete` sobre la orden de mantenimiento, que es donde ocurre el trabajo físico); el `WorkshopSchedule` pasa a `IN_PROGRESS` únicamente si alguien invoca ese endpoint directamente (fuera de esta UI) y a `COMPLETED` solo vía el listener del backend (`MaintenanceCompletedEvent` → `ScheduleCompletionListener`, Hito 26) — coherente con la decisión de no exponer un `/complete` manual para la agenda. (2) **Sin botón "Iniciar" ni "Completar" propios para `ScheduleTable`:** solo "Cancelar" (`PENDING`/`IN_PROGRESS` → `CANCELLED`), simétrico con el punto anterior. (3) **Sin componentes de badge/acciones separados:** el checklist enumera exactamente 4 componentes (`ScheduleTable`, `ScheduleRangeSelector`, `MaintenanceTable`, `MaintenanceFormModal`) — a diferencia de Jobs (que separa `JobStatusBadge`/`JobActionButtons`), aquí los mapas de etiquetas de estado y los botones de acción viven inline dentro de `ScheduleTable`/`MaintenanceTable` para no introducir archivos no listados. (4) **`useCompleteMaintenance` invalida ambas claves de caché** (`['maintenance']` y `['workshop']`), a diferencia de `useCompleteJob` en Hito 22 (que solo invalida `['jobs']` pese a que `JobCompletedEvent` también actualiza `Vehicle`) — decisión consciente: `Workshop` es una vista unificada de agenda + órdenes en la misma página, así que sin la invalidación cruzada la agenda quedaría visualmente desactualizada tras completar la orden enlazada. (5) **`MaintenanceFormModal` solo se usa para crear** en esta página (no hay tabla de edición inline), pero soporta `record` opcional para reutilizarse como editor si una futura vista lo requiere, replicando el patrón de `JobFormModal`. (6) **Mocks MSW — filtrado por rango:** en vez de reproducir la aritmética real de fechas del backend (semana ISO lunes-domingo, mes calendario — ya cubierta por `WorkshopScheduleRepositoryTest`), el mock etiqueta cada `WorkshopSchedule` seed con `rangeTags: ('today'|'week'|'month')[]` explícitos y filtra por pertenencia; evita que el test dependa de en qué día del mes/semana se ejecute la suite. (7) **`range` es obligatorio en el hook** (`useWorkshopSchedules(range, page?, size?)`, sin default) — refleja que `ScheduleRange.fromValue(null)` lanza `BadRequestException` en el backend (Hito 25/26): no existe un "rango por defecto" server-side, así que el frontend siempre debe enviar uno explícito (la página inicializa `range` en `'today'`). (8) Verificado: `apps/web` 40/40 tests (`vitest run`), suite completa del monorepo 43/43 (`turbo test`), `tsc -b` limpio, `oxlint` sin errores nuevos (1 warning preexistente en `AssignmentModal.tsx`, no tocado en este hito).
+
+### Adenda — Cancelación de mantenimiento y su relación con la agenda *(deuda documentada, sin implementar — post-Hito 27)*
+> Surgió al probar el flujo real en el frontend del Hito 27: cancelar un `WorkshopSchedule` no tiene ningún
+> efecto sobre su `MaintenanceRecord` enlazado. Investigado y confirmado que **no es un artefacto del mock
+> MSW** — es el comportamiento real del backend: `WorkshopScheduleService.cancel()` solo muta el propio
+> `WorkshopSchedule` (no publica evento), y `MaintenanceRecord` directamente **no tiene forma de cancelarse**
+> (`MaintenanceStatus` solo tiene `SCHEDULED`/`IN_PROGRESS`/`COMPLETED` — sin `CANCELLED`, sin endpoint
+> `/cancel`). Ya estaba parcialmente anotado en la revisión del Hito 23 ("borrar un `IN_PROGRESS` sería un
+> abort... futuro `cancel()` + enum `CANCELLED` espejo de `Job`, no un `DELETE`") pero nunca se implementó.
+> Diseño acordado con el usuario para cuando se aborde (sin hito fijo todavía):
+> 1. **`MaintenanceRecord.cancel()`** — nuevo estado `CANCELLED` en `MaintenanceStatus`, alcanzable desde
+>    `SCHEDULED`/`IN_PROGRESS` (no desde `COMPLETED`, estado terminal) — mismo patrón que `Job`/`WorkshopSchedule`.
+>    Nuevo endpoint `PATCH /api/v1/maintenance/{id}/cancel`, sin body. Motivos de negocio: técnico no
+>    disponible, vehículo requerido en otro sitio, etc.
+> 2. **Efecto sobre el vehículo** — si se cancela un mantenimiento `IN_PROGRESS` (el vehículo está en
+>    `MAINTENANCE` por su causa), el vehículo debe volver a `ACTIVE`, igual que en `complete()`: nuevo evento
+>    `MaintenanceCancelledEvent` consumido por el `MaintenanceEventListener` ya existente (mismo guard
+>    `existsByVehicleIdAndStatus` para no reactivar el vehículo si tiene otro mantenimiento `IN_PROGRESS`
+>    simultáneo). Cancelar desde `SCHEDULED` no toca el vehículo (nunca entró a `MAINTENANCE` por su causa —
+>    mismo razonamiento ya documentado para `delete()` en Hito 23).
+> 3. **Cascada bidireccional con `WorkshopSchedule`** — cancelar el schedule cancela su mantenimiento
+>    enlazado (si existe y no está en estado terminal), y cancelar el mantenimiento cancela su schedule
+>    enlazado (si existe y no está en estado terminal): simétrico a como ya funciona completar
+>    (`MaintenanceCompletedEvent` → `ScheduleCompletionListener`, Hito 26). Cada lado debe ser no-op si la
+>    entidad relacionada ya está en estado terminal (`CANCELLED`/`COMPLETED`), para no generar un ciclo
+>    infinito entre los dos listeners (A cancela B → evento → B intenta cancelar A → ya terminal → no-op).
+>    Un `WorkshopSchedule` sin mantenimiento enlazado (`maintenanceRecordId == null`, flujo de avería no
+>    planificada aún no derivada) simplemente no dispara nada al cancelarse.
+> 4. **Frontend** — botón "Cancelar" en `MaintenanceTable` (hoy ausente, ver nota Hito 27 punto 2) una vez
+>    exista el endpoint; `useMaintenance.ts` necesitaría una mutación `cancel` análoga a `useCancelJob`.
 
 ---
 

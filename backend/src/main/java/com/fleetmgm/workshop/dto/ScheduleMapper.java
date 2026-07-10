@@ -10,6 +10,8 @@ public interface ScheduleMapper {
 
     @Mapping(target = "vehicleId", source = "vehicle.id")
     @Mapping(target = "vehicleLicensePlate", source = "vehicle.licensePlate")
+    @Mapping(target = "vehicleMake", source = "vehicle.make")
+    @Mapping(target = "vehicleModel", source = "vehicle.model")
     @Mapping(target = "technicianId", source = "technician.id")
     @Mapping(target = "technicianName", source = "technician.fullName")
     @Mapping(target = "maintenanceRecordId", source = "maintenanceRecord.id")

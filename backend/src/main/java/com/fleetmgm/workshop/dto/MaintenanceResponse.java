@@ -12,6 +12,8 @@ public record MaintenanceResponse(
         UUID id,
         UUID vehicleId,
         String vehicleLicensePlate,
+        String vehicleMake,
+        String vehicleModel,
         String type,
         String description,
         Long usageAtService,
