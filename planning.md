@@ -696,6 +696,81 @@ FleetMgm/
 > cascade de dos saltos end-to-end (solo unit tests mockeados), y el mensaje de error repetido inline en
 > vez de extraído a un componente compartido.
 
+### Adenda — Agenda de taller: creación manual + auto-creación al programar mantenimiento *(implementado en `fixing-hito27-review-findings`)*
+> Surgió al validar con el usuario si `npm run dev` (mock MSW) ya reflejaba el ciclo de vida completo de
+> taller. Confirmado que **no** — ni el mock ni el backend real creaban una entrada de agenda al crear/
+> iniciar/completar una orden de mantenimiento; `WorkshopSchedule` y `MaintenanceRecord` eran completamente
+> independientes salvo por la cascada de completar/cancelar ya implementada (adenda anterior). Dos huecos
+> reales, resueltos en dos pasos:
+> 1. **Creación manual de agenda** — no existía ningún control en la UI para `POST /api/v1/workshop/schedules`
+>    (el endpoint y el hook `useCreateWorkshopSchedule` ya existían desde Hito 25/26/27, pero sin cablear).
+>    Nuevo componente `ScheduleFormModal` (mismo patrón que `MaintenanceFormModal`: vehículo, técnico
+>    opcional, tipo, fecha, prioridad, notas — sin campo `maintenanceRecordId`, fuera de alcance de este
+>    paso) y botón "Nueva entrada" junto al selector de rango en `Workshop.tsx`. Sin cambios de backend.
+> 2. **Auto-creación al programar mantenimiento** — confirma el flujo (1) ya documentado en la adenda de
+>    categoría preventivo/correctivo ("mantenimiento programado que genera su entrada de agenda"), nunca
+>    implementado hasta ahora. `CreateMaintenanceRequest` gana `scheduledDate` (nullable a nivel de DTO —
+>    Bean Validation no expresa "requerido condicional" limpio; el service valida y lanza
+>    `BadRequestException("MAINTENANCE_SCHEDULED_DATE_REQUIRED", ...)` si falta y el flag de abajo está
+>    activo). Nuevo toggle de **configuración de despliegue** (decisión explícita del usuario — no expuesto
+>    al frontend, no es una preferencia por request/rol): `workshop.auto-create-schedule-on-maintenance-create`
+>    en `application.yml`, resuelto vía `${WORKSHOP_AUTO_CREATE_SCHEDULE:true}`, inyectado en
+>    `MaintenanceService` por constructor (`@Value`, mismo patrón que `jwt.secret` en `JwtService`).
+>
+> **Primera implementación (llamada directa) y su corrección vía code-review:** la primera versión de
+> `MaintenanceService.create()` inyectaba `WorkshopScheduleService` y lo llamaba sincrónicamente en la misma
+> transacción. Una revisión de código (8 ángulos + verificación 1-voto) encontró que esto violaba la regla
+> explícita de `CLAUDE.md` ("Use Spring's event system... to add side-effects to a completed job or
+> maintenance record without touching JobService or MaintenanceService") e era inconsistente con el propio
+> `cancel()` del mismo archivo, que ya resuelve la relación simétrica vía evento. Corregido a:
+> `MaintenanceService.create()` publica `MaintenanceScheduledEvent` (nuevo record en `workshop.domain`);
+> nuevo `ScheduleCreationListener` (`workshop.application`, sibling de `ScheduleCompletionListener`/
+> `ScheduleCancellationListener` — mutan `WorkshopSchedule`, regla de Hito 21/24) lo consume vía
+> `@TransactionalEventListener(phase = AFTER_COMMIT)` y llama a `WorkshopScheduleService.create()`, con el
+> mismo try/catch + `log.error(...)` sin relanzar que ya usa `ScheduleCancellationListener`. Este cambio
+> también eliminó, como efecto colateral, una segunda evaluación redundante de `@PreAuthorize` y guardas
+> `NotFoundException` muertas que la llamada directa producía (el vehículo/técnico ya estaban resueltos por
+> el caller un momento antes).
+>
+> **Limitación aceptada, no mitigada por ahora:** al ser `AFTER_COMMIT`, la creación de la orden de
+> mantenimiento ya hizo commit (y el HTTP ya devolvió `201`) antes de que `ScheduleCreationListener` intente
+> crear la agenda. Si esa segunda transacción falla, no hay rollback posible ni reintento — solo queda un
+> `log.error` en el servidor, y la orden de mantenimiento queda persistida **sin** su entrada de agenda
+> vinculada, sin que el cliente se entere. Mismo perfil de riesgo que ya acepta el proyecto para
+> `ScheduleCompletionListener`/`ScheduleCancellationListener` (adenda anterior, punto "fallos de cascada
+> silenciosos"). Decisión explícita del usuario: aceptar por ahora: **si se aborda, será al final** (ej. un
+> job de reconciliación que detecte `MaintenanceRecord`s sin `WorkshopSchedule` vinculado cuando el flag está
+> activo) — no bloqueante para seguir avanzando.
+>
+> **Frontend/mock:** `MaintenanceFormModal` gana el campo "Fecha" (prellenado con la fecha **local** del
+> usuario — no UTC, ver bug corregido abajo — editable a futuro). `apps/web/src/mocks/handlers.ts` espeja el
+> efecto secundario del backend en `POST /api/v1/maintenance` (el mock no modela el toggle: siempre se
+> comporta como si estuviera activo). `useCreateMaintenance` pasa a invalidar también la cache de `workshop`,
+> mismo patrón que `useCompleteMaintenance`/`useCancelMaintenance`.
+>
+> **Code-review (8 ángulos + verificación) antes de comitear — 9 hallazgos, 2 descartados:** descartados por
+> ser diseño ya documentado/decidido (coexistencia intencional de los dos flujos de creación, `planning.md`
+> línea ~558; y el hardcoding de `rangeTags` en el mock, ya preexistente desde Hito 27 con comentario propio).
+> De los 9 confirmados, arreglados todos: (1) **bug real de zona horaria** — el default de fecha usaba
+> `toISOString()` (UTC) en vez de la fecha local, fecha equivocada para usuarios en UTC-3 después de ~21:00;
+> (2) llamada directa en vez de evento (ver arriba); (3) `MaintenanceControllerTest.create_returns201_...
+> _whenValid` quedó con un payload que ya no era válido bajo la nueva regla de negocio (`@MockBean` lo
+> ocultaba); (4) lookups/guards/`resolveTechnician` duplicados, resuelto como efecto colateral de (2); (5)
+> construcción de `WorkshopScheduleMock` duplicada entre dos handlers del mock, extraída a
+> `buildWorkshopScheduleMock`; (6) `MaintenanceServiceTest` no podía usar `@InjectMocks` por el `boolean`
+> primitivo del constructor (Mockito 5 lanza error en vez de defaultear) — reducido a una sola construcción
+> manual + `ReflectionTestUtils` para el test con el flag apagado; (7) comentario de test que mencionaba
+> `ReflectionTestUtils` sin usarlo, ahora preciso; (8) `useCreateMaintenance`/`useCompleteMaintenance`/
+> `useCancelMaintenance`/`useCancelWorkshopSchedule` duplicaban el mismo `Promise.all` de doble invalidación
+> — extraído a `invalidateQueryKeys` (`packages/hooks/src/invalidateQueryKeys.ts`); (9) `ScheduleFormModal`
+> duplicaba `selectClassName`/`toNullableString`/`PRIORITY_LABEL` de sus archivos hermanos — extraídos a
+> `apps/web/src/components/workshop/form-shared.ts`.
+>
+> **Tests:** backend 215 → 220 (`./mvnw test`, 0 fallos — nuevo `ScheduleCreationListenerTest`, tests de
+> `MaintenanceServiceTest`/`MaintenanceControllerTest` actualizados/renombrados); frontend 52 → 54 (`vitest
+> run`, 0 fallos — `Workshop.test.tsx` cubre el botón "Nueva entrada" y la creación de agenda vinculada al
+> crear una orden). `oxlint`/`tsc -b` limpios en ambos paquetes tocados.
+
 ---
 
 ### Hito 28 — Facturación (clientes): Contrato API
