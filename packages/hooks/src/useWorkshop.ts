@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@fleetmgm/api'
 import type { CreateScheduleRequest, PageResponse, ScheduleRange, WorkshopSchedule } from '@fleetmgm/api'
+import { invalidateQueryKeys } from './invalidateQueryKeys'
 import { MAINTENANCE_KEY } from './useMaintenance'
 
 export const WORKSHOP_KEY = 'workshop'
@@ -42,10 +43,6 @@ export function useCancelWorkshopSchedule() {
     // feature keys — otherwise the "Órdenes de mantenimiento" table keeps showing a stale
     // pre-cancel status and still-clickable action buttons for a record that's actually
     // terminal server-side.
-    onSuccess: () =>
-      Promise.all([
-        queryClient.invalidateQueries({ queryKey: [WORKSHOP_KEY] }),
-        queryClient.invalidateQueries({ queryKey: [MAINTENANCE_KEY] }),
-      ]),
+    onSuccess: () => invalidateQueryKeys(queryClient, [WORKSHOP_KEY, MAINTENANCE_KEY]),
   })
 }

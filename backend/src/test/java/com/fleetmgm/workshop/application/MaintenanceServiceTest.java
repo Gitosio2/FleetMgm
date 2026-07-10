@@ -5,6 +5,7 @@ import com.fleetmgm.auth.infrastructure.UserRepository;
 import com.fleetmgm.shared.PageResponse;
 import com.fleetmgm.shared.domain.AuditAction;
 import com.fleetmgm.shared.domain.AuditLog;
+import com.fleetmgm.shared.exception.BadRequestException;
 import com.fleetmgm.shared.exception.ConflictException;
 import com.fleetmgm.shared.exception.NotFoundException;
 import com.fleetmgm.shared.infrastructure.AuditLogRepository;
@@ -16,6 +17,7 @@ import com.fleetmgm.workshop.domain.MaintenanceCancelledEvent;
 import com.fleetmgm.workshop.domain.MaintenanceCategory;
 import com.fleetmgm.workshop.domain.MaintenanceCompletedEvent;
 import com.fleetmgm.workshop.domain.MaintenanceRecord;
+import com.fleetmgm.workshop.domain.MaintenanceScheduledEvent;
 import com.fleetmgm.workshop.domain.MaintenanceStatus;
 import com.fleetmgm.workshop.domain.VehicleEntersWorkshopEvent;
 import com.fleetmgm.workshop.dto.CompleteMaintenanceRequest;
@@ -26,10 +28,10 @@ import com.fleetmgm.workshop.dto.StartMaintenanceRequest;
 import com.fleetmgm.workshop.dto.UpdateMaintenanceRequest;
 import com.fleetmgm.workshop.infrastructure.MaintenanceRepository;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
@@ -38,8 +40,10 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -61,7 +65,18 @@ class MaintenanceServiceTest {
     @Mock ApplicationEventPublisher eventPublisher;
     @Mock AuditLogRepository auditLogRepository;
     @Mock UserRepository userRepository;
-    @InjectMocks MaintenanceService maintenanceService;
+    MaintenanceService maintenanceService;
+
+    @BeforeEach
+    void setUp() {
+        // @InjectMocks can't be used here: Mockito's constructor-injection engine cannot resolve
+        // the primitive boolean param and fails outright rather than defaulting it. Constructed
+        // manually once, with autoCreateScheduleOnCreate=true matching the production default in
+        // application.yml (workshop.auto-create-schedule-on-maintenance-create) — the one test that
+        // needs it off flips it back via ReflectionTestUtils instead of a second manual construction.
+        maintenanceService = new MaintenanceService(maintenanceRepository, vehicleRepository, workerRepository,
+                maintenanceMapper, eventPublisher, auditLogRepository, userRepository, true);
+    }
 
     @AfterEach
     void clearSecurityContext() {
@@ -71,9 +86,10 @@ class MaintenanceServiceTest {
     // --- create ---
 
     @Test
-    void create_persistsScheduledRecord_withoutPublishingEvent() {
+    void create_persistsScheduledRecord_withoutMovingVehicleToWorkshop() {
         UUID vehicleId = UUID.randomUUID();
-        CreateMaintenanceRequest request = new CreateMaintenanceRequest(vehicleId, "Oil change", null, null, null);
+        CreateMaintenanceRequest request = new CreateMaintenanceRequest(
+                vehicleId, "Oil change", null, null, null, LocalDate.now());
 
         Vehicle vehicle = new Vehicle();
         MaintenanceRecord entity = new MaintenanceRecord();
@@ -91,14 +107,18 @@ class MaintenanceServiceTest {
         verify(maintenanceRepository).save(captor.capture());
         assertThat(captor.getValue().getVehicle()).isEqualTo(vehicle);
         assertThat(captor.getValue().getStatus()).isEqualTo(MaintenanceStatus.SCHEDULED);
-        // creating a maintenance must NOT move the vehicle into the workshop — that happens on start()
-        verify(eventPublisher, never()).publishEvent(any());
+        // creating a maintenance must NOT move the vehicle into the workshop — that happens on
+        // start() — but it DOES publish MaintenanceScheduledEvent, since scheduledDate is provided
+        // and auto-create is on by default in this test class (see setUp()).
+        verify(eventPublisher, never()).publishEvent(any(VehicleEntersWorkshopEvent.class));
+        verify(eventPublisher).publishEvent(any(MaintenanceScheduledEvent.class));
     }
 
     @Test
     void create_defaultsToPreventive_whenCategoryNotProvided() {
         UUID vehicleId = UUID.randomUUID();
-        CreateMaintenanceRequest request = new CreateMaintenanceRequest(vehicleId, "Oil change", null, null, null);
+        CreateMaintenanceRequest request = new CreateMaintenanceRequest(
+                vehicleId, "Oil change", null, null, null, LocalDate.now());
 
         Vehicle vehicle = new Vehicle();
         MaintenanceRecord entity = new MaintenanceRecord();
@@ -120,7 +140,7 @@ class MaintenanceServiceTest {
     void create_persistsCorrective_whenProvided() {
         UUID vehicleId = UUID.randomUUID();
         CreateMaintenanceRequest request = new CreateMaintenanceRequest(
-                vehicleId, "Brake repair", null, null, MaintenanceCategory.CORRECTIVE);
+                vehicleId, "Brake repair", null, null, MaintenanceCategory.CORRECTIVE, LocalDate.now());
 
         Vehicle vehicle = new Vehicle();
         MaintenanceRecord entity = new MaintenanceRecord();
@@ -141,7 +161,8 @@ class MaintenanceServiceTest {
     @Test
     void create_throwsNotFound_whenVehicleMissing() {
         UUID vehicleId = UUID.randomUUID();
-        CreateMaintenanceRequest request = new CreateMaintenanceRequest(vehicleId, "Oil change", null, null, null);
+        CreateMaintenanceRequest request = new CreateMaintenanceRequest(
+                vehicleId, "Oil change", null, null, null, LocalDate.now());
 
         when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.empty());
 
@@ -156,7 +177,8 @@ class MaintenanceServiceTest {
     void create_wiresTechnician_whenProvided() {
         UUID vehicleId = UUID.randomUUID();
         UUID technicianId = UUID.randomUUID();
-        CreateMaintenanceRequest request = new CreateMaintenanceRequest(vehicleId, "Oil change", null, technicianId, null);
+        CreateMaintenanceRequest request = new CreateMaintenanceRequest(
+                vehicleId, "Oil change", null, technicianId, null, LocalDate.now());
 
         Vehicle vehicle = new Vehicle();
         Worker technician = new Worker();
@@ -180,7 +202,8 @@ class MaintenanceServiceTest {
     void create_throwsNotFound_whenTechnicianMissing() {
         UUID vehicleId = UUID.randomUUID();
         UUID technicianId = UUID.randomUUID();
-        CreateMaintenanceRequest request = new CreateMaintenanceRequest(vehicleId, "Oil change", null, technicianId, null);
+        CreateMaintenanceRequest request = new CreateMaintenanceRequest(
+                vehicleId, "Oil change", null, technicianId, null, LocalDate.now());
 
         when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(new Vehicle()));
         when(workerRepository.findById(technicianId)).thenReturn(Optional.empty());
@@ -190,6 +213,74 @@ class MaintenanceServiceTest {
                 .satisfies(ex -> assertThat(((NotFoundException) ex).getCode()).isEqualTo("WORKER_NOT_FOUND"));
 
         verify(maintenanceRepository, never()).save(any());
+    }
+
+    @Test
+    void create_publishesScheduledEvent_whenAutoCreateEnabled() {
+        UUID vehicleId = UUID.randomUUID();
+        UUID recordId = UUID.randomUUID();
+        LocalDate scheduledDate = LocalDate.now().plusDays(3);
+        CreateMaintenanceRequest request = new CreateMaintenanceRequest(
+                vehicleId, "Oil change", null, null, null, scheduledDate);
+
+        Vehicle vehicle = new Vehicle();
+        setId(vehicle, vehicleId);
+        MaintenanceRecord entity = new MaintenanceRecord();
+        setId(entity, recordId);
+        MaintenanceResponse expected = buildResponse(recordId);
+
+        when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(vehicle));
+        when(maintenanceMapper.toEntity(request)).thenReturn(entity);
+        when(maintenanceRepository.save(entity)).thenReturn(entity);
+        when(maintenanceMapper.toResponse(entity)).thenReturn(expected);
+
+        maintenanceService.create(request);
+
+        ArgumentCaptor<MaintenanceScheduledEvent> captor = ArgumentCaptor.forClass(MaintenanceScheduledEvent.class);
+        verify(eventPublisher).publishEvent(captor.capture());
+        MaintenanceScheduledEvent event = captor.getValue();
+        assertThat(event.maintenanceId()).isEqualTo(recordId);
+        assertThat(event.vehicleId()).isEqualTo(vehicleId);
+        assertThat(event.technicianId()).isNull();
+        assertThat(event.scheduledDate()).isEqualTo(scheduledDate);
+        assertThat(event.type()).isEqualTo("Oil change");
+    }
+
+    @Test
+    void create_throwsBadRequest_whenAutoCreateEnabledAndScheduledDateMissing() {
+        UUID vehicleId = UUID.randomUUID();
+        CreateMaintenanceRequest request = new CreateMaintenanceRequest(
+                vehicleId, "Oil change", null, null, null, null);
+
+        assertThatThrownBy(() -> maintenanceService.create(request))
+                .isInstanceOf(BadRequestException.class)
+                .satisfies(ex -> assertThat(((BadRequestException) ex).getCode())
+                        .isEqualTo("MAINTENANCE_SCHEDULED_DATE_REQUIRED"));
+
+        verify(maintenanceRepository, never()).save(any());
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
+    void create_doesNotPublishScheduledEvent_whenAutoCreateDisabled() {
+        ReflectionTestUtils.setField(maintenanceService, "autoCreateScheduleOnCreate", false);
+        UUID vehicleId = UUID.randomUUID();
+        CreateMaintenanceRequest request = new CreateMaintenanceRequest(
+                vehicleId, "Oil change", null, null, null, null);
+
+        Vehicle vehicle = new Vehicle();
+        MaintenanceRecord entity = new MaintenanceRecord();
+        MaintenanceResponse expected = buildResponse(UUID.randomUUID());
+
+        when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(vehicle));
+        when(maintenanceMapper.toEntity(request)).thenReturn(entity);
+        when(maintenanceRepository.save(entity)).thenReturn(entity);
+        when(maintenanceMapper.toResponse(entity)).thenReturn(expected);
+
+        MaintenanceResponse result = maintenanceService.create(request);
+
+        assertThat(result).isEqualTo(expected);
+        verify(eventPublisher, never()).publishEvent(any());
     }
 
     // --- start ---

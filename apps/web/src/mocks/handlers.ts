@@ -510,6 +510,7 @@ type MaintenanceRequestBody = {
   description?: string | null
   technicianId?: string | null
   category?: MaintenanceCategory | null
+  scheduledDate: string
 }
 
 const TECHNICIAN_WORKER_ID = SEED_WORKERS[1]!.id
@@ -678,6 +679,38 @@ let workshopSchedules: WorkshopScheduleMock[] = [...SEED_SCHEDULES]
 
 export function resetWorkshopSchedulesMock() {
   workshopSchedules = [...SEED_SCHEDULES]
+}
+
+function buildWorkshopScheduleMock(params: {
+  vehicle: Vehicle
+  technician?: Worker | null
+  maintenanceRecordId?: string | null
+  maintenanceCategory?: MaintenanceCategory | null
+  scheduledDate: string
+  type: string
+  priority: SchedulePriority
+  notes?: string | null
+}): WorkshopScheduleMock {
+  return {
+    id: `schedule-${workshopSchedules.length + 1}`,
+    vehicleId: params.vehicle.id,
+    vehicleLicensePlate: params.vehicle.licensePlate,
+    vehicleMake: params.vehicle.make,
+    vehicleModel: params.vehicle.model,
+    technicianId: params.technician?.id ?? null,
+    technicianName: params.technician?.fullName ?? null,
+    maintenanceRecordId: params.maintenanceRecordId ?? null,
+    maintenanceCategory: params.maintenanceCategory ?? null,
+    scheduledDate: params.scheduledDate,
+    type: params.type,
+    priority: params.priority,
+    status: 'PENDING',
+    notes: params.notes ?? null,
+    createdAt: new Date().toISOString(),
+    // Always tagged for every range, regardless of scheduledDate — deliberate mock
+    // simplification, see the comment on WorkshopScheduleMock above.
+    rangeTags: ['today', 'week', 'month'],
+  }
 }
 
 export const handlers = [
@@ -1386,6 +1419,21 @@ export const handlers = [
     }
     maintenanceRecords = [...maintenanceRecords, newRecord]
 
+    // Mirrors the backend's MaintenanceService.create() -> WorkshopScheduleService.create() call
+    // (deployment-gated by WORKSHOP_AUTO_CREATE_SCHEDULE, default true): a scheduled maintenance
+    // order always creates its own linked agenda entry. The mock has no concept of the toggle —
+    // it always behaves as if the flag is on.
+    const newSchedule = buildWorkshopScheduleMock({
+      vehicle,
+      technician,
+      maintenanceRecordId: newRecord.id,
+      maintenanceCategory: newRecord.category,
+      scheduledDate: body.scheduledDate,
+      type: newRecord.type,
+      priority: 'MEDIUM',
+    })
+    workshopSchedules = [...workshopSchedules, newSchedule]
+
     return HttpResponse.json(newRecord, { status: 201 })
   }),
 
@@ -1600,24 +1648,16 @@ export const handlers = [
       ? maintenanceRecords.find((record) => record.id === body.maintenanceRecordId)
       : undefined
 
-    const newSchedule: WorkshopScheduleMock = {
-      id: `schedule-${workshopSchedules.length + 1}`,
-      vehicleId: vehicle.id,
-      vehicleLicensePlate: vehicle.licensePlate,
-      vehicleMake: vehicle.make,
-      vehicleModel: vehicle.model,
-      technicianId: technician?.id ?? null,
-      technicianName: technician?.fullName ?? null,
-      maintenanceRecordId: linkedMaintenance?.id ?? null,
-      maintenanceCategory: linkedMaintenance?.category ?? null,
+    const newSchedule = buildWorkshopScheduleMock({
+      vehicle,
+      technician,
+      maintenanceRecordId: linkedMaintenance?.id,
+      maintenanceCategory: linkedMaintenance?.category,
       scheduledDate: body.scheduledDate,
       type: body.type,
       priority: body.priority ?? 'MEDIUM',
-      status: 'PENDING',
-      notes: body.notes ?? null,
-      createdAt: new Date().toISOString(),
-      rangeTags: ['today', 'week', 'month'],
-    }
+      notes: body.notes,
+    })
     workshopSchedules = [...workshopSchedules, newSchedule]
 
     const { rangeTags: _rangeTags, ...response } = newSchedule

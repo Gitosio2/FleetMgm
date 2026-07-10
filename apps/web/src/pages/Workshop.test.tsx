@@ -78,7 +78,48 @@ describe('Workshop', () => {
 
     await user.click(screen.getByRole('button', { name: /crear orden/i }))
 
-    await waitFor(() => expect(screen.getByText('Cambio de neumáticos')).toBeInTheDocument())
+    // Also creates its linked agenda entry (see the dedicated test below), so the type text now
+    // appears twice on the page — once per table.
+    await waitFor(() => expect(screen.getAllByText('Cambio de neumáticos')).toHaveLength(2))
+  })
+
+  it('creating a maintenance order also creates its linked agenda entry', async () => {
+    loginAs('WORKSHOP_STAFF')
+    const user = userEvent.setup()
+    renderWorkshop()
+
+    await screen.findByText('Cambio de aceite')
+
+    await user.click(screen.getByRole('button', { name: /nueva orden/i }))
+
+    await user.type(screen.getByLabelText(/tipo/i), 'Cambio de correa de distribución')
+    await user.selectOptions(screen.getByLabelText(/vehículo/i), 'vehicle-1')
+
+    await user.click(screen.getByRole('button', { name: /crear orden/i }))
+
+    await waitFor(() => expect(screen.getAllByText('Cambio de correa de distribución')).toHaveLength(2))
+    const scheduleRow = (await screen.findAllByText('Cambio de correa de distribución')).find(
+      (el) => el.closest('tr') && within(el.closest('tr')!).queryByText('Pendiente'),
+    )
+    expect(scheduleRow).toBeDefined()
+  })
+
+  it('creates a workshop schedule entry directly from the agenda', async () => {
+    loginAs('ADMIN')
+    const user = userEvent.setup()
+    renderWorkshop()
+
+    await screen.findByText('Cambio de aceite')
+
+    await user.click(screen.getByRole('button', { name: /nueva entrada/i }))
+
+    await user.type(screen.getByLabelText(/tipo/i), 'Revisión de suspensión')
+    await user.selectOptions(screen.getByLabelText(/vehículo/i), 'vehicle-1')
+    await user.type(screen.getByLabelText(/fecha/i), '2026-07-15')
+
+    await user.click(screen.getByRole('button', { name: /crear entrada/i }))
+
+    await waitFor(() => expect(screen.getByText('Revisión de suspensión')).toBeInTheDocument())
   })
 
   it('starting a maintenance order transitions its badge from Programado to En curso', async () => {

@@ -68,7 +68,7 @@ class MaintenanceControllerTest {
 
         mockMvc.perform(post("/api/v1/maintenance")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"vehicleId\":\"" + VEHICLE_ID + "\",\"type\":\"Oil change\"}"))
+                        .content("{\"vehicleId\":\"" + VEHICLE_ID + "\",\"type\":\"Oil change\",\"scheduledDate\":\"2026-07-15\"}"))
                 .andExpect(status().isCreated())
                 .andExpect(header().string("Location", org.hamcrest.Matchers.containsString("/api/v1/maintenance/")));
     }

@@ -7,12 +7,14 @@ import { ScheduleRangeSelector } from '@/components/workshop/ScheduleRangeSelect
 import { ScheduleTable } from '@/components/workshop/ScheduleTable'
 import { MaintenanceTable } from '@/components/workshop/MaintenanceTable'
 import { MaintenanceFormModal } from '@/components/workshop/MaintenanceFormModal'
+import { ScheduleFormModal } from '@/components/workshop/ScheduleFormModal'
 
 const PAGE_SIZE = 20
 
 export function Workshop() {
   const [range, setRange] = useState<ScheduleRange>('today')
   const [formOpen, setFormOpen] = useState(false)
+  const [scheduleFormOpen, setScheduleFormOpen] = useState(false)
 
   const {
     data: schedulesPage,
@@ -45,7 +47,13 @@ export function Workshop() {
       <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <h2 className="font-display text-lg font-semibold">Agenda</h2>
-          <ScheduleRangeSelector value={range} onChange={setRange} />
+          <div className="flex items-center gap-3">
+            <ScheduleRangeSelector value={range} onChange={setRange} />
+            <Button variant="outline" size="sm" onClick={() => setScheduleFormOpen(true)}>
+              <Plus className="size-4" />
+              Nueva entrada
+            </Button>
+          </div>
         </div>
         {schedulesLoading ? (
           <p className="text-on-surface-variant">Cargando agenda…</p>
@@ -72,6 +80,7 @@ export function Workshop() {
       </section>
 
       <MaintenanceFormModal open={formOpen} onOpenChange={setFormOpen} />
+      <ScheduleFormModal open={scheduleFormOpen} onOpenChange={setScheduleFormOpen} />
     </div>
   )
 }

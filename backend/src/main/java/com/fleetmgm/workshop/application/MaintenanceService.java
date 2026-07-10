@@ -4,6 +4,7 @@ import com.fleetmgm.auth.infrastructure.UserRepository;
 import com.fleetmgm.shared.PageResponse;
 import com.fleetmgm.shared.domain.AuditAction;
 import com.fleetmgm.shared.domain.AuditLog;
+import com.fleetmgm.shared.exception.BadRequestException;
 import com.fleetmgm.shared.exception.ConflictException;
 import com.fleetmgm.shared.exception.NotFoundException;
 import com.fleetmgm.shared.infrastructure.AuditLogRepository;
@@ -15,6 +16,7 @@ import com.fleetmgm.workshop.domain.MaintenanceCancelledEvent;
 import com.fleetmgm.workshop.domain.MaintenanceCategory;
 import com.fleetmgm.workshop.domain.MaintenanceCompletedEvent;
 import com.fleetmgm.workshop.domain.MaintenanceRecord;
+import com.fleetmgm.workshop.domain.MaintenanceScheduledEvent;
 import com.fleetmgm.workshop.domain.MaintenanceStatus;
 import com.fleetmgm.workshop.domain.VehicleEntersWorkshopEvent;
 import com.fleetmgm.workshop.dto.CompleteMaintenanceRequest;
@@ -24,6 +26,7 @@ import com.fleetmgm.workshop.dto.MaintenanceResponse;
 import com.fleetmgm.workshop.dto.StartMaintenanceRequest;
 import com.fleetmgm.workshop.dto.UpdateMaintenanceRequest;
 import com.fleetmgm.workshop.infrastructure.MaintenanceRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -45,6 +48,7 @@ public class MaintenanceService {
     private final ApplicationEventPublisher eventPublisher;
     private final AuditLogRepository auditLogRepository;
     private final UserRepository userRepository;
+    private final boolean autoCreateScheduleOnCreate;
 
     public MaintenanceService(MaintenanceRepository maintenanceRepository,
                               VehicleRepository vehicleRepository,
@@ -52,7 +56,8 @@ public class MaintenanceService {
                               MaintenanceMapper maintenanceMapper,
                               ApplicationEventPublisher eventPublisher,
                               AuditLogRepository auditLogRepository,
-                              UserRepository userRepository) {
+                              UserRepository userRepository,
+                              @Value("${workshop.auto-create-schedule-on-maintenance-create}") boolean autoCreateScheduleOnCreate) {
         this.maintenanceRepository = maintenanceRepository;
         this.vehicleRepository = vehicleRepository;
         this.workerRepository = workerRepository;
@@ -60,6 +65,7 @@ public class MaintenanceService {
         this.eventPublisher = eventPublisher;
         this.auditLogRepository = auditLogRepository;
         this.userRepository = userRepository;
+        this.autoCreateScheduleOnCreate = autoCreateScheduleOnCreate;
     }
 
     @Transactional(readOnly = true)
@@ -71,6 +77,10 @@ public class MaintenanceService {
     @Transactional
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ADMINISTRATIVE', 'WORKSHOP_STAFF')")
     public MaintenanceResponse create(CreateMaintenanceRequest request) {
+        if (autoCreateScheduleOnCreate && request.scheduledDate() == null) {
+            throw new BadRequestException("MAINTENANCE_SCHEDULED_DATE_REQUIRED",
+                    "scheduledDate is required when auto-create-schedule is enabled");
+        }
         Vehicle vehicle = vehicleRepository.findById(request.vehicleId())
                 .orElseThrow(() -> new NotFoundException("VEHICLE_NOT_FOUND",
                         "Vehicle " + request.vehicleId() + " not found"));
@@ -80,7 +90,13 @@ public class MaintenanceService {
         record.setTechnician(technician);
         record.setStatus(MaintenanceStatus.SCHEDULED);
         record.setCategory(request.category() != null ? request.category() : MaintenanceCategory.PREVENTIVE);
-        return maintenanceMapper.toResponse(maintenanceRepository.save(record));
+        MaintenanceRecord saved = maintenanceRepository.save(record);
+        if (autoCreateScheduleOnCreate) {
+            eventPublisher.publishEvent(new MaintenanceScheduledEvent(
+                    saved.getId(), vehicle.getId(), technician != null ? technician.getId() : null,
+                    request.scheduledDate(), request.type(), Instant.now()));
+        }
+        return maintenanceMapper.toResponse(saved);
     }
 
     private Worker resolveTechnician(UUID technicianId) {

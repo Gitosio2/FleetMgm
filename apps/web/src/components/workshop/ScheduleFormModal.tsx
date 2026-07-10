@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import type { CreateMaintenanceRequest, MaintenanceCategory } from '@fleetmgm/api'
-import { useCreateMaintenance, useVehicles, useWorkers } from '@fleetmgm/hooks'
+import type { CreateScheduleRequest, SchedulePriority } from '@fleetmgm/api'
+import { useCreateWorkshopSchedule, useVehicles, useWorkers } from '@fleetmgm/hooks'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -11,28 +11,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { selectClassName, toNullableString } from './form-shared'
+import { PRIORITY_LABEL, selectClassName, toNullableString } from './form-shared'
 
-const CATEGORY_LABEL: Record<MaintenanceCategory, string> = {
-  PREVENTIVE: 'Preventivo',
-  CORRECTIVE: 'Correctivo',
-}
-
-type MaintenanceFormModalProps = {
+type ScheduleFormModalProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
 }
 
-function todayLocalDateInputValue(): string {
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = String(now.getMonth() + 1).padStart(2, '0')
-  const day = String(now.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
-export function MaintenanceFormModal({ open, onOpenChange }: MaintenanceFormModalProps) {
-  const createMaintenance = useCreateMaintenance()
+export function ScheduleFormModal({ open, onOpenChange }: ScheduleFormModalProps) {
+  const createSchedule = useCreateWorkshopSchedule()
 
   const { data: vehiclesPage } = useVehicles(0, 100)
   const { data: workersPage } = useWorkers(0, 100)
@@ -43,10 +30,10 @@ export function MaintenanceFormModal({ open, onOpenChange }: MaintenanceFormModa
 
   const [vehicleId, setVehicleId] = useState('')
   const [type, setType] = useState('')
-  const [description, setDescription] = useState('')
-  const [technicianId, setTechnicianId] = useState('')
-  const [category, setCategory] = useState<MaintenanceCategory>('PREVENTIVE')
   const [scheduledDate, setScheduledDate] = useState('')
+  const [priority, setPriority] = useState<SchedulePriority>('MEDIUM')
+  const [technicianId, setTechnicianId] = useState('')
+  const [notes, setNotes] = useState('')
 
   useEffect(() => {
     if (!open) {
@@ -54,40 +41,40 @@ export function MaintenanceFormModal({ open, onOpenChange }: MaintenanceFormModa
     }
     setVehicleId('')
     setType('')
-    setDescription('')
+    setScheduledDate('')
+    setPriority('MEDIUM')
     setTechnicianId('')
-    setCategory('PREVENTIVE')
-    setScheduledDate(todayLocalDateInputValue())
+    setNotes('')
   }, [open])
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
-    const request: CreateMaintenanceRequest = {
+    const request: CreateScheduleRequest = {
       vehicleId,
       type,
-      description: toNullableString(description),
-      technicianId: toNullableString(technicianId),
-      category,
       scheduledDate,
+      priority,
+      technicianId: toNullableString(technicianId),
+      notes: toNullableString(notes),
     }
 
-    createMaintenance.mutate(request, { onSuccess: () => onOpenChange(false) })
+    createSchedule.mutate(request, { onSuccess: () => onOpenChange(false) })
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Nueva orden</DialogTitle>
+          <DialogTitle>Nueva entrada</DialogTitle>
         </DialogHeader>
 
         <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="maintenance-vehicle">Vehículo</Label>
+              <Label htmlFor="schedule-vehicle">Vehículo</Label>
               <select
-                id="maintenance-vehicle"
+                id="schedule-vehicle"
                 className={selectClassName}
                 value={vehicleId}
                 onChange={(e) => setVehicleId(e.target.value)}
@@ -105,9 +92,9 @@ export function MaintenanceFormModal({ open, onOpenChange }: MaintenanceFormModa
               </select>
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="maintenance-technician">Técnico</Label>
+              <Label htmlFor="schedule-technician">Técnico</Label>
               <select
-                id="maintenance-technician"
+                id="schedule-technician"
                 className={selectClassName}
                 value={technicianId}
                 onChange={(e) => setTechnicianId(e.target.value)}
@@ -124,21 +111,21 @@ export function MaintenanceFormModal({ open, onOpenChange }: MaintenanceFormModa
 
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="maintenance-type">Tipo</Label>
-              <Input id="maintenance-type" value={type} onChange={(e) => setType(e.target.value)} required />
+              <Label htmlFor="schedule-type">Tipo</Label>
+              <Input id="schedule-type" value={type} onChange={(e) => setType(e.target.value)} required />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="maintenance-category">Categoría</Label>
+              <Label htmlFor="schedule-priority">Prioridad</Label>
               <select
-                id="maintenance-category"
+                id="schedule-priority"
                 className={selectClassName}
-                value={category}
-                onChange={(e) => setCategory(e.target.value as MaintenanceCategory)}
+                value={priority}
+                onChange={(e) => setPriority(e.target.value as SchedulePriority)}
                 required
               >
-                {(Object.keys(CATEGORY_LABEL) as MaintenanceCategory[]).map((value) => (
+                {(Object.keys(PRIORITY_LABEL) as SchedulePriority[]).map((value) => (
                   <option key={value} value={value}>
-                    {CATEGORY_LABEL[value]}
+                    {PRIORITY_LABEL[value]}
                   </option>
                 ))}
               </select>
@@ -146,18 +133,9 @@ export function MaintenanceFormModal({ open, onOpenChange }: MaintenanceFormModa
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="maintenance-description">Descripción</Label>
+            <Label htmlFor="schedule-date">Fecha</Label>
             <Input
-              id="maintenance-description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="maintenance-scheduled-date">Fecha</Label>
-            <Input
-              id="maintenance-scheduled-date"
+              id="schedule-date"
               type="date"
               value={scheduledDate}
               onChange={(e) => setScheduledDate(e.target.value)}
@@ -165,15 +143,20 @@ export function MaintenanceFormModal({ open, onOpenChange }: MaintenanceFormModa
             />
           </div>
 
-          {createMaintenance.isError && (
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="schedule-notes">Notas</Label>
+            <Input id="schedule-notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
+          </div>
+
+          {createSchedule.isError && (
             <p role="alert" className="text-sm text-error">
               No se pudo completar la acción.
             </p>
           )}
 
           <DialogFooter>
-            <Button type="submit" disabled={createMaintenance.isPending}>
-              Crear orden
+            <Button type="submit" disabled={createSchedule.isPending}>
+              Crear entrada
             </Button>
           </DialogFooter>
         </form>

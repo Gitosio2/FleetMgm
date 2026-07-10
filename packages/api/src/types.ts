@@ -213,6 +213,7 @@ export type CreateMaintenanceRequest = {
   description?: string | null
   technicianId?: string | null
   category?: MaintenanceCategory | null
+  scheduledDate: string
 }
 
 export type UpdateMaintenanceRequest = {

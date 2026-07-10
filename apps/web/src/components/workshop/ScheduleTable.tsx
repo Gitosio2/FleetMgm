@@ -1,16 +1,10 @@
-import type { SchedulePriority, WorkshopSchedule } from '@fleetmgm/api'
+import type { WorkshopSchedule } from '@fleetmgm/api'
 import { useCancelWorkshopSchedule } from '@fleetmgm/hooks'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { formatVehicleLabel } from '@/lib/vehicle-label'
+import { PRIORITY_LABEL } from './form-shared'
 import { ScheduleStatusBadge } from './ScheduleStatusBadge'
-
-const PRIORITY_LABEL: Record<SchedulePriority, string> = {
-  LOW: 'Baja',
-  MEDIUM: 'Media',
-  HIGH: 'Alta',
-  URGENT: 'Urgente',
-}
 
 type ScheduleTableProps = {
   schedules: WorkshopSchedule[]

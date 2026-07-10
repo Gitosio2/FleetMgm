@@ -27,6 +27,9 @@ jwt:
   access-token-expiration-ms: 900000      # 15 min
   refresh-token-expiration-ms: 604800000  # 7 days
 
+workshop:
+  auto-create-schedule-on-maintenance-create: ${WORKSHOP_AUTO_CREATE_SCHEDULE:true}
+
 management:
   endpoints:
     web:
