@@ -13,6 +13,7 @@ import com.fleetmgm.vehicle.infrastructure.VehicleRepository;
 import com.fleetmgm.worker.domain.Worker;
 import com.fleetmgm.worker.infrastructure.WorkerRepository;
 import com.fleetmgm.workshop.domain.MaintenanceRecord;
+import com.fleetmgm.workshop.domain.ScheduleCancelledEvent;
 import com.fleetmgm.workshop.domain.ScheduleRange;
 import com.fleetmgm.workshop.domain.SchedulePriority;
 import com.fleetmgm.workshop.domain.WorkshopSchedule;
@@ -30,6 +31,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -61,6 +63,7 @@ class WorkshopScheduleServiceTest {
     @Mock ScheduleMapper scheduleMapper;
     @Mock AuditLogRepository auditLogRepository;
     @Mock UserRepository userRepository;
+    @Mock ApplicationEventPublisher eventPublisher;
     @InjectMocks WorkshopScheduleService workshopScheduleService;
 
     @AfterEach
@@ -396,7 +399,7 @@ class WorkshopScheduleServiceTest {
     // --- cancel ---
 
     @Test
-    void cancel_transitionsToCancelled_whenPending() {
+    void cancel_transitionsToCancelled_andPublishesEvent_whenPending() {
         UUID id = UUID.randomUUID();
         WorkshopSchedule entity = new WorkshopSchedule();
         entity.setStatus(WorkshopStatus.PENDING);
@@ -410,10 +413,11 @@ class WorkshopScheduleServiceTest {
 
         assertThat(result).isEqualTo(expected);
         assertThat(entity.getStatus()).isEqualTo(WorkshopStatus.CANCELLED);
+        verify(eventPublisher).publishEvent(any(ScheduleCancelledEvent.class));
     }
 
     @Test
-    void cancel_transitionsToCancelled_whenInProgress() {
+    void cancel_transitionsToCancelled_andPublishesEvent_whenInProgress() {
         UUID id = UUID.randomUUID();
         WorkshopSchedule entity = new WorkshopSchedule();
         entity.setStatus(WorkshopStatus.IN_PROGRESS);
@@ -427,6 +431,47 @@ class WorkshopScheduleServiceTest {
 
         assertThat(result).isEqualTo(expected);
         assertThat(entity.getStatus()).isEqualTo(WorkshopStatus.CANCELLED);
+        verify(eventPublisher).publishEvent(any(ScheduleCancelledEvent.class));
+    }
+
+    @Test
+    void cancel_publishesEventWithMaintenanceRecordId_whenLinked() {
+        UUID id = UUID.randomUUID();
+        UUID maintenanceId = UUID.randomUUID();
+        MaintenanceRecord maintenanceRecord = new MaintenanceRecord();
+        setId(maintenanceRecord, maintenanceId);
+        WorkshopSchedule entity = new WorkshopSchedule();
+        entity.setStatus(WorkshopStatus.PENDING);
+        entity.setMaintenanceRecord(maintenanceRecord);
+        ScheduleResponse expected = buildResponse(id);
+
+        when(workshopScheduleRepository.findById(id)).thenReturn(Optional.of(entity));
+        when(workshopScheduleRepository.save(entity)).thenReturn(entity);
+        when(scheduleMapper.toResponse(entity)).thenReturn(expected);
+
+        workshopScheduleService.cancel(id);
+
+        ArgumentCaptor<ScheduleCancelledEvent> captor = ArgumentCaptor.forClass(ScheduleCancelledEvent.class);
+        verify(eventPublisher).publishEvent(captor.capture());
+        assertThat(captor.getValue().maintenanceRecordId()).isEqualTo(maintenanceId);
+    }
+
+    @Test
+    void cancel_publishesEventWithNullMaintenanceRecordId_whenNotLinked() {
+        UUID id = UUID.randomUUID();
+        WorkshopSchedule entity = new WorkshopSchedule();
+        entity.setStatus(WorkshopStatus.PENDING);
+        ScheduleResponse expected = buildResponse(id);
+
+        when(workshopScheduleRepository.findById(id)).thenReturn(Optional.of(entity));
+        when(workshopScheduleRepository.save(entity)).thenReturn(entity);
+        when(scheduleMapper.toResponse(entity)).thenReturn(expected);
+
+        workshopScheduleService.cancel(id);
+
+        ArgumentCaptor<ScheduleCancelledEvent> captor = ArgumentCaptor.forClass(ScheduleCancelledEvent.class);
+        verify(eventPublisher).publishEvent(captor.capture());
+        assertThat(captor.getValue().maintenanceRecordId()).isNull();
     }
 
     @Test
@@ -443,6 +488,7 @@ class WorkshopScheduleServiceTest {
                         .isEqualTo("SCHEDULE_INVALID_STATE_TRANSITION"));
 
         verify(workshopScheduleRepository, never()).save(any());
+        verify(eventPublisher, never()).publishEvent(any());
     }
 
     // --- delete ---

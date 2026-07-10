@@ -11,6 +11,7 @@ import com.fleetmgm.vehicle.domain.Vehicle;
 import com.fleetmgm.vehicle.infrastructure.VehicleRepository;
 import com.fleetmgm.worker.domain.Worker;
 import com.fleetmgm.worker.infrastructure.WorkerRepository;
+import com.fleetmgm.workshop.domain.MaintenanceCancelledEvent;
 import com.fleetmgm.workshop.domain.MaintenanceCategory;
 import com.fleetmgm.workshop.domain.MaintenanceCompletedEvent;
 import com.fleetmgm.workshop.domain.MaintenanceRecord;
@@ -181,6 +182,28 @@ public class MaintenanceService {
         }
         MaintenanceRecord saved = maintenanceRepository.save(record);
         eventPublisher.publishEvent(new MaintenanceCompletedEvent(
+                saved.getId(), saved.getVehicle().getId(), Instant.now()));
+        return maintenanceMapper.toResponse(saved);
+    }
+
+    @Transactional
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ADMINISTRATIVE', 'WORKSHOP_STAFF')")
+    public MaintenanceResponse cancel(UUID id) {
+        MaintenanceRecord record = maintenanceRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("MAINTENANCE_NOT_FOUND",
+                        "Maintenance " + id + " not found"));
+        if (record.getStatus() != MaintenanceStatus.SCHEDULED && record.getStatus() != MaintenanceStatus.IN_PROGRESS) {
+            throw new ConflictException("MAINTENANCE_INVALID_STATE_TRANSITION",
+                    "Maintenance " + id + " cannot be cancelled from state " + record.getStatus());
+        }
+        record.setStatus(MaintenanceStatus.CANCELLED);
+        MaintenanceRecord saved = maintenanceRepository.save(record);
+        // Published unconditionally (SCHEDULED or IN_PROGRESS): ScheduleCancellationListener relies on
+        // this event to cascade-cancel the linked WorkshopSchedule regardless of the maintenance's prior
+        // state. MaintenanceEventListener's vehicle-reactivation guard only touches the vehicle if it is
+        // actually MAINTENANCE, so cancelling a SCHEDULED record (which never moved the vehicle there)
+        // is a correct no-op on the vehicle side even though the event fires.
+        eventPublisher.publishEvent(new MaintenanceCancelledEvent(
                 saved.getId(), saved.getVehicle().getId(), Instant.now()));
         return maintenanceMapper.toResponse(saved);
     }

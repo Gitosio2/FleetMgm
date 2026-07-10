@@ -73,4 +73,9 @@ public class MaintenanceController {
             @RequestBody(required = false) CompleteMaintenanceRequest request) {
         return ResponseEntity.ok(maintenanceService.complete(id, request));
     }
+
+    @PatchMapping("/{id}/cancel")
+    public ResponseEntity<MaintenanceResponse> cancel(@PathVariable UUID id) {
+        return ResponseEntity.ok(maintenanceService.cancel(id));
+    }
 }

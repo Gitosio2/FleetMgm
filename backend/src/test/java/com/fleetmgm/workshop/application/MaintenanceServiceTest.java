@@ -12,6 +12,7 @@ import com.fleetmgm.vehicle.domain.Vehicle;
 import com.fleetmgm.vehicle.infrastructure.VehicleRepository;
 import com.fleetmgm.worker.domain.Worker;
 import com.fleetmgm.worker.infrastructure.WorkerRepository;
+import com.fleetmgm.workshop.domain.MaintenanceCancelledEvent;
 import com.fleetmgm.workshop.domain.MaintenanceCategory;
 import com.fleetmgm.workshop.domain.MaintenanceCompletedEvent;
 import com.fleetmgm.workshop.domain.MaintenanceRecord;
@@ -269,6 +270,83 @@ class MaintenanceServiceTest {
 
         verify(maintenanceRepository, never()).save(any());
         verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    // --- cancel ---
+
+    @Test
+    void cancel_transitionsToCancelled_andPublishesEvent_whenScheduled() {
+        UUID id = UUID.randomUUID();
+        UUID vehicleId = UUID.randomUUID();
+        Vehicle vehicle = new Vehicle();
+        setId(vehicle, vehicleId);
+        MaintenanceRecord record = new MaintenanceRecord();
+        record.setStatus(MaintenanceStatus.SCHEDULED);
+        record.setVehicle(vehicle);
+        MaintenanceResponse expected = buildResponse(id);
+
+        when(maintenanceRepository.findById(id)).thenReturn(Optional.of(record));
+        when(maintenanceRepository.save(record)).thenReturn(record);
+        when(maintenanceMapper.toResponse(record)).thenReturn(expected);
+
+        MaintenanceResponse result = maintenanceService.cancel(id);
+
+        assertThat(result).isEqualTo(expected);
+        assertThat(record.getStatus()).isEqualTo(MaintenanceStatus.CANCELLED);
+        verify(eventPublisher).publishEvent(any(MaintenanceCancelledEvent.class));
+    }
+
+    @Test
+    void cancel_transitionsToCancelled_andPublishesEvent_whenInProgress() {
+        UUID id = UUID.randomUUID();
+        UUID vehicleId = UUID.randomUUID();
+        Vehicle vehicle = new Vehicle();
+        setId(vehicle, vehicleId);
+        MaintenanceRecord record = new MaintenanceRecord();
+        setId(record, id);
+        record.setStatus(MaintenanceStatus.IN_PROGRESS);
+        record.setVehicle(vehicle);
+        MaintenanceResponse expected = buildResponse(id);
+
+        when(maintenanceRepository.findById(id)).thenReturn(Optional.of(record));
+        when(maintenanceRepository.save(record)).thenReturn(record);
+        when(maintenanceMapper.toResponse(record)).thenReturn(expected);
+
+        MaintenanceResponse result = maintenanceService.cancel(id);
+
+        assertThat(result).isEqualTo(expected);
+        assertThat(record.getStatus()).isEqualTo(MaintenanceStatus.CANCELLED);
+        ArgumentCaptor<MaintenanceCancelledEvent> captor = ArgumentCaptor.forClass(MaintenanceCancelledEvent.class);
+        verify(eventPublisher).publishEvent(captor.capture());
+        assertThat(captor.getValue().maintenanceId()).isEqualTo(id);
+        assertThat(captor.getValue().vehicleId()).isEqualTo(vehicleId);
+    }
+
+    @Test
+    void cancel_throwsConflict_whenAlreadyCompleted() {
+        UUID id = UUID.randomUUID();
+        MaintenanceRecord record = new MaintenanceRecord();
+        record.setStatus(MaintenanceStatus.COMPLETED);
+
+        when(maintenanceRepository.findById(id)).thenReturn(Optional.of(record));
+
+        assertThatThrownBy(() -> maintenanceService.cancel(id))
+                .isInstanceOf(ConflictException.class)
+                .satisfies(ex -> assertThat(((ConflictException) ex).getCode())
+                        .isEqualTo("MAINTENANCE_INVALID_STATE_TRANSITION"));
+
+        verify(maintenanceRepository, never()).save(any());
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
+    void cancel_throwsNotFound_whenMissing() {
+        UUID id = UUID.randomUUID();
+        when(maintenanceRepository.findById(id)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> maintenanceService.cancel(id))
+                .isInstanceOf(NotFoundException.class)
+                .satisfies(ex -> assertThat(((NotFoundException) ex).getCode()).isEqualTo("MAINTENANCE_NOT_FOUND"));
     }
 
     // --- list ---

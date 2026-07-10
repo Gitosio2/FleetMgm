@@ -12,6 +12,7 @@ import com.fleetmgm.vehicle.infrastructure.VehicleRepository;
 import com.fleetmgm.worker.domain.Worker;
 import com.fleetmgm.worker.infrastructure.WorkerRepository;
 import com.fleetmgm.workshop.domain.MaintenanceRecord;
+import com.fleetmgm.workshop.domain.ScheduleCancelledEvent;
 import com.fleetmgm.workshop.domain.ScheduleRange;
 import com.fleetmgm.workshop.domain.SchedulePriority;
 import com.fleetmgm.workshop.domain.WorkshopSchedule;
@@ -22,6 +23,7 @@ import com.fleetmgm.workshop.dto.ScheduleResponse;
 import com.fleetmgm.workshop.dto.UpdateScheduleRequest;
 import com.fleetmgm.workshop.infrastructure.MaintenanceRepository;
 import com.fleetmgm.workshop.infrastructure.WorkshopScheduleRepository;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -46,6 +48,7 @@ public class WorkshopScheduleService {
     private final ScheduleMapper scheduleMapper;
     private final AuditLogRepository auditLogRepository;
     private final UserRepository userRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     public WorkshopScheduleService(WorkshopScheduleRepository workshopScheduleRepository,
                                    VehicleRepository vehicleRepository,
@@ -53,7 +56,8 @@ public class WorkshopScheduleService {
                                    MaintenanceRepository maintenanceRepository,
                                    ScheduleMapper scheduleMapper,
                                    AuditLogRepository auditLogRepository,
-                                   UserRepository userRepository) {
+                                   UserRepository userRepository,
+                                   ApplicationEventPublisher eventPublisher) {
         this.workshopScheduleRepository = workshopScheduleRepository;
         this.vehicleRepository = vehicleRepository;
         this.workerRepository = workerRepository;
@@ -61,6 +65,7 @@ public class WorkshopScheduleService {
         this.scheduleMapper = scheduleMapper;
         this.auditLogRepository = auditLogRepository;
         this.userRepository = userRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional(readOnly = true)
@@ -196,6 +201,12 @@ public class WorkshopScheduleService {
                     "Workshop schedule " + id + " cannot be cancelled from state " + schedule.getStatus());
         }
         schedule.setStatus(WorkshopStatus.CANCELLED);
-        return scheduleMapper.toResponse(workshopScheduleRepository.save(schedule));
+        WorkshopSchedule saved = workshopScheduleRepository.save(schedule);
+        // Published unconditionally, even when maintenanceRecordId is null (unplanned-breakdown flow with
+        // no linked MaintenanceRecord yet) — ScheduleCancellationListener no-ops on a null id, matching
+        // ScheduleCompletionListener's existing no-op pattern for the symmetric completion event.
+        UUID maintenanceRecordId = saved.getMaintenanceRecord() != null ? saved.getMaintenanceRecord().getId() : null;
+        eventPublisher.publishEvent(new ScheduleCancelledEvent(saved.getId(), maintenanceRecordId, Instant.now()));
+        return scheduleMapper.toResponse(saved);
     }
 }
