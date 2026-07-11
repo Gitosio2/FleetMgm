@@ -24,6 +24,7 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -170,16 +171,26 @@ class InvoiceControllerTest {
     // --- PATCH /api/v1/invoices/{id}/pay ---
 
     @Test
-    void pay_returns200_whenValid() throws Exception {
-        when(invoiceService.pay(INVOICE_ID)).thenReturn(sampleResponse());
+    void pay_returns200_withoutBody() throws Exception {
+        when(invoiceService.pay(eq(INVOICE_ID), isNull())).thenReturn(sampleResponse());
 
         mockMvc.perform(patch("/api/v1/invoices/{id}/pay", INVOICE_ID))
                 .andExpect(status().isOk());
     }
 
     @Test
+    void pay_returns200_withPaymentDateBody() throws Exception {
+        when(invoiceService.pay(eq(INVOICE_ID), any())).thenReturn(sampleResponse());
+
+        mockMvc.perform(patch("/api/v1/invoices/{id}/pay", INVOICE_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"paymentDate\":\"2026-07-01\"}"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void pay_returns409_whenNotIssued() throws Exception {
-        when(invoiceService.pay(INVOICE_ID))
+        when(invoiceService.pay(eq(INVOICE_ID), isNull()))
                 .thenThrow(new ConflictException("INVOICE_INVALID_STATE_TRANSITION", "Cannot pay"));
 
         mockMvc.perform(patch("/api/v1/invoices/{id}/pay", INVOICE_ID))

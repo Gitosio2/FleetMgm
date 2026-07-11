@@ -10,6 +10,7 @@ import com.fleetmgm.billing.dto.InvoiceMapper;
 import com.fleetmgm.billing.dto.InvoiceResponse;
 import com.fleetmgm.billing.dto.LineItemRequest;
 import com.fleetmgm.billing.dto.LineItemResponse;
+import com.fleetmgm.billing.dto.PayInvoiceRequest;
 import com.fleetmgm.billing.dto.UpdateInvoiceRequest;
 import com.fleetmgm.billing.infrastructure.InvoiceRepository;
 import com.fleetmgm.billing.infrastructure.LineItemRepository;
@@ -531,7 +532,7 @@ class InvoiceServiceTest {
     // --- pay ---
 
     @Test
-    void pay_transitionsToPaid_whenIssued() {
+    void pay_transitionsToPaid_usingCurrentDate_whenRequestIsNull() {
         UUID id = UUID.randomUUID();
         Invoice invoice = new Invoice();
         invoice.setStatus(InvoiceStatus.ISSUED);
@@ -541,11 +542,44 @@ class InvoiceServiceTest {
         when(invoiceRepository.save(invoice)).thenReturn(invoice);
         when(invoiceMapper.toResponse(invoice)).thenReturn(expected);
 
-        InvoiceResponse result = invoiceService.pay(id);
+        InvoiceResponse result = invoiceService.pay(id, null);
 
         assertThat(result).isEqualTo(expected);
         assertThat(invoice.getStatus()).isEqualTo(InvoiceStatus.PAID);
         assertThat(invoice.getPaymentDate()).isEqualTo(java.time.LocalDate.now());
+    }
+
+    @Test
+    void pay_transitionsToPaid_usingCurrentDate_whenRequestPaymentDateIsNull() {
+        UUID id = UUID.randomUUID();
+        Invoice invoice = new Invoice();
+        invoice.setStatus(InvoiceStatus.ISSUED);
+        InvoiceResponse expected = buildResponse(id);
+
+        when(invoiceRepository.findById(id)).thenReturn(Optional.of(invoice));
+        when(invoiceRepository.save(invoice)).thenReturn(invoice);
+        when(invoiceMapper.toResponse(invoice)).thenReturn(expected);
+
+        invoiceService.pay(id, new PayInvoiceRequest(null));
+
+        assertThat(invoice.getPaymentDate()).isEqualTo(java.time.LocalDate.now());
+    }
+
+    @Test
+    void pay_usesProvidedPaymentDate_whenPresentInRequest() {
+        UUID id = UUID.randomUUID();
+        Invoice invoice = new Invoice();
+        invoice.setStatus(InvoiceStatus.ISSUED);
+        InvoiceResponse expected = buildResponse(id);
+        java.time.LocalDate pastDate = java.time.LocalDate.now().minusDays(10);
+
+        when(invoiceRepository.findById(id)).thenReturn(Optional.of(invoice));
+        when(invoiceRepository.save(invoice)).thenReturn(invoice);
+        when(invoiceMapper.toResponse(invoice)).thenReturn(expected);
+
+        invoiceService.pay(id, new PayInvoiceRequest(pastDate));
+
+        assertThat(invoice.getPaymentDate()).isEqualTo(pastDate);
     }
 
     @Test
@@ -556,7 +590,7 @@ class InvoiceServiceTest {
 
         when(invoiceRepository.findById(id)).thenReturn(Optional.of(invoice));
 
-        assertThatThrownBy(() -> invoiceService.pay(id))
+        assertThatThrownBy(() -> invoiceService.pay(id, null))
                 .isInstanceOf(ConflictException.class)
                 .satisfies(ex -> assertThat(((ConflictException) ex).getCode())
                         .isEqualTo("INVOICE_INVALID_STATE_TRANSITION"));

@@ -9,6 +9,7 @@ import com.fleetmgm.billing.dto.InvoiceMapper;
 import com.fleetmgm.billing.dto.InvoiceResponse;
 import com.fleetmgm.billing.dto.LineItemRequest;
 import com.fleetmgm.billing.dto.LineItemResponse;
+import com.fleetmgm.billing.dto.PayInvoiceRequest;
 import com.fleetmgm.billing.dto.UpdateInvoiceRequest;
 import com.fleetmgm.billing.infrastructure.InvoiceRepository;
 import com.fleetmgm.billing.infrastructure.LineItemRepository;
@@ -173,14 +174,15 @@ public class InvoiceService {
 
     @Transactional
     @PreAuthorize(ROLES)
-    public InvoiceResponse pay(UUID id) {
+    public InvoiceResponse pay(UUID id, PayInvoiceRequest request) {
         Invoice invoice = findInvoiceOrThrow(id);
         if (invoice.getStatus() != InvoiceStatus.ISSUED) {
             throw new ConflictException("INVOICE_INVALID_STATE_TRANSITION",
                     "Invoice " + id + " cannot be paid from state " + invoice.getStatus());
         }
         invoice.setStatus(InvoiceStatus.PAID);
-        invoice.setPaymentDate(LocalDate.now());
+        invoice.setPaymentDate(request != null && request.paymentDate() != null
+                ? request.paymentDate() : LocalDate.now());
         return invoiceMapper.toResponse(invoiceRepository.save(invoice));
     }
 

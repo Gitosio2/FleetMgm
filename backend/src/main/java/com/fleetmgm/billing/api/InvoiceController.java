@@ -5,6 +5,7 @@ import com.fleetmgm.billing.dto.CreateInvoiceRequest;
 import com.fleetmgm.billing.dto.InvoiceResponse;
 import com.fleetmgm.billing.dto.LineItemRequest;
 import com.fleetmgm.billing.dto.LineItemResponse;
+import com.fleetmgm.billing.dto.PayInvoiceRequest;
 import com.fleetmgm.billing.dto.UpdateInvoiceRequest;
 import com.fleetmgm.shared.PageResponse;
 import jakarta.validation.Valid;
@@ -67,8 +68,10 @@ public class InvoiceController {
     }
 
     @PatchMapping("/{id}/pay")
-    public ResponseEntity<InvoiceResponse> pay(@PathVariable UUID id) {
-        return ResponseEntity.ok(invoiceService.pay(id));
+    public ResponseEntity<InvoiceResponse> pay(
+            @PathVariable UUID id,
+            @RequestBody(required = false) PayInvoiceRequest request) {
+        return ResponseEntity.ok(invoiceService.pay(id, request));
     }
 
     @PostMapping("/{id}/line-items")

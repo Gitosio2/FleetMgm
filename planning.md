@@ -1028,6 +1028,14 @@ FleetMgm/
 >      272 → 277 (5 tests nuevos). `BILLING_DEFAULT_TAX_RATE` no se agregó a la lista de variables de entorno
 >      de producción en la sección "Despliegue" — es opcional con un default sano, mismo criterio ya aplicado
 >      a `WORKSHOP_AUTO_CREATE_SCHEDULE` (tampoco listada ahí).
+> 8. **`pay()` no aceptaba fecha de pago, detectado por el usuario tras el punto anterior:** igual que
+>    `taxRate`, `PATCH /{id}/pay` no recibía body — siempre `LocalDate.now()`, sin forma de registrar un pago
+>    retroactivo (ej. se cobró la semana pasada pero se carga hoy). Corregido con el mismo patrón ya usado en
+>    `StartMaintenanceRequest`/`CompleteMaintenanceRequest`: nuevo `PayInvoiceRequest(LocalDate paymentDate)`
+>    opcional (`@RequestBody(required = false)` en el controller); si `request`/`request.paymentDate()` es
+>    `null`, usa `LocalDate.now()`, igual que antes. Tests nuevos en `InvoiceServiceTest` (fecha explícita
+>    respetada, `null` cae a `now()`, request completo `null` cae a `now()`) y `InvoiceControllerTest`
+>    (200 sin body, 200 con body). Suite final: 277 → 280.
 
 ### Hito 32 — Facturas de proveedor: Contrato API *(nuevo — sin hito asignado en el plan original)*
 - [x] `Flyway V7` — tablas `supplier_invoices` + `supplier_invoice_line_items` *(ya aplicada, misma migración que invoices)*
