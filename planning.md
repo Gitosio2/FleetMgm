@@ -917,9 +917,17 @@ FleetMgm/
 ### Hito 30 — Facturación (clientes): Contrato API
 - [x] `Flyway V7` — tablas `invoices` + `invoice_line_items` *(ya aplicada)*
 - [x] `Invoice` entity — enum `InvoiceStatus` (DRAFT/ISSUED/PAID/OVERDUE), `@SQLRestriction`; `InvoiceLineItem` entity *(ya scaffoldeadas)*
-- [ ] `CreateInvoiceRequest` / `InvoiceResponse` / `LineItemRequest` (records)
-- [ ] `InvoiceMapper` (MapStruct)
-- [ ] `InvoiceController` — CRUD + `PATCH /{id}/issue`, `PATCH /{id}/pay`, `POST /{id}/line-items`
+- [x] `CreateInvoiceRequest` / `UpdateInvoiceRequest` / `InvoiceResponse` / `LineItemRequest` / `LineItemResponse` (records)
+- [x] `InvoiceMapper` (MapStruct)
+- [x] `InvoiceController` — CRUD (incl. `PUT` full replace) + `PATCH /{id}/issue`, `PATCH /{id}/pay`, `POST /{id}/line-items`
+- [x] `InvoiceService` — stub, every method `throw new UnsupportedOperationException("Pending Hito 31")`, mirrors the `WorkshopScheduleService`/`MaintenanceService` contract-hito precedent
+
+> **Nota (revisión Hito 30):**
+> 1. `clientName` en `InvoiceResponse` mapea a `Client.getName()` — es el único campo de nombre que expone la entidad (no hay `companyName`/`fullName`).
+> 2. `InvoiceResponse` deliberadamente no incluye una lista anidada de line items — `Invoice` no tiene colección `@OneToMany` hacia `InvoiceLineItem` en este hito; la consulta join-fetch queda para el Hito 31.
+> 3. Se añadió `UpdateInvoiceRequest` y el endpoint `PUT /{id}` (pregunta abierta original), resuelto a favor por decisión del usuario, siguiendo el mismo precedente de `Maintenance`/`WorkshopSchedule` (contrato completo con `PUT` de reemplazo total).
+> 4. `Invoice`/`InvoiceLineItem` no fueron modificadas — se usaron tal cual estaban scaffoldeadas.
+> 5. `@PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ADMINISTRATIVE')")` se agregó ya desde el stub (no se esperó al Hito 31): es una anotación de una línea que no depende de que exista lógica de negocio, y refleja la restricción de rol de facturación documentada en `CLAUDE.md`/planning (nunca `WORKSHOP_STAFF`/`DRIVER`).
 
 ### Hito 31 — Facturación (clientes): Lógica e implementación
 - [ ] **[RED]** Tests `BillingServiceTest` — crear DRAFT, emitir sin líneas → excepción, flujo completo DRAFT→ISSUED→PAID, cálculo IVA 21%, `JobCompletedEvent` crea línea en DRAFT del cliente
