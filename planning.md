@@ -1129,6 +1129,17 @@ FleetMgm/
 > 2. **IVA nunca hardcodeado:** `PdfExportService.formatTaxRate()` lee siempre `invoice.getTaxRate()` (fracción, ej. `0.2100`) y la formatea como porcentaje (`"21.00%"`). Test `generateInvoicePdf_formatsNonDefaultTaxRate_insteadOfHardcoding21Percent` construye una factura con `taxRate = 0.10` y verifica que el PDF muestre `"10.00%"` (y explícitamente que NO contenga `"21.00%"`) — este es el test que detectaría una regresión a IVA fijo.
 > 3. **Sin test de controller nuevo:** no se agregó un test `@WebMvcTest` dedicado al endpoint `GET /{id}/pdf` — el método del controller es una delegación fina (dos llamadas: `invoiceService.getById` para el número de factura, `pdfExportService.generateInvoicePdf` para los bytes) ya cubierta por `PdfExportServiceTest`. Sí fue necesario añadir `@MockBean PdfExportService` al `InvoiceControllerTest` existente para que el contexto `@WebMvcTest` siga arrancando con el nuevo parámetro de constructor.
 > 4. **Tests:** 317 → 321 (4 nuevos), todos en verde.
+> 5. **Copy en español, detectado por el usuario tras la primera implementación:** las etiquetas del PDF
+>    (`Invoice`, `Client:`, `Issue date:`, `Description`, `Tax rate:`, etc.) habían salido en inglés porque
+>    `PdfExportService` vive en el backend, fuera del alcance literal de la regla "UI copy en español" de
+>    `CLAUDE.md` (que menciona explícitamente `apps/web/`). Pero este PDF es el documento más de cara al
+>    cliente de toda la app — la factura real que recibe —, así que se corrigió a español: "Factura",
+>    "Cliente:", "Fecha de emisión:", "Fecha de vencimiento:", "Descripción"/"Cantidad"/"Precio unitario"
+>    (tabla de líneas), "IVA:" (antes "Tax rate:"), "Importe IVA:" (antes "Tax amount:"), "Total:" sin cambio.
+>    Nuevo test `generateInvoicePdf_usesSpanishLabels` (TDD: RED confirmado con las etiquetas viejas en inglés,
+>    luego GREEN) verifica las etiquetas nuevas vía el mismo `PdfTextExtractor` ya usado por los demás tests —
+>    los acentos (á/é/í/ó/ú/ñ) se conservan correctamente en la extracción, sin necesidad de configurar una
+>    fuente/encoding distinta a la Helvetica por defecto de OpenPDF. Suite final: 321 → 322.
 
 ### Hito 35 — Frontend: Billing
 > Requiere: Hitos 30–33 (backend facturación a clientes + facturas de proveedor)

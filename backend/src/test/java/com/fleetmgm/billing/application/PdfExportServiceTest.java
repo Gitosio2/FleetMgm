@@ -83,6 +83,31 @@ class PdfExportServiceTest {
     }
 
     @Test
+    void generateInvoicePdf_usesSpanishLabels() throws Exception {
+        // This PDF is the most customer-facing document in the whole app (the actual invoice a
+        // client receives), so it follows the project's Spanish UI-copy convention like apps/web.
+        UUID invoiceId = UUID.randomUUID();
+        Invoice invoice = buildInvoice("INV-2026-00042", "Acme Corp", new BigDecimal("0.2100"));
+        when(invoiceRepository.findById(invoiceId)).thenReturn(Optional.of(invoice));
+        when(lineItemRepository.findAllByInvoiceId(invoiceId)).thenReturn(
+                List.of(buildLineItem("Oil change", new BigDecimal("2"), new BigDecimal("50.00"))));
+
+        byte[] pdf = pdfExportService.generateInvoicePdf(invoiceId);
+        String text = extractText(pdf);
+
+        assertThat(text).contains("Factura");
+        assertThat(text).contains("Cliente:");
+        assertThat(text).contains("Fecha de emisión:");
+        assertThat(text).contains("Fecha de vencimiento:");
+        assertThat(text).contains("Descripción");
+        assertThat(text).contains("Cantidad");
+        assertThat(text).contains("Precio unitario");
+        assertThat(text).contains("IVA:");
+        assertThat(text).contains("Importe IVA:");
+        assertThat(text).contains("Total:");
+    }
+
+    @Test
     void generateInvoicePdf_throwsNotFound_whenInvoiceMissing() {
         UUID invoiceId = UUID.randomUUID();
         when(invoiceRepository.findById(invoiceId)).thenReturn(Optional.empty());

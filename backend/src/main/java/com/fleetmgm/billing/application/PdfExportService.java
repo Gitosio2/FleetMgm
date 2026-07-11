@@ -78,13 +78,13 @@ public class PdfExportService {
         Font titleFont = new Font(Font.HELVETICA, 18, Font.BOLD);
         Font normalFont = new Font(Font.HELVETICA, 11, Font.NORMAL);
 
-        document.add(new Paragraph("Invoice " + invoice.getInvoiceNumber(), titleFont));
-        document.add(new Paragraph("Client: " + invoice.getClient().getName(), normalFont));
+        document.add(new Paragraph("Factura " + invoice.getInvoiceNumber(), titleFont));
+        document.add(new Paragraph("Cliente: " + invoice.getClient().getName(), normalFont));
         if (invoice.getIssueDate() != null) {
-            document.add(new Paragraph("Issue date: " + invoice.getIssueDate().format(DATE_FORMAT), normalFont));
+            document.add(new Paragraph("Fecha de emisión: " + invoice.getIssueDate().format(DATE_FORMAT), normalFont));
         }
         if (invoice.getDueDate() != null) {
-            document.add(new Paragraph("Due date: " + invoice.getDueDate().format(DATE_FORMAT), normalFont));
+            document.add(new Paragraph("Fecha de vencimiento: " + invoice.getDueDate().format(DATE_FORMAT), normalFont));
         }
         document.add(Chunk.NEWLINE);
     }
@@ -94,9 +94,9 @@ public class PdfExportService {
         PdfPTable table = new PdfPTable(4);
         table.setWidthPercentage(100);
 
-        table.addCell(new PdfPCell(new Phrase("Description", headerFont)));
-        table.addCell(new PdfPCell(new Phrase("Quantity", headerFont)));
-        table.addCell(new PdfPCell(new Phrase("Unit price", headerFont)));
+        table.addCell(new PdfPCell(new Phrase("Descripción", headerFont)));
+        table.addCell(new PdfPCell(new Phrase("Cantidad", headerFont)));
+        table.addCell(new PdfPCell(new Phrase("Precio unitario", headerFont)));
         table.addCell(new PdfPCell(new Phrase("Subtotal", headerFont)));
 
         for (InvoiceLineItem item : lineItems) {
@@ -115,8 +115,8 @@ public class PdfExportService {
         Font boldFont = new Font(Font.HELVETICA, 12, Font.BOLD);
 
         document.add(new Paragraph("Subtotal: " + invoice.getSubtotal().toPlainString(), normalFont));
-        document.add(new Paragraph("Tax rate: " + formatTaxRate(invoice.getTaxRate()), normalFont));
-        document.add(new Paragraph("Tax amount: " + invoice.getTaxAmount().toPlainString(), normalFont));
+        document.add(new Paragraph("IVA: " + formatTaxRate(invoice.getTaxRate()), normalFont));
+        document.add(new Paragraph("Importe IVA: " + invoice.getTaxAmount().toPlainString(), normalFont));
         document.add(new Paragraph("Total: " + invoice.getTotal().toPlainString(), boldFont));
     }
 
