@@ -1300,15 +1300,15 @@ FleetMgm/
 
 ### Hito 35 — Frontend: Billing
 > Requiere: Hitos 30–33 (backend facturación a clientes + facturas de proveedor)
-- [x] **[RED]** Handlers MSW — `GET /api/v1/invoices`, `POST`, `PATCH /{id}/issue`, `PATCH /{id}/pay`, `GET /{id}/pdf`, `POST /{id}/line-items` *(cliente; proveedor sigue pendiente)*
-- [ ] ~~Handlers MSW — `GET /api/v1/supplier-invoices`, `POST`, `PATCH /{id}/pay`~~ *(fuera de alcance de esta revisión — trabajo de proveedor por separado)*
+- [x] **[RED]** Handlers MSW — `GET /api/v1/invoices`, `POST`, `PATCH /{id}/issue`, `PATCH /{id}/pay`, `GET /{id}/pdf`, `POST /{id}/line-items` *(cliente)*
+- [x] **[RED]** Handlers MSW — `GET /api/v1/supplier-invoices` (filtrable por `vehicleId`/`category`), `POST`, `GET /{id}`, `PUT /{id}`, `PATCH /{id}/pay`
 - [x] **[RED]** Tests `Billing.test.tsx` — lista de facturas de cliente renderiza con badge de estado; flujo DRAFT→ISSUED→PAID actualiza UI; botón PDF dispara descarga; 409 sin líneas de factura muestra error
-- [ ] ~~Tests `Billing.test.tsx` — lista de facturas de proveedor renderiza filtrable por categoría~~ *(fuera de alcance — proveedor)*
+- [x] **[RED]** Tests `Billing.test.tsx` — lista de facturas de proveedor renderiza filtrable por categoría; crea/edita/marca pagada; "Marcar pagada" ausente en `PAID`
 - [x] **[GREEN]** `packages/hooks/src/useBilling.ts` — lista paginada, detalle por id, create, update, delete, addLineItem, issue, pay, downloadPdf
-- [ ] ~~`packages/hooks/src/useSupplierInvoices.ts`~~ *(fuera de alcance — proveedor)*
+- [x] **[GREEN]** `packages/hooks/src/useSupplierInvoices.ts` — lista paginada filtrable, create, update, pay
 - [x] **[GREEN]** `apps/web/src/components/billing/` — `InvoiceTable`, `InvoiceStatusBadge`, `InvoiceFormModal`, `LineItemList`, `PdfDownloadButton`, `InvoiceActionButtons`
-- [ ] ~~`SupplierInvoiceTable`, `SupplierInvoiceFormModal`~~ *(fuera de alcance — proveedor)*
-- [x] **[GREEN]** Página `Billing` — sección de facturación a clientes (`/billing`, `MANAGEMENT_ROLES`) *(sección de gastos de proveedor pendiente, trabajo separado)*
+- [x] **[GREEN]** `apps/web/src/components/billing/` — `SupplierInvoiceTable`, `SupplierInvoiceStatusBadge`, `SupplierInvoiceFormModal`, `SupplierInvoiceActionButtons`
+- [x] **[GREEN]** Página `Billing` — sección de facturación a clientes + sección de gastos de proveedor (`/billing`, `MANAGEMENT_ROLES`)
 
 > **Nota (revisión Hito 35 — clientes):** Esta revisión implementó únicamente la porción de
 > facturación a **clientes** de Hito 35; `SupplierInvoiceTable`/`SupplierInvoiceFormModal`/
@@ -1434,6 +1434,43 @@ FleetMgm/
 >     `PAID`. Este cambio hizo colisionar una aserción del test anterior (nota 11): buscaba
 >     `screen.getByText(issued.issueDate!)` de forma global, y ahora esa fecha aparece tanto en la
 >     tabla como en el modal — corregido acotando la búsqueda con `within(dialog)`. Suite: 77 → 78.
+> 13. **Frontend de facturas de proveedor — CRUD básico (rama `hito35-frontend-supplier-billing`).**
+>     Implementado como segunda sección en la misma página `Billing` (no hay ruta ni ítem de nav
+>     propio), siguiendo el patrón de dos secciones de `Workshop.tsx`. Antes de implementar se
+>     confirmó con el usuario el alcance: `SupplierInvoice` es un modelo distinto al de `Invoice`
+>     (clientes) — `subtotal`/`taxAmount`/`total` se ingresan **directamente** (como figuran en la
+>     factura física del proveedor), no se calculan a partir de líneas; las líneas (`addLineItem`)
+>     son un mecanismo de reparto de costo entre vehículos usado solo por `ProfitabilityRepository`
+>     cuando la factura no tiene `vehicleId` propio, y `SupplierInvoiceResponse` ni siquiera expone
+>     `lineItems` en la respuesta. Se decidió implementar solo el CRUD básico (listar/filtrar por
+>     vehículo y categoría, crear, editar, marcar pagada) en esta pasada, dejando el reparto de
+>     costos por línea —y el fix de backend que expondría `lineItems`, análogo al de
+>     `InvoiceResponse` en Hito 35— como seguimiento aparte.
+>     - `packages/api/src/types.ts`: `ExpenseCategory`, `SupplierInvoiceStatus`, `SupplierInvoice`,
+>       `CreateSupplierInvoiceRequest`/`UpdateSupplierInvoiceRequest` (reutiliza `PayInvoiceRequest`
+>       ya existente).
+>     - `packages/hooks/src/useSupplierInvoices.ts`: lista paginada filtrable, create, update, pay
+>       (sin `delete`/`getById` — no hay botón de eliminar ni vista de detalle en este alcance, para
+>       no scaffoldear hooks sin uso).
+>     - `apps/web/src/components/billing/`: `SupplierInvoiceTable`, `SupplierInvoiceStatusBadge`
+>       (`PENDING`→"Pendiente", `PAID`→"Pagada"), `SupplierInvoiceFormModal` (proveedor, nº factura,
+>       categoría, vehículo opcional, fecha de factura, vencimiento, subtotal/IVA/total como montos
+>       directos — no reutiliza el patrón de IVA-porcentaje del formulario de clientes),
+>       `SupplierInvoiceActionButtons` ("Editar" siempre visible + "Marcar pagada" solo en
+>       `PENDING`, sin botón de descarga de PDF — no existe ese endpoint para proveedores). Mapa
+>       `EXPENSE_CATEGORY_LABEL` centralizado en `supplier-invoice-shared.ts` (se usa en 3 lugares —
+>       tabla, formulario, filtro — a diferencia de otros enums de 2 valores que sí se duplican por
+>       archivo en este código).
+>     - Filtro de categoría: `<select>` nativo simple en `Billing.tsx`, no un componente dedicado
+>       (una sola lista desplegable no justifica el patrón de `ScheduleRangeSelector`).
+>     - Implementado por un sub-agente con un brief detallado (contrato de backend, límites de
+>       alcance, convenciones exactas a espejar) y verificado con un segundo sub-agente de revisión
+>       en contexto fresco antes de commitear — sin hallazgos, incluyendo verificación independiente
+>       de `tsc -b`/`vitest run`/`oxlint` y del contrato de backend campo por campo.
+>     - Suite: 78 → 85 (+7 tests de proveedor). 3 tests de clientes preexistentes necesitaron
+>       acotar su alcance (`within(row)`/`within(dialog)`/regex anclada) porque la segunda sección
+>       en la misma página introdujo colisiones de texto ambiguo (mismo patrón de bug ya visto en
+>       la nota 12) — no se debilitó ninguna aserción, solo se acotó su búsqueda.
 
 ---
 

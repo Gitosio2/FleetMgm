@@ -321,3 +321,43 @@ export type UpdateInvoiceRequest = CreateInvoiceRequest
 export type PayInvoiceRequest = {
   paymentDate?: string | null
 }
+
+export type ExpenseCategory = 'MAINTENANCE' | 'FUEL' | 'INSURANCE' | 'LEASING_RENTING' | 'TOLL' | 'OTHER'
+export type SupplierInvoiceStatus = 'PENDING' | 'PAID'
+
+export type SupplierInvoice = {
+  id: string
+  supplierName: string
+  supplierInvoiceNumber: string | null
+  category: ExpenseCategory
+  invoiceDate: string
+  dueDate: string | null
+  paymentDate: string | null
+  status: SupplierInvoiceStatus
+  subtotal: number
+  taxAmount: number
+  total: number
+  vehicleId: string | null
+  vehicleLicensePlate: string | null
+  vehicleMake: string | null
+  vehicleModel: string | null
+  notes: string | null
+  documentPath: string | null
+  createdAt: string
+}
+
+export type CreateSupplierInvoiceRequest = {
+  supplierName: string
+  supplierInvoiceNumber?: string | null
+  category: ExpenseCategory
+  invoiceDate: string
+  dueDate?: string | null
+  vehicleId?: string | null
+  subtotal: number
+  taxAmount: number
+  total: number
+  notes?: string | null
+  documentPath?: string | null
+}
+
+export type UpdateSupplierInvoiceRequest = CreateSupplierInvoiceRequest
