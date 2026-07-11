@@ -2,6 +2,7 @@ package com.fleetmgm.billing.api;
 
 import com.fleetmgm.auth.infrastructure.JwtAuthenticationFilter;
 import com.fleetmgm.billing.application.InvoiceService;
+import com.fleetmgm.billing.application.PdfExportService;
 import com.fleetmgm.billing.domain.InvoiceStatus;
 import com.fleetmgm.billing.dto.InvoiceResponse;
 import com.fleetmgm.billing.dto.LineItemResponse;
@@ -36,6 +37,7 @@ class InvoiceControllerTest {
 
     @MockBean JwtAuthenticationFilter jwtAuthenticationFilter;
     @MockBean InvoiceService invoiceService;
+    @MockBean PdfExportService pdfExportService;
     @Autowired MockMvc mockMvc;
 
     private static final UUID INVOICE_ID = UUID.randomUUID();

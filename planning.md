@@ -1117,12 +1117,18 @@ FleetMgm/
 >    `SupplierInvoiceRepositoryTest`), 0 failures/errors.
 
 ### Hito 34 — PDF y rentabilidad
-- [ ] **[RED]** Tests `PdfExportServiceTest` — PDF generado contiene cabecera, líneas y totales correctos; IVA calculado al 21%
+- [x] **[RED]** Tests `PdfExportServiceTest` — PDF generado contiene cabecera, líneas y totales correctos; IVA calculado dinámicamente desde `invoice.getTaxRate()`
 - [ ] **[RED]** Tests `ProfitabilityRepositoryTest` (`@DataJpaTest` + Testcontainers) — proyección devuelve ingresos, costes (mantenimiento + facturas de proveedor) y margen correctos por vehículo
-- [ ] **[GREEN]** `PdfExportService` — generar PDF con OpenPDF (cabecera, líneas, totales, IVA)
-- [ ] **[GREEN]** `GET /api/v1/invoices/{id}/pdf` — `Content-Disposition: attachment; filename="INV-...pdf"`
+- [x] **[GREEN]** `PdfExportService` — generar PDF con OpenPDF (cabecera, líneas, totales, IVA)
+- [x] **[GREEN]** `GET /api/v1/invoices/{id}/pdf` — `Content-Disposition: attachment; filename="INV-...pdf"`
 - [ ] **[GREEN]** `ProfitabilityRepository` — `@Query` projection: ingresos (`SUM` line items), costes (`SUM MaintenanceRecord.cost` + `SUM SupplierInvoice.total` por vehículo), margen por vehículo
 - [ ] **[GREEN]** `GET /api/v1/reports/profitability` — paginado, solo ADMIN/MANAGER
+
+> **Nota (revisión Hito 34 — PDF):** Slice parcial — solo la parte de exportación PDF; `ProfitabilityRepository`/`GET /api/v1/reports/profitability` quedan pendientes como trabajo separado.
+> 1. **API de OpenPDF (primer uso en el codebase):** `com.lowagie.text.Document` + `PdfWriter.getInstance(document, outputStream)` para el documento; `Paragraph`/`Chunk.NEWLINE` para cabecera y totales; `PdfPTable`/`PdfPCell`/`Phrase` para la tabla de líneas. Lectura de vuelta para tests con `PdfReader` + `com.lowagie.text.pdf.parser.PdfTextExtractor.getTextFromPage(int)`.
+> 2. **IVA nunca hardcodeado:** `PdfExportService.formatTaxRate()` lee siempre `invoice.getTaxRate()` (fracción, ej. `0.2100`) y la formatea como porcentaje (`"21.00%"`). Test `generateInvoicePdf_formatsNonDefaultTaxRate_insteadOfHardcoding21Percent` construye una factura con `taxRate = 0.10` y verifica que el PDF muestre `"10.00%"` (y explícitamente que NO contenga `"21.00%"`) — este es el test que detectaría una regresión a IVA fijo.
+> 3. **Sin test de controller nuevo:** no se agregó un test `@WebMvcTest` dedicado al endpoint `GET /{id}/pdf` — el método del controller es una delegación fina (dos llamadas: `invoiceService.getById` para el número de factura, `pdfExportService.generateInvoicePdf` para los bytes) ya cubierta por `PdfExportServiceTest`. Sí fue necesario añadir `@MockBean PdfExportService` al `InvoiceControllerTest` existente para que el contexto `@WebMvcTest` siga arrancando con el nuevo parámetro de constructor.
+> 4. **Tests:** 317 → 321 (4 nuevos), todos en verde.
 
 ### Hito 35 — Frontend: Billing
 > Requiere: Hitos 30–33 (backend facturación a clientes + facturas de proveedor)
