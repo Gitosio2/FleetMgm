@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { PRIORITY_LABEL, selectClassName, toNullableString } from './form-shared'
+import { PRIORITY_LABEL, selectClassName, toNullableString, toNullableTime, toTimeInputValue } from './form-shared'
 
 type ScheduleFormModalProps = {
   open: boolean
@@ -34,9 +34,12 @@ export function ScheduleFormModal({ open, onOpenChange, schedule }: ScheduleForm
   const [vehicleId, setVehicleId] = useState('')
   const [type, setType] = useState('')
   const [scheduledDate, setScheduledDate] = useState('')
+  const [scheduledStartTime, setScheduledStartTime] = useState('')
+  const [scheduledEndTime, setScheduledEndTime] = useState('')
   const [priority, setPriority] = useState<SchedulePriority>('MEDIUM')
   const [technicianId, setTechnicianId] = useState('')
   const [notes, setNotes] = useState('')
+  const [timeRangeError, setTimeRangeError] = useState(false)
 
   useEffect(() => {
     if (!open) {
@@ -45,21 +48,34 @@ export function ScheduleFormModal({ open, onOpenChange, schedule }: ScheduleForm
     setVehicleId(schedule?.vehicleId ?? '')
     setType(schedule?.type ?? '')
     setScheduledDate(schedule?.scheduledDate ?? '')
+    setScheduledStartTime(toTimeInputValue(schedule?.scheduledStartTime ?? null))
+    setScheduledEndTime(toTimeInputValue(schedule?.scheduledEndTime ?? null))
     setPriority(schedule?.priority ?? 'MEDIUM')
     setTechnicianId(schedule?.technicianId ?? '')
     setNotes(schedule?.notes ?? '')
+    setTimeRangeError(false)
   }, [open, schedule])
 
   const isPending = createSchedule.isPending || updateSchedule.isPending
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    setTimeRangeError(false)
+
+    // Only meaningful when both are provided — a single-sided range is not validated, mirroring
+    // the backend's SCHEDULE_INVALID_TIME_RANGE rule (Hito 28).
+    if (scheduledStartTime && scheduledEndTime && scheduledEndTime <= scheduledStartTime) {
+      setTimeRangeError(true)
+      return
+    }
 
     if (schedule) {
       const request: UpdateScheduleRequest = {
         vehicleId,
         type,
         scheduledDate,
+        scheduledStartTime: toNullableTime(scheduledStartTime),
+        scheduledEndTime: toNullableTime(scheduledEndTime),
         priority,
         technicianId: toNullableString(technicianId),
         maintenanceRecordId: schedule.maintenanceRecordId,
@@ -73,6 +89,8 @@ export function ScheduleFormModal({ open, onOpenChange, schedule }: ScheduleForm
       vehicleId,
       type,
       scheduledDate,
+      scheduledStartTime: toNullableTime(scheduledStartTime),
+      scheduledEndTime: toNullableTime(scheduledEndTime),
       priority,
       technicianId: toNullableString(technicianId),
       notes: toNullableString(notes),
@@ -162,10 +180,37 @@ export function ScheduleFormModal({ open, onOpenChange, schedule }: ScheduleForm
             />
           </div>
 
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="schedule-start-time">Hora de inicio</Label>
+              <Input
+                id="schedule-start-time"
+                type="time"
+                value={scheduledStartTime}
+                onChange={(e) => setScheduledStartTime(e.target.value)}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="schedule-end-time">Hora de fin</Label>
+              <Input
+                id="schedule-end-time"
+                type="time"
+                value={scheduledEndTime}
+                onChange={(e) => setScheduledEndTime(e.target.value)}
+              />
+            </div>
+          </div>
+
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="schedule-notes">Notas</Label>
             <Input id="schedule-notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
           </div>
+
+          {timeRangeError && (
+            <p role="alert" className="text-sm text-error">
+              La hora de fin debe ser posterior a la hora de inicio.
+            </p>
+          )}
 
           {(createSchedule.isError || updateSchedule.isError) && (
             <p role="alert" className="text-sm text-error">

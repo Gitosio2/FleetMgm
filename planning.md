@@ -856,15 +856,61 @@ FleetMgm/
 
 ### Hito 29 — Frontend: Vista de horario del día *(nuevo)*
 > Requiere: Hito 28 (backend rango horario)
-- [ ] **[RED]** Tests `DaySchedule.test.tsx` (o vista equivalente) — combina `WorkshopSchedule` (planificado) y
-      `MaintenanceRecord` (real) del día seleccionado, ordenados por hora; una entrada sin hora aparece al
-      final o en una sección aparte ("sin horario asignado"), no rompe el orden de las que sí la tienen
-- [ ] **[RED]** Tests de los inputs de hora nuevos en `ScheduleFormModal`/`MaintenanceFormModal` — validación de
-      cliente "hora de fin posterior a hora de inicio" antes de enviar
-- [ ] **[GREEN]** `ScheduleFormModal`/`MaintenanceFormModal` — inputs `type="time"` para las nuevas franjas
-- [ ] **[GREEN]** Nuevo componente de vista de horario del día (tabla u orden cronológico) en `Workshop.tsx` o
-      página propia — decisión de layout exacto diferida al momento de implementar
-- [ ] **[GREEN]** MSW mocks — reflejan los nuevos campos en los handlers existentes de maintenance/schedules
+- [x] **[RED]** Tests `DaySchedule.test.tsx` — combina `WorkshopSchedule` (planificado) y `MaintenanceRecord`
+      (real) del día seleccionado, ordenados por hora; una entrada sin hora aparece al final, no rompe el
+      orden de las que sí la tienen
+- [x] **[RED]** Tests de los inputs de hora nuevos en `ScheduleFormModal` — validación de cliente "hora de fin
+      posterior a hora de inicio" antes de enviar. **Corrección de alcance:** este ítem mencionaba también
+      `MaintenanceFormModal` en el borrador original de este hito — es un error, corregido aquí sin
+      implementarlo tal cual estaba escrito. `workshopEntryTime`/`workshopExitTime` de `MaintenanceRecord` son
+      de solo lectura (los fija `start()`/`complete()` en el backend, Hito 28) y no forman parte de
+      `CreateMaintenanceRequest`/`UpdateMaintenanceRequest` — no hay nada que un input en ese formulario
+      pudiera enviar. Ver nota de revisión más abajo.
+- [x] **[GREEN]** `ScheduleFormModal` — inputs `type="time"` para `scheduledStartTime`/`scheduledEndTime`
+      (`MaintenanceFormModal` deliberadamente no tocado, ver nota de revisión)
+- [x] **[GREEN]** Nuevo componente `DaySchedule.tsx` (tabla cronológica) montado en `Workshop.tsx`
+- [x] **[GREEN]** MSW mocks — reflejan los nuevos campos en los handlers existentes de maintenance/schedules
+  > **Nota (revisión Hito 29):** (1) **Corrección de alcance sobre `MaintenanceFormModal`:** el borrador
+  > original de este hito proponía inputs de hora también en `MaintenanceFormModal`, pero
+  > `workshopEntryTime`/`workshopExitTime` no son campos editables por el usuario — se fijan siempre
+  > server-side en `start()`/`complete()` (con fallback a `LocalTime.now()` si no vienen en el request, ver
+  > Hito 28), igual que ya ocurre con `workshopEntryDate`/`workshopExitDate`. `MaintenanceTable.tsx` ya llama
+  > a `useStartMaintenance`/`useCompleteMaintenance` con valores hardcodeados (`usageAtService: null`,
+  > `cost: null`) sin ninguna UI de input para esos campos opcionales existentes; añadir inputs de hora ahí
+  > habría sido alcance nuevo no pedido. El frontend solo necesitaba **mostrar** ambos campos, lo cual hace
+  > el nuevo `DaySchedule`. (2) **Conversión `HH:mm` ↔ `HH:mm:ss`:** `<input type="time">` emite/acepta
+  > `HH:mm` (sin segundos) vía `onChange`; el backend espera `HH:mm:ss`. Se añadieron dos helpers a
+  > `form-shared.ts`: `toNullableTime(value)` (`'' → null`, si no `` `${value}:00` ``) para el envío, y
+  > `toTimeInputValue(value)` (recorta a los primeros 5 caracteres, o `''` si es `null`) para el prellenado.
+  > La idea original del enunciado era prellenar directamente con el string `HH:mm:ss` del backend confiando
+  > en que el navegador oculta los segundos visualmente — cierto en navegadores reales, pero **no** en jsdom
+  > (entorno de test), que conserva el string literal sin sanitizar. Se optó por normalizar explícitamente a
+  > `HH:mm` en el prellenado en lugar de depender de un comportamiento de sanitización específico del
+  > navegador que los tests no podían verificar — mantiene el estado del componente en un único formato
+  > consistente (`HH:mm`) en todo momento, evitando además una comparación de rango mixta `HH:mm` vs
+  > `HH:mm:ss` en la validación de cliente. (3) **Diseño de `DaySchedule`:** fetching autocontenido —
+  > `useWorkshopSchedules('today', 0, 100)` (server-side ya filtra por rango) + `useMaintenanceRecords(0,
+  > 100)` filtrado client-side por `workshopEntryDate === hoy || workshopExitDate === hoy` (el endpoint no
+  > tiene filtro de fecha). Comparador de orden estable: ambas entradas sin hora → `0`; una sin hora → va al
+  > final; si no, comparación lexicográfica de los strings `HH:mm:ss` (`Array.prototype.sort` es estable en
+  > todo motor JS que soporta este proyecto). Se montó como tercera sección en `Workshop.tsx`, **encima** de
+  > "Agenda" — es el resumen "qué pasa hoy" más inmediatamente útil, y tiene sentido verlo antes que las
+  > tablas completas de agenda/mantenimiento. (4) **Mocks con hora determinista:** los handlers `/start` y
+  > `/complete` de `/api/v1/maintenance/:id` fijan `workshopEntryTime`/`workshopExitTime` a strings fijos
+  > (`'08:00:00'`/`'16:00:00'`) en lugar de derivarlos de `new Date()`, mismo criterio ya documentado en el
+  > comentario de `rangeTags` de este archivo — evita que las aserciones de orden por hora dependan de a qué
+  > hora real se ejecuta la suite. (5) **Colisión de texto con `Workshop.test.tsx`:** montar `DaySchedule` en
+  > `Workshop.tsx` hizo que `schedule-1` ("Cambio de aceite", el único seed con rango `today`) y cualquier
+  > entrada de agenda recién creada (siempre etiquetadas para los tres rangos) aparecieran duplicados en la
+  > página (tabla de Agenda + widget nuevo) — 11 tests existentes/nuevos de `Workshop.test.tsx` empezaron a
+  > fallar por queries ambiguas (`getByText`/`findByText` sin acotar). Se corrigieron acotando esas
+  > aserciones a la sección correspondiente vía dos helpers nuevos (`agendaSection()`/
+  > `maintenanceSection()`, que ubican la `<section>` por su encabezado `<h2>`), en vez de evitar el
+  > solapamiento — es un comportamiento real e intencional de la UI, no un bug a esconder. (6) **Tests
+  > finales:** `vitest run` en `apps/web` 58 → 68 (10 nuevos: 4 en `Workshop.test.tsx` para los inputs de
+  > hora de `ScheduleFormModal`, 6 en `DaySchedule.test.tsx`), 0 fallos antes y después. `tsc -b` limpio en
+  > `apps/web`, `packages/api`, `packages/hooks`. `oxlint` sin advertencias nuevas (mismo warning preexistente
+  > en `AssignmentModal.tsx`). Backend no tocado.
 
 ---
 
