@@ -1,37 +1,22 @@
-import type { SchedulePriority, WorkshopSchedule, WorkshopStatus } from '@fleetmgm/api'
-import { useCancelWorkshopSchedule } from '@fleetmgm/hooks'
+import { Pencil } from 'lucide-react'
+import type { WorkshopSchedule } from '@fleetmgm/api'
+import { useCancelWorkshopSchedule, useStartWorkshopSchedule } from '@fleetmgm/hooks'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { cn } from '@/lib/utils'
 import { formatVehicleLabel } from '@/lib/vehicle-label'
-
-const STATUS_LABEL: Record<WorkshopStatus, string> = {
-  PENDING: 'Pendiente',
-  IN_PROGRESS: 'En curso',
-  COMPLETED: 'Completado',
-  CANCELLED: 'Cancelado',
-}
-
-const STATUS_CLASSNAME: Record<WorkshopStatus, string> = {
-  PENDING: 'bg-surface-container-high text-on-surface-variant',
-  IN_PROGRESS: 'bg-tertiary-container/40 text-tertiary',
-  COMPLETED: 'bg-secondary-container/20 text-secondary',
-  CANCELLED: 'bg-error-container/40 text-error',
-}
-
-const PRIORITY_LABEL: Record<SchedulePriority, string> = {
-  LOW: 'Baja',
-  MEDIUM: 'Media',
-  HIGH: 'Alta',
-  URGENT: 'Urgente',
-}
+import { PRIORITY_LABEL } from './form-shared'
+import { ScheduleStatusBadge } from './ScheduleStatusBadge'
 
 type ScheduleTableProps = {
   schedules: WorkshopSchedule[]
+  onEdit: (schedule: WorkshopSchedule) => void
 }
 
-export function ScheduleTable({ schedules }: ScheduleTableProps) {
+export function ScheduleTable({ schedules, onEdit }: ScheduleTableProps) {
+  const startSchedule = useStartWorkshopSchedule()
   const cancelSchedule = useCancelWorkshopSchedule()
+
+  const isPending = startSchedule.isPending || cancelSchedule.isPending
 
   return (
     <Table>
@@ -55,26 +40,51 @@ export function ScheduleTable({ schedules }: ScheduleTableProps) {
             <TableCell>{PRIORITY_LABEL[schedule.priority]}</TableCell>
             <TableCell>{schedule.technicianName ?? '—'}</TableCell>
             <TableCell>
-              <span
-                className={cn(
-                  'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
-                  STATUS_CLASSNAME[schedule.status],
-                )}
-              >
-                {STATUS_LABEL[schedule.status]}
-              </span>
+              <ScheduleStatusBadge status={schedule.status} />
             </TableCell>
             <TableCell>
-              {(schedule.status === 'PENDING' || schedule.status === 'IN_PROGRESS') && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={cancelSchedule.isPending}
-                  onClick={() => cancelSchedule.mutate(schedule.id)}
-                >
-                  Cancelar
-                </Button>
-              )}
+              <div className="flex flex-col items-start gap-1">
+                <div className="flex gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    aria-label="Editar entrada"
+                    onClick={() => onEdit(schedule)}
+                  >
+                    <Pencil className="size-4" />
+                  </Button>
+                  {schedule.status === 'PENDING' && (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      disabled={isPending}
+                      onClick={() => startSchedule.mutate(schedule.id)}
+                    >
+                      Iniciar
+                    </Button>
+                  )}
+                  {(schedule.status === 'PENDING' || schedule.status === 'IN_PROGRESS') && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={isPending}
+                      onClick={() => cancelSchedule.mutate(schedule.id)}
+                    >
+                      Cancelar
+                    </Button>
+                  )}
+                </div>
+                {startSchedule.isError && startSchedule.variables === schedule.id && (
+                  <p role="alert" className="text-sm text-error">
+                    No se pudo completar la acción.
+                  </p>
+                )}
+                {cancelSchedule.isError && cancelSchedule.variables === schedule.id && (
+                  <p role="alert" className="text-sm text-error">
+                    No se pudo completar la acción.
+                  </p>
+                )}
+              </div>
             </TableCell>
           </TableRow>
         ))}

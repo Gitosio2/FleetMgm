@@ -1,21 +1,10 @@
-import type { MaintenanceCategory, MaintenanceRecord, MaintenanceStatus } from '@fleetmgm/api'
-import { useCompleteMaintenance, useStartMaintenance } from '@fleetmgm/hooks'
+import { Pencil } from 'lucide-react'
+import type { MaintenanceCategory, MaintenanceRecord } from '@fleetmgm/api'
+import { useCancelMaintenance, useCompleteMaintenance, useStartMaintenance } from '@fleetmgm/hooks'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { cn } from '@/lib/utils'
 import { formatVehicleLabel } from '@/lib/vehicle-label'
-
-const STATUS_LABEL: Record<MaintenanceStatus, string> = {
-  SCHEDULED: 'Programado',
-  IN_PROGRESS: 'En curso',
-  COMPLETED: 'Completado',
-}
-
-const STATUS_CLASSNAME: Record<MaintenanceStatus, string> = {
-  SCHEDULED: 'bg-surface-container-high text-on-surface-variant',
-  IN_PROGRESS: 'bg-tertiary-container/40 text-tertiary',
-  COMPLETED: 'bg-secondary-container/20 text-secondary',
-}
+import { MaintenanceStatusBadge } from './MaintenanceStatusBadge'
 
 const CATEGORY_LABEL: Record<MaintenanceCategory, string> = {
   PREVENTIVE: 'Preventivo',
@@ -24,13 +13,15 @@ const CATEGORY_LABEL: Record<MaintenanceCategory, string> = {
 
 type MaintenanceTableProps = {
   records: MaintenanceRecord[]
+  onEdit: (record: MaintenanceRecord) => void
 }
 
-export function MaintenanceTable({ records }: MaintenanceTableProps) {
+export function MaintenanceTable({ records, onEdit }: MaintenanceTableProps) {
   const startMaintenance = useStartMaintenance()
   const completeMaintenance = useCompleteMaintenance()
+  const cancelMaintenance = useCancelMaintenance()
 
-  const isPending = startMaintenance.isPending || completeMaintenance.isPending
+  const isPending = startMaintenance.isPending || completeMaintenance.isPending || cancelMaintenance.isPending
 
   return (
     <Table>
@@ -52,36 +43,66 @@ export function MaintenanceTable({ records }: MaintenanceTableProps) {
             <TableCell>{CATEGORY_LABEL[record.category]}</TableCell>
             <TableCell>{record.technicianName ?? '—'}</TableCell>
             <TableCell>
-              <span
-                className={cn(
-                  'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
-                  STATUS_CLASSNAME[record.status],
-                )}
-              >
-                {STATUS_LABEL[record.status]}
-              </span>
+              <MaintenanceStatusBadge status={record.status} />
             </TableCell>
             <TableCell>
-              {record.status === 'SCHEDULED' && (
-                <Button
-                  variant="default"
-                  size="sm"
-                  disabled={isPending}
-                  onClick={() => startMaintenance.mutate({ id: record.id, usageAtService: null })}
-                >
-                  Iniciar
-                </Button>
-              )}
-              {record.status === 'IN_PROGRESS' && (
-                <Button
-                  variant="default"
-                  size="sm"
-                  disabled={isPending}
-                  onClick={() => completeMaintenance.mutate({ id: record.id, cost: null })}
-                >
-                  Completar
-                </Button>
-              )}
+              <div className="flex flex-col items-start gap-1">
+                <div className="flex gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    aria-label="Editar orden"
+                    onClick={() => onEdit(record)}
+                  >
+                    <Pencil className="size-4" />
+                  </Button>
+                  {record.status === 'SCHEDULED' && (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      disabled={isPending}
+                      onClick={() => startMaintenance.mutate({ id: record.id, usageAtService: null })}
+                    >
+                      Iniciar
+                    </Button>
+                  )}
+                  {record.status === 'IN_PROGRESS' && (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      disabled={isPending}
+                      onClick={() => completeMaintenance.mutate({ id: record.id, cost: null })}
+                    >
+                      Completar
+                    </Button>
+                  )}
+                  {(record.status === 'SCHEDULED' || record.status === 'IN_PROGRESS') && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={isPending}
+                      onClick={() => cancelMaintenance.mutate(record.id)}
+                    >
+                      Cancelar
+                    </Button>
+                  )}
+                </div>
+                {startMaintenance.isError && startMaintenance.variables?.id === record.id && (
+                  <p role="alert" className="text-sm text-error">
+                    No se pudo completar la acción.
+                  </p>
+                )}
+                {completeMaintenance.isError && completeMaintenance.variables?.id === record.id && (
+                  <p role="alert" className="text-sm text-error">
+                    No se pudo completar la acción.
+                  </p>
+                )}
+                {cancelMaintenance.isError && cancelMaintenance.variables === record.id && (
+                  <p role="alert" className="text-sm text-error">
+                    No se pudo completar la acción.
+                  </p>
+                )}
+              </div>
             </TableCell>
           </TableRow>
         ))}

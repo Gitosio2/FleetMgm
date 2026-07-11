@@ -184,7 +184,7 @@ export type CreateJobRequest = {
 
 export type UpdateJobRequest = CreateJobRequest
 
-export type MaintenanceStatus = 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED'
+export type MaintenanceStatus = 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
 export type MaintenanceCategory = 'PREVENTIVE' | 'CORRECTIVE'
 
 export type MaintenanceRecord = {
@@ -213,6 +213,7 @@ export type CreateMaintenanceRequest = {
   description?: string | null
   technicianId?: string | null
   category?: MaintenanceCategory | null
+  scheduledDate: string
 }
 
 export type UpdateMaintenanceRequest = {
@@ -252,5 +253,15 @@ export type CreateScheduleRequest = {
   scheduledDate: string
   type: string
   priority?: SchedulePriority | null
+  notes?: string | null
+}
+
+export type UpdateScheduleRequest = {
+  vehicleId: string
+  technicianId?: string | null
+  maintenanceRecordId?: string | null
+  scheduledDate: string
+  type: string
+  priority: SchedulePriority
   notes?: string | null
 }

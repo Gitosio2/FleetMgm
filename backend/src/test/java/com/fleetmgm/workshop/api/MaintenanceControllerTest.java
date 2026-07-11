@@ -68,7 +68,7 @@ class MaintenanceControllerTest {
 
         mockMvc.perform(post("/api/v1/maintenance")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"vehicleId\":\"" + VEHICLE_ID + "\",\"type\":\"Oil change\"}"))
+                        .content("{\"vehicleId\":\"" + VEHICLE_ID + "\",\"type\":\"Oil change\",\"scheduledDate\":\"2026-07-15\"}"))
                 .andExpect(status().isCreated())
                 .andExpect(header().string("Location", org.hamcrest.Matchers.containsString("/api/v1/maintenance/")));
     }
@@ -186,5 +186,35 @@ class MaintenanceControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"cost\":250.00}"))
                 .andExpect(status().isOk());
+    }
+
+    // --- PATCH /api/v1/maintenance/{id}/cancel ---
+
+    @Test
+    void cancel_returns200_withoutBody() throws Exception {
+        when(maintenanceService.cancel(MAINTENANCE_ID)).thenReturn(sampleResponse());
+
+        mockMvc.perform(patch("/api/v1/maintenance/{id}/cancel", MAINTENANCE_ID))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void cancel_returns404_whenMissing() throws Exception {
+        when(maintenanceService.cancel(MAINTENANCE_ID))
+                .thenThrow(new NotFoundException("MAINTENANCE_NOT_FOUND", "Maintenance not found"));
+
+        mockMvc.perform(patch("/api/v1/maintenance/{id}/cancel", MAINTENANCE_ID))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("MAINTENANCE_NOT_FOUND"));
+    }
+
+    @Test
+    void cancel_returns409_whenInvalidTransition() throws Exception {
+        when(maintenanceService.cancel(MAINTENANCE_ID))
+                .thenThrow(new ConflictException("MAINTENANCE_INVALID_STATE_TRANSITION", "Cannot cancel"));
+
+        mockMvc.perform(patch("/api/v1/maintenance/{id}/cancel", MAINTENANCE_ID))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("MAINTENANCE_INVALID_STATE_TRANSITION"));
     }
 }

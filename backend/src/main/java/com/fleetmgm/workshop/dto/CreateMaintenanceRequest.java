@@ -4,6 +4,7 @@ import com.fleetmgm.workshop.domain.MaintenanceCategory;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
+import java.time.LocalDate;
 import java.util.UUID;
 
 public record CreateMaintenanceRequest(
@@ -11,5 +12,6 @@ public record CreateMaintenanceRequest(
         @NotBlank String type,
         String description,
         UUID technicianId,
-        MaintenanceCategory category
+        MaintenanceCategory category,
+        LocalDate scheduledDate
 ) {}

@@ -18,7 +18,7 @@ export function Jobs() {
   const role = useAuthStore((state) => state.role)
   const canManage = role != null && MANAGEMENT_ROLES.includes(role)
 
-  const { data, isLoading } = useJobs(page, PAGE_SIZE)
+  const { data, isLoading, isError } = useJobs(page, PAGE_SIZE)
 
   function openCreateForm() {
     setEditingJob(undefined)
@@ -47,6 +47,10 @@ export function Jobs() {
 
       {isLoading ? (
         <p className="text-on-surface-variant">Cargando trabajos…</p>
+      ) : isError ? (
+        <p role="alert" className="text-sm text-error">
+          No se pudieron cargar los datos.
+        </p>
       ) : (
         <JobTable jobs={data?.content ?? []} canManage={canManage} onEdit={openEditForm} />
       )}

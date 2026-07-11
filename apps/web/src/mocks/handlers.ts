@@ -481,7 +481,7 @@ export function resetJobsMock() {
   jobs = [...SEED_JOBS]
 }
 
-type MaintenanceStatus = 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED'
+type MaintenanceStatus = 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
 type MaintenanceCategory = 'PREVENTIVE' | 'CORRECTIVE'
 
 type MaintenanceRecordMock = {
@@ -510,6 +510,15 @@ type MaintenanceRequestBody = {
   description?: string | null
   technicianId?: string | null
   category?: MaintenanceCategory | null
+  scheduledDate: string
+}
+
+type MaintenanceUpdateRequestBody = {
+  vehicleId: string
+  type: string
+  description?: string | null
+  technicianId?: string | null
+  category: MaintenanceCategory
 }
 
 const TECHNICIAN_WORKER_ID = SEED_WORKERS[1]!.id
@@ -617,6 +626,16 @@ type ScheduleRequestBody = {
   notes?: string | null
 }
 
+type ScheduleUpdateRequestBody = {
+  vehicleId: string
+  technicianId?: string | null
+  maintenanceRecordId?: string | null
+  scheduledDate: string
+  type: string
+  priority: SchedulePriority
+  notes?: string | null
+}
+
 export const SEED_SCHEDULES: WorkshopScheduleMock[] = [
   {
     id: 'schedule-1',
@@ -678,6 +697,38 @@ let workshopSchedules: WorkshopScheduleMock[] = [...SEED_SCHEDULES]
 
 export function resetWorkshopSchedulesMock() {
   workshopSchedules = [...SEED_SCHEDULES]
+}
+
+function buildWorkshopScheduleMock(params: {
+  vehicle: Vehicle
+  technician?: Worker | null
+  maintenanceRecordId?: string | null
+  maintenanceCategory?: MaintenanceCategory | null
+  scheduledDate: string
+  type: string
+  priority: SchedulePriority
+  notes?: string | null
+}): WorkshopScheduleMock {
+  return {
+    id: `schedule-${workshopSchedules.length + 1}`,
+    vehicleId: params.vehicle.id,
+    vehicleLicensePlate: params.vehicle.licensePlate,
+    vehicleMake: params.vehicle.make,
+    vehicleModel: params.vehicle.model,
+    technicianId: params.technician?.id ?? null,
+    technicianName: params.technician?.fullName ?? null,
+    maintenanceRecordId: params.maintenanceRecordId ?? null,
+    maintenanceCategory: params.maintenanceCategory ?? null,
+    scheduledDate: params.scheduledDate,
+    type: params.type,
+    priority: params.priority,
+    status: 'PENDING',
+    notes: params.notes ?? null,
+    createdAt: new Date().toISOString(),
+    // Always tagged for every range, regardless of scheduledDate — deliberate mock
+    // simplification, see the comment on WorkshopScheduleMock above.
+    rangeTags: ['today', 'week', 'month'],
+  }
 }
 
 export const handlers = [
@@ -1386,7 +1437,87 @@ export const handlers = [
     }
     maintenanceRecords = [...maintenanceRecords, newRecord]
 
+    // Mirrors the backend's MaintenanceService.create() -> WorkshopScheduleService.create() call
+    // (deployment-gated by WORKSHOP_AUTO_CREATE_SCHEDULE, default true): a scheduled maintenance
+    // order always creates its own linked agenda entry. The mock has no concept of the toggle —
+    // it always behaves as if the flag is on.
+    const newSchedule = buildWorkshopScheduleMock({
+      vehicle,
+      technician,
+      maintenanceRecordId: newRecord.id,
+      maintenanceCategory: newRecord.category,
+      scheduledDate: body.scheduledDate,
+      type: newRecord.type,
+      priority: 'MEDIUM',
+    })
+    workshopSchedules = [...workshopSchedules, newSchedule]
+
     return HttpResponse.json(newRecord, { status: 201 })
+  }),
+
+  http.put('/api/v1/maintenance/:id', async ({ request, params }) => {
+    const body = (await request.json()) as MaintenanceUpdateRequestBody
+    const index = maintenanceRecords.findIndex((record) => record.id === params.id)
+    const existing = maintenanceRecords[index]
+
+    if (!existing) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'MAINTENANCE_NOT_FOUND',
+          message: `Maintenance ${params.id} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    const vehicle = vehicles.find((v) => v.id === body.vehicleId)
+    if (!vehicle) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'VEHICLE_NOT_FOUND',
+          message: `Vehicle ${body.vehicleId} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    let technician: Worker | undefined
+    if (body.technicianId) {
+      technician = workers.find((w) => w.id === body.technicianId)
+      if (!technician) {
+        return HttpResponse.json(
+          {
+            status: 404,
+            code: 'WORKER_NOT_FOUND',
+            message: `Worker ${body.technicianId} not found`,
+            correlationId: 'test-correlation-id',
+          },
+          { status: 404 },
+        )
+      }
+    }
+
+    // The backend's update() has no status guard (pre-existing gap, out of scope here) — the
+    // mock mirrors that by allowing the merge regardless of the record's current status.
+    const updated: MaintenanceRecordMock = {
+      ...existing,
+      vehicleId: vehicle.id,
+      vehicleLicensePlate: vehicle.licensePlate,
+      vehicleMake: vehicle.make,
+      vehicleModel: vehicle.model,
+      type: body.type,
+      description: body.description ?? null,
+      technicianId: technician?.id ?? null,
+      technicianName: technician?.fullName ?? null,
+      category: body.category,
+    }
+    maintenanceRecords = maintenanceRecords.map((record, i) => (i === index ? updated : record))
+
+    return HttpResponse.json(updated)
   }),
 
   http.patch('/api/v1/maintenance/:id/start', async ({ request, params }) => {
@@ -1479,6 +1610,46 @@ export const handlers = [
     return HttpResponse.json(updated)
   }),
 
+  http.patch('/api/v1/maintenance/:id/cancel', ({ params }) => {
+    const index = maintenanceRecords.findIndex((record) => record.id === params.id)
+    const existing = maintenanceRecords[index]
+
+    if (!existing) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'MAINTENANCE_NOT_FOUND',
+          message: `Maintenance ${params.id} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    if (existing.status !== 'SCHEDULED' && existing.status !== 'IN_PROGRESS') {
+      return HttpResponse.json(
+        {
+          status: 409,
+          code: 'MAINTENANCE_INVALID_STATE_TRANSITION',
+          message: `Maintenance ${params.id} cannot be cancelled from state ${existing.status}`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 409 },
+      )
+    }
+
+    const updated: MaintenanceRecordMock = { ...existing, status: 'CANCELLED' }
+    maintenanceRecords = maintenanceRecords.map((record, i) => (i === index ? updated : record))
+
+    // Mirrors the schedule-cancel handler: a WorkshopSchedule linked to this maintenance
+    // record is cancelled too, so the agenda stays consistent with the order.
+    workshopSchedules = workshopSchedules.map((schedule) =>
+      schedule.maintenanceRecordId === updated.id ? { ...schedule, status: 'CANCELLED' } : schedule,
+    )
+
+    return HttpResponse.json(updated)
+  }),
+
   http.get('/api/v1/workshop/schedules', ({ request }) => {
     const url = new URL(request.url)
     const rangeParam = url.searchParams.get('range')
@@ -1560,8 +1731,77 @@ export const handlers = [
       ? maintenanceRecords.find((record) => record.id === body.maintenanceRecordId)
       : undefined
 
-    const newSchedule: WorkshopScheduleMock = {
-      id: `schedule-${workshopSchedules.length + 1}`,
+    const newSchedule = buildWorkshopScheduleMock({
+      vehicle,
+      technician,
+      maintenanceRecordId: linkedMaintenance?.id,
+      maintenanceCategory: linkedMaintenance?.category,
+      scheduledDate: body.scheduledDate,
+      type: body.type,
+      priority: body.priority ?? 'MEDIUM',
+      notes: body.notes,
+    })
+    workshopSchedules = [...workshopSchedules, newSchedule]
+
+    const { rangeTags: _rangeTags, ...response } = newSchedule
+    return HttpResponse.json(response, { status: 201 })
+  }),
+
+  http.put('/api/v1/workshop/schedules/:id', async ({ request, params }) => {
+    const body = (await request.json()) as ScheduleUpdateRequestBody
+    const index = workshopSchedules.findIndex((schedule) => schedule.id === params.id)
+    const existing = workshopSchedules[index]
+
+    if (!existing) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'SCHEDULE_NOT_FOUND',
+          message: `Schedule ${params.id} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    const vehicle = vehicles.find((v) => v.id === body.vehicleId)
+    if (!vehicle) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'VEHICLE_NOT_FOUND',
+          message: `Vehicle ${body.vehicleId} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    let technician: Worker | undefined
+    if (body.technicianId) {
+      technician = workers.find((w) => w.id === body.technicianId)
+      if (!technician) {
+        return HttpResponse.json(
+          {
+            status: 404,
+            code: 'WORKER_NOT_FOUND',
+            message: `Worker ${body.technicianId} not found`,
+            correlationId: 'test-correlation-id',
+          },
+          { status: 404 },
+        )
+      }
+    }
+
+    const linkedMaintenance = body.maintenanceRecordId
+      ? maintenanceRecords.find((record) => record.id === body.maintenanceRecordId)
+      : undefined
+
+    // Same rationale as the maintenance PUT handler: the backend's update() has no status
+    // guard (pre-existing gap, out of scope here), so the mock allows the merge regardless of
+    // the schedule's current status.
+    const updated: WorkshopScheduleMock = {
+      ...existing,
       vehicleId: vehicle.id,
       vehicleLicensePlate: vehicle.licensePlate,
       vehicleMake: vehicle.make,
@@ -1572,16 +1812,48 @@ export const handlers = [
       maintenanceCategory: linkedMaintenance?.category ?? null,
       scheduledDate: body.scheduledDate,
       type: body.type,
-      priority: body.priority ?? 'MEDIUM',
-      status: 'PENDING',
+      priority: body.priority,
       notes: body.notes ?? null,
-      createdAt: new Date().toISOString(),
-      rangeTags: ['today', 'week', 'month'],
     }
-    workshopSchedules = [...workshopSchedules, newSchedule]
+    workshopSchedules = workshopSchedules.map((schedule, i) => (i === index ? updated : schedule))
 
-    const { rangeTags: _rangeTags, ...response } = newSchedule
-    return HttpResponse.json(response, { status: 201 })
+    const { rangeTags: _rangeTags, ...response } = updated
+    return HttpResponse.json(response)
+  }),
+
+  http.patch('/api/v1/workshop/schedules/:id/start', ({ params }) => {
+    const index = workshopSchedules.findIndex((schedule) => schedule.id === params.id)
+    const existing = workshopSchedules[index]
+
+    if (!existing) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'SCHEDULE_NOT_FOUND',
+          message: `Schedule ${params.id} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    if (existing.status !== 'PENDING') {
+      return HttpResponse.json(
+        {
+          status: 409,
+          code: 'SCHEDULE_INVALID_STATE_TRANSITION',
+          message: `Schedule ${params.id} cannot be started from state ${existing.status}`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 409 },
+      )
+    }
+
+    const updated: WorkshopScheduleMock = { ...existing, status: 'IN_PROGRESS' }
+    workshopSchedules = workshopSchedules.map((schedule, i) => (i === index ? updated : schedule))
+
+    const { rangeTags: _rangeTags, ...response } = updated
+    return HttpResponse.json(response)
   }),
 
   http.patch('/api/v1/workshop/schedules/:id/cancel', ({ params }) => {
@@ -1614,6 +1886,16 @@ export const handlers = [
 
     const updated: WorkshopScheduleMock = { ...existing, status: 'CANCELLED' }
     workshopSchedules = workshopSchedules.map((schedule, i) => (i === index ? updated : schedule))
+
+    // Mirrors the maintenance-cancel handler in the opposite direction: cancelling a schedule
+    // cascades to its linked MaintenanceRecord too (backend: MaintenanceCancelledEvent's
+    // ScheduleCancellationListener runs the same guard symmetrically), unless that record is
+    // already in a terminal state (COMPLETED/CANCELLED).
+    maintenanceRecords = maintenanceRecords.map((record) =>
+      record.id === updated.maintenanceRecordId && record.status !== 'COMPLETED' && record.status !== 'CANCELLED'
+        ? { ...record, status: 'CANCELLED' }
+        : record,
+    )
 
     const { rangeTags: _rangeTags, ...response } = updated
     return HttpResponse.json(response)

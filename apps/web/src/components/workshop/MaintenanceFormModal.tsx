@@ -1,5 +1,10 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import type { CreateMaintenanceRequest, MaintenanceCategory, MaintenanceRecord } from '@fleetmgm/api'
+import type {
+  CreateMaintenanceRequest,
+  MaintenanceCategory,
+  MaintenanceRecord,
+  UpdateMaintenanceRequest,
+} from '@fleetmgm/api'
 import { useCreateMaintenance, useUpdateMaintenance, useVehicles, useWorkers } from '@fleetmgm/hooks'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,9 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-
-const selectClassName =
-  'flex h-11 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary-container disabled:cursor-not-allowed disabled:opacity-50'
+import { selectClassName, toNullableString } from './form-shared'
 
 const CATEGORY_LABEL: Record<MaintenanceCategory, string> = {
   PREVENTIVE: 'Preventivo',
@@ -26,8 +29,12 @@ type MaintenanceFormModalProps = {
   record?: MaintenanceRecord
 }
 
-function toNullableString(value: string): string | null {
-  return value === '' ? null : value
+function todayLocalDateInputValue(): string {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 export function MaintenanceFormModal({ open, onOpenChange, record }: MaintenanceFormModalProps) {
@@ -47,6 +54,7 @@ export function MaintenanceFormModal({ open, onOpenChange, record }: Maintenance
   const [description, setDescription] = useState('')
   const [technicianId, setTechnicianId] = useState('')
   const [category, setCategory] = useState<MaintenanceCategory>('PREVENTIVE')
+  const [scheduledDate, setScheduledDate] = useState('')
 
   useEffect(() => {
     if (!open) {
@@ -57,6 +65,7 @@ export function MaintenanceFormModal({ open, onOpenChange, record }: Maintenance
     setDescription(record?.description ?? '')
     setTechnicianId(record?.technicianId ?? '')
     setCategory(record?.category ?? 'PREVENTIVE')
+    setScheduledDate(todayLocalDateInputValue())
   }, [open, record])
 
   const isPending = createMaintenance.isPending || updateMaintenance.isPending
@@ -64,20 +73,26 @@ export function MaintenanceFormModal({ open, onOpenChange, record }: Maintenance
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
+    if (record) {
+      // UpdateMaintenanceRequest has no scheduledDate field — it's only settable at creation time.
+      const request: UpdateMaintenanceRequest = {
+        vehicleId,
+        type,
+        description: toNullableString(description),
+        technicianId: toNullableString(technicianId),
+        category,
+      }
+      updateMaintenance.mutate({ id: record.id, request }, { onSuccess: () => onOpenChange(false) })
+      return
+    }
+
     const request: CreateMaintenanceRequest = {
       vehicleId,
       type,
       description: toNullableString(description),
       technicianId: toNullableString(technicianId),
       category,
-    }
-
-    if (record) {
-      updateMaintenance.mutate(
-        { id: record.id, request: { ...request, category } },
-        { onSuccess: () => onOpenChange(false) },
-      )
-      return
+      scheduledDate,
     }
 
     createMaintenance.mutate(request, { onSuccess: () => onOpenChange(false) })
@@ -161,6 +176,25 @@ export function MaintenanceFormModal({ open, onOpenChange, record }: Maintenance
               onChange={(e) => setDescription(e.target.value)}
             />
           </div>
+
+          {!isEditing && (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="maintenance-scheduled-date">Fecha</Label>
+              <Input
+                id="maintenance-scheduled-date"
+                type="date"
+                value={scheduledDate}
+                onChange={(e) => setScheduledDate(e.target.value)}
+                required
+              />
+            </div>
+          )}
+
+          {(createMaintenance.isError || updateMaintenance.isError) && (
+            <p role="alert" className="text-sm text-error">
+              No se pudo completar la acción.
+            </p>
+          )}
 
           <DialogFooter>
             <Button type="submit" disabled={isPending}>
