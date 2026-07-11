@@ -500,7 +500,6 @@ type MaintenanceRecordMock = {
   workshopExitTime: string | null
   technicianId: string | null
   technicianName: string | null
-  invoiceId: string | null
   status: MaintenanceStatus
   category: MaintenanceCategory
   createdAt: string
@@ -542,7 +541,6 @@ export const SEED_MAINTENANCE: MaintenanceRecordMock[] = [
     workshopExitTime: null,
     technicianId: TECHNICIAN_WORKER_ID,
     technicianName: SEED_WORKERS[1]!.fullName,
-    invoiceId: null,
     status: 'SCHEDULED',
     category: 'PREVENTIVE',
     createdAt: '2026-07-01T09:00:00Z',
@@ -563,7 +561,6 @@ export const SEED_MAINTENANCE: MaintenanceRecordMock[] = [
     workshopExitTime: null,
     technicianId: TECHNICIAN_WORKER_ID,
     technicianName: SEED_WORKERS[1]!.fullName,
-    invoiceId: null,
     status: 'IN_PROGRESS',
     category: 'CORRECTIVE',
     createdAt: '2026-07-02T09:00:00Z',
@@ -584,7 +581,6 @@ export const SEED_MAINTENANCE: MaintenanceRecordMock[] = [
     workshopExitTime: '17:00:00',
     technicianId: null,
     technicianName: null,
-    invoiceId: null,
     status: 'COMPLETED',
     category: 'PREVENTIVE',
     createdAt: '2026-06-09T09:00:00Z',
@@ -1456,7 +1452,6 @@ export const handlers = [
       workshopExitTime: null,
       technicianId: technician?.id ?? null,
       technicianName: technician?.fullName ?? null,
-      invoiceId: null,
       status: 'SCHEDULED',
       category: body.category ?? 'PREVENTIVE',
       createdAt: new Date().toISOString(),

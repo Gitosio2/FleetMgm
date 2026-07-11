@@ -68,7 +68,7 @@ class ProfitabilityRepositoryTest {
         // Revenue: one Job with an InvoiceLineItem linked via linkedJob -> subtotal 500.00
         Job job = persistJob(vehicle, JobStatus.COMPLETED);
         Invoice invoice = persistInvoice(client, "INV-2026-00001", InvoiceStatus.ISSUED);
-        persistLineItem(invoice, new BigDecimal("500.00"), job, null);
+        persistLineItem(invoice, new BigDecimal("500.00"), job);
 
         // Costs: one MaintenanceRecord with cost 120.50 + one SupplierInvoice with total 80.25
         persistMaintenanceRecord(vehicle, new BigDecimal("120.50"));
@@ -103,13 +103,13 @@ class ProfitabilityRepositoryTest {
     }
 
     @Test
-    void findProfitabilityByVehicle_excludesLineItemsLinkedOnlyViaMaintenance_notJob() {
+    void findProfitabilityByVehicle_excludesLineItem_whenLinkedJobIsNull() {
         Vehicle vehicle = persistVehicle("3333CCC");
         Client client = persistClient("22222222B");
-        MaintenanceRecord maintenanceRecord = persistMaintenanceRecord(vehicle, new BigDecimal("50.00"));
+        persistMaintenanceRecord(vehicle, new BigDecimal("50.00"));
         Invoice invoice = persistInvoice(client, "INV-2026-00002", InvoiceStatus.ISSUED);
-        // Linked via linkedMaintenance only, NOT linkedJob — must NOT count toward revenue.
-        persistLineItem(invoice, new BigDecimal("999.00"), null, maintenanceRecord);
+        // Line item with no linkedJob — must NOT count toward revenue.
+        persistLineItem(invoice, new BigDecimal("999.00"), null);
 
         entityManager.getEntityManager().clear();
 
@@ -207,7 +207,7 @@ class ProfitabilityRepositoryTest {
         return entityManager.persistAndFlush(invoice);
     }
 
-    private InvoiceLineItem persistLineItem(Invoice invoice, BigDecimal subtotal, Job linkedJob, MaintenanceRecord linkedMaintenance) {
+    private InvoiceLineItem persistLineItem(Invoice invoice, BigDecimal subtotal, Job linkedJob) {
         InvoiceLineItem lineItem = new InvoiceLineItem();
         lineItem.setInvoice(invoice);
         lineItem.setDescription("Test line item");
@@ -215,7 +215,6 @@ class ProfitabilityRepositoryTest {
         lineItem.setUnitPrice(subtotal);
         lineItem.setSubtotal(subtotal);
         lineItem.setLinkedJob(linkedJob);
-        lineItem.setLinkedMaintenance(linkedMaintenance);
         return entityManager.persistAndFlush(lineItem);
     }
 

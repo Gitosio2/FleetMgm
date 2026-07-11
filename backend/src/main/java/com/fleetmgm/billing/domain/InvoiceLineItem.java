@@ -1,7 +1,6 @@
 package com.fleetmgm.billing.domain;
 
 import com.fleetmgm.job.domain.Job;
-import com.fleetmgm.workshop.domain.MaintenanceRecord;
 import jakarta.persistence.*;
 
 import java.math.BigDecimal;
@@ -35,10 +34,6 @@ public class InvoiceLineItem {
     @JoinColumn(name = "linked_job_id")
     private Job linkedJob;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "linked_maintenance_id")
-    private MaintenanceRecord linkedMaintenance;
-
     public UUID getId() { return id; }
 
     public Invoice getInvoice() { return invoice; }
@@ -58,7 +53,4 @@ public class InvoiceLineItem {
 
     public Job getLinkedJob() { return linkedJob; }
     public void setLinkedJob(Job linkedJob) { this.linkedJob = linkedJob; }
-
-    public MaintenanceRecord getLinkedMaintenance() { return linkedMaintenance; }
-    public void setLinkedMaintenance(MaintenanceRecord linkedMaintenance) { this.linkedMaintenance = linkedMaintenance; }
 }

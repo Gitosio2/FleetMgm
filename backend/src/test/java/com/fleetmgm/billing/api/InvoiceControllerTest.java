@@ -205,7 +205,7 @@ class InvoiceControllerTest {
     @Test
     void addLineItem_returns201_whenValid() throws Exception {
         LineItemResponse response = new LineItemResponse(UUID.randomUUID(), "Parts",
-                new BigDecimal("2"), new BigDecimal("50.00"), new BigDecimal("100.00"), null, null);
+                new BigDecimal("2"), new BigDecimal("50.00"), new BigDecimal("100.00"), null);
         when(invoiceService.addLineItem(eq(INVOICE_ID), any())).thenReturn(response);
 
         mockMvc.perform(post("/api/v1/invoices/{id}/line-items", INVOICE_ID)

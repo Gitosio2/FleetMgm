@@ -44,13 +44,11 @@ public interface InvoiceMapper {
     void updateEntity(UpdateInvoiceRequest request, @MappingTarget Invoice invoice);
 
     @Mapping(target = "linkedJobId", source = "linkedJob.id")
-    @Mapping(target = "linkedMaintenanceId", source = "linkedMaintenance.id")
     LineItemResponse toResponse(InvoiceLineItem lineItem);
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "invoice", ignore = true)
     @Mapping(target = "subtotal", ignore = true)
     @Mapping(target = "linkedJob", ignore = true)
-    @Mapping(target = "linkedMaintenance", ignore = true)
     InvoiceLineItem toEntity(LineItemRequest request);
 }

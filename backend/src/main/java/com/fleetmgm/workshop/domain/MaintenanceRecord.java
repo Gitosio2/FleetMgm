@@ -1,6 +1,5 @@
 package com.fleetmgm.workshop.domain;
 
-import com.fleetmgm.billing.domain.Invoice;
 import com.fleetmgm.vehicle.domain.Vehicle;
 import com.fleetmgm.worker.domain.Worker;
 import jakarta.persistence.*;
@@ -57,10 +56,6 @@ public class MaintenanceRecord {
     @JoinColumn(name = "technician_id")
     private Worker technician;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "invoice_id")
-    private Invoice invoice;
-
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 15)
     private MaintenanceStatus status = MaintenanceStatus.SCHEDULED;
@@ -111,9 +106,6 @@ public class MaintenanceRecord {
 
     public Worker getTechnician() { return technician; }
     public void setTechnician(Worker technician) { this.technician = technician; }
-
-    public Invoice getInvoice() { return invoice; }
-    public void setInvoice(Invoice invoice) { this.invoice = invoice; }
 
     public MaintenanceStatus getStatus() { return status; }
     public void setStatus(MaintenanceStatus status) { this.status = status; }

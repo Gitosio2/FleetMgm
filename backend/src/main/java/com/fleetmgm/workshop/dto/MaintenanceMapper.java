@@ -14,13 +14,11 @@ public interface MaintenanceMapper {
     @Mapping(target = "vehicleModel", source = "vehicle.model")
     @Mapping(target = "technicianId", source = "technician.id")
     @Mapping(target = "technicianName", source = "technician.fullName")
-    @Mapping(target = "invoiceId", source = "invoice.id")
     MaintenanceResponse toResponse(MaintenanceRecord maintenanceRecord);
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "vehicle", ignore = true)
     @Mapping(target = "technician", ignore = true)
-    @Mapping(target = "invoice", ignore = true)
     @Mapping(target = "usageAtService", ignore = true)
     @Mapping(target = "cost", ignore = true)
     @Mapping(target = "workshopEntryDate", ignore = true)
@@ -35,7 +33,6 @@ public interface MaintenanceMapper {
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "vehicle", ignore = true)
     @Mapping(target = "technician", ignore = true)
-    @Mapping(target = "invoice", ignore = true)
     @Mapping(target = "usageAtService", ignore = true)
     @Mapping(target = "cost", ignore = true)
     @Mapping(target = "workshopEntryDate", ignore = true)

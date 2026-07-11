@@ -235,7 +235,8 @@ FleetMgm/
 │           ├── V14__add_workshop_time_range.sql                 ← aplicada, Hito 28
 │           ├── V15__add_job_price.sql                           ← aplicada, Hito 31 (precio del job, para la línea de factura automática)
 │           ├── V16__create_invoice_number_seq.sql               ← aplicada, Hito 31 (secuencia PostgreSQL para INV-2026-00001)
-│           └── V17__seed_demo_data.sql                          ← pendiente, Hito 43 (única migración de datos que falta)
+│           ├── V17__drop_dead_invoice_maintenance_links.sql     ← aplicada (limpieza: MaintenanceRecord.invoice e InvoiceLineItem.linkedMaintenance, nunca usados)
+│           └── V18__seed_demo_data.sql                          ← pendiente, Hito 43 (única migración de datos que falta)
 │
 ├── packages/                                   ← lógica compartida entre web y mobile
 │   ├── api/                                    ← @fleetmgm/api
@@ -548,7 +549,7 @@ FleetMgm/
 - [x] **[RED]** Tests `MaintenanceControllerTest` (`@WebMvcTest`) — 200/201/400/404/409 (el 403 por rol no se cubre acá — mismo gap AOP/`@PreAuthorize` heredado de Job/Vehicle: `@MockBean` en `@WebMvcTest` salta el proxy)
 - [x] **[GREEN]** `MaintenanceRepository` — `findAllJoinFetch` (JOIN FETCH vehicle/technician/invoice, sin N+1) + `existsByVehicleIdAndStatus` (para el edge case del listener)
 - [x] **[GREEN]** `VehicleEntersWorkshopEvent` + `MaintenanceCompletedEvent` (records, `workshop.domain`)
-- [x] **[GREEN]** Migración `V11__add_maintenance_deleted_at.sql` (`ALTER TABLE maintenance_records ADD COLUMN deleted_at TIMESTAMPTZ`) + campo `deletedAt` y `@SQLRestriction("deleted_at IS NULL")` en la entidad + `@Mapping(target = "deletedAt", ignore = true)` en `toEntity`/`updateEntity` del mapper *(la seed de datos, originalmente V11, pasó a V12, luego a V13, luego a V14/Hito 41, luego a V15/Hito 43 y ahora a **V17**/Hito 43 — Hito 28 insertó V14 para el rango horario, Hito 31 inserta V15 (precio del job) y V16 (secuencia de numeración de factura); ver adenda de categoría de mantenimiento, Hito 26, Hito 28 y Hito 31)*
+- [x] **[GREEN]** Migración `V11__add_maintenance_deleted_at.sql` (`ALTER TABLE maintenance_records ADD COLUMN deleted_at TIMESTAMPTZ`) + campo `deletedAt` y `@SQLRestriction("deleted_at IS NULL")` en la entidad + `@Mapping(target = "deletedAt", ignore = true)` en `toEntity`/`updateEntity` del mapper *(la seed de datos, originalmente V11, pasó a V12, luego a V13, luego a V14/Hito 41, luego a V15/Hito 43, luego a V17/Hito 43 y ahora a **V18**/Hito 43 — Hito 28 insertó V14 para el rango horario, Hito 31 insertó V15 (precio del job) y V16 (secuencia de numeración de factura), y una limpieza posterior inserta V17 (borra `MaintenanceRecord.invoice`/`InvoiceLineItem.linkedMaintenance`, nunca usados); ver adenda de categoría de mantenimiento, Hito 26, Hito 28, Hito 31 y la limpieza de campos muertos)*
 - [x] **[GREEN]** `MaintenanceService.create()` — crear SCHEDULED (sin efecto sobre el vehículo todavía); `list()`/`getById()`/`update()` también cerrados (los stubs restantes del CRUD)
 - [x] **[GREEN]** `MaintenanceService.start()` — SCHEDULED → IN_PROGRESS, publicar `VehicleEntersWorkshopEvent` (el vehículo entra a `MAINTENANCE` acá, no en `create()`)
 - [x] **[GREEN]** `MaintenanceService.complete()` — IN_PROGRESS → COMPLETED, `workshopExitDate = now()`, publicar `MaintenanceCompletedEvent`
@@ -589,7 +590,7 @@ FleetMgm/
 - [x] **[RED]** Tests `ScheduleCompletionListenerTest` (o equivalente) — `MaintenanceCompletedEvent` con `maintenanceRecordId` enlazado a un schedule → `WorkshopSchedule.status` pasa a `COMPLETED`; sin schedule enlazado → no-op
 - [x] **[RED]** Tests `WorkshopScheduleRepositoryTest` (`@DataJpaTest` + Testcontainers) — queries por rango de fecha devuelven solo registros del periodo correcto; excluye soft-deleted
 - [x] **[RED]** Tests `WorkshopControllerTest` (`@WebMvcTest`) — 201, 400, 404, 409; parámetro `range` inválido → 400 (ya cubierto en Hito 25 vía `ScheduleRange.fromValue`, pero el `@WebMvcTest` completo llega acá)
-- [x] **[GREEN]** Migración `V13__add_workshop_schedule_deleted_at.sql` (`ALTER TABLE workshop_schedules ADD COLUMN deleted_at TIMESTAMPTZ`) + `deletedAt` + `@SQLRestriction` en la entidad + ignore en el mapper *(la seed de datos, hasta ahora V13, pasa a **V14**/Hito 41 en este hito — misma corrección de numeración que ya se hizo dos veces; actualizado `planning.md` línea del árbol de arquitectura, Hito 41, y `CLAUDE.md`; pasa a **V15**/Hito 43 al insertarse Hito 28, y a **V17**/Hito 43 al insertarse Hito 31 (dos migraciones nuevas: precio del job y secuencia de factura), ver notas de esas secciones)*
+- [x] **[GREEN]** Migración `V13__add_workshop_schedule_deleted_at.sql` (`ALTER TABLE workshop_schedules ADD COLUMN deleted_at TIMESTAMPTZ`) + `deletedAt` + `@SQLRestriction` en la entidad + ignore en el mapper *(la seed de datos, hasta ahora V13, pasa a **V14**/Hito 41 en este hito — misma corrección de numeración que ya se hizo dos veces; actualizado `planning.md` línea del árbol de arquitectura, Hito 41, y `CLAUDE.md`; pasa a **V15**/Hito 43 al insertarse Hito 28, a **V17**/Hito 43 al insertarse Hito 31, y a **V18**/Hito 43 al insertarse la limpieza de campos muertos, ver notas de esas secciones)*
 - [x] **[GREEN]** `WorkshopScheduleRepository` — queries por rango de fecha: hoy, semana actual, mes actual
 - [x] **[GREEN]** `WorkshopScheduleService.create()` — crear `PENDING`; default `priority = MEDIUM` si viene null (mismo patrón que `category` en `MaintenanceService`)
 - [x] **[GREEN]** `WorkshopScheduleService.start()` — `PENDING` → `IN_PROGRESS`
@@ -1206,6 +1207,58 @@ FleetMgm/
 >    **Tests:** unitarios sin cambio (325, no se tocó `ProfitabilityServiceTest`); suite completa con
 >    Testcontainers (`-Pfailsafe`) 363 → 365 (+2 nuevos en `ProfitabilityRepositoryTest`), todos en verde.
 
+### Adenda — Limpieza de campos muertos: `MaintenanceRecord.invoice` e `InvoiceLineItem.linkedMaintenance` *(nuevo, sin hito fijo — post-Hito 34, previo al Hito 35)*
+> Surgió durante una explicación técnica del reporte de rentabilidad (Hito 34) al usuario: al recorrer
+> `ProfitabilityRepository`, el usuario preguntó si un `MaintenanceRecord` (mantenimiento de taller) podía
+> realmente enlazarse a una factura de **cliente**. No fue detectado por una revisión de código — fue una
+> pregunta de negocio que llevó a rastrear el código y confirmar dos campos sin caso de uso real:
+> 1. **`MaintenanceRecord.invoice`** (FK a `Invoice` de cliente, scaffoldeada en V6/V7) — **campo
+>    totalmente muerto**: `setInvoice(...)` nunca se invoca en ningún camino de código de producción.
+>    Solo era legible (siempre `null`) vía `MaintenanceResponse.invoiceId`.
+> 2. **`InvoiceLineItem.linkedMaintenance`** (FK a `MaintenanceRecord`, alcanzable vía el parámetro opcional
+>    `linkedMaintenanceId` del endpoint manual `POST /api/v1/invoices/{id}/line-items`) — código alcanzable,
+>    pero **sin escenario de negocio real** para esta aplicación: una factura de cliente nunca factura
+>    directamente un trabajo de mantenimiento de taller. Confirmado con el usuario que esto no representa
+>    un caso de uso de la app.
+>
+> **Distinción clave con `SupplierInvoiceLineItem.maintenanceRecord`:** esa relación (factura de
+> **proveedor** → mantenimiento) es la contraparte legítima y **se dejó intacta** — ahí sí hay un caso de
+> negocio real y siempre válido: el taller/proveedor factura a la empresa por un trabajo de mantenimiento
+> (lado del coste). La limpieza de esta adenda es exclusivamente sobre el lado de facturación a clientes.
+>
+> **Migración `V17__drop_dead_invoice_maintenance_links.sql`** (ver árbol de arquitectura y nota de
+> numeración en Hito 24): elimina el constraint `fk_maintenance_invoice` y la columna `invoice_id` de
+> `maintenance_records`, y la columna `linked_maintenance_id` de `invoice_line_items` (su FK era un
+> `REFERENCES` inline sin constraint nombrado propio, así que el `DROP COLUMN` la remueve sin paso adicional).
+> La seed de datos pasa de V17 a **V18**.
+>
+> **Cambios de código:** `MaintenanceRecord` (campo/getter/setter `invoice` fuera), `MaintenanceMapper`
+> (mapping `invoiceId` fuera), `MaintenanceResponse` (campo `invoiceId` fuera), `InvoiceLineItem` (campo/
+> getter/setter `linkedMaintenance` fuera), `InvoiceMapper` (mappings `linkedMaintenanceId`/`linkedMaintenance`
+> fuera), `LineItemRequest`/`LineItemResponse` (campo `linkedMaintenanceId` fuera), `InvoiceService.addLineItem()`
+> (helper `resolveLinkedMaintenance` fuera). **`MaintenanceRepository` se eliminó del constructor de
+> `InvoiceService`** — tras quitar `resolveLinkedMaintenance`, era su único punto de uso en esa clase
+> (verificado: ningún otro método de `InvoiceService` lo usaba), y el proyecto evita dependencias inyectadas
+> sin uso. También se descubrió y corrigió un `@Query` de `MaintenanceRepository.findAllJoinFetch` con
+> `LEFT JOIN FETCH m.invoice` que los tests unitarios (Mockito, sin contexto Spring) no podían detectar —
+> solo lo reveló la suite de integración (`-Pfailsafe`), confirmando por qué ese comando es parte obligatoria
+> de la verificación de este tipo de limpieza.
+>
+> **`ProfitabilityRepositoryTest` — simplificación:** el test `findProfitabilityByVehicle_excludesLineItemsLinkedOnlyViaMaintenance_notJob`
+> (que probaba "una línea enlazada solo vía `linkedMaintenance`, no vía `linkedJob`, no cuenta como ingreso")
+> ya no tiene sentido con el campo eliminado — la regla de negocio que sigue vigente y debe seguir probada es
+> más simple: **una línea de factura con `linkedJob == null` no cuenta como ingreso, punto**. Renombrado a
+> `findProfitabilityByVehicle_excludesLineItem_whenLinkedJobIsNull`, y el helper `persistLineItem(...)` perdió
+> su parámetro `linkedMaintenance` (ya no hay un segundo camino de enlace que construir).
+>
+> **Frontend:** `packages/api/src/types.ts` (`MaintenanceRecord.invoiceId` fuera) y `apps/web/src/mocks/handlers.ts`
+> (tipo y seeds del mock de mantenimiento, mismo campo fuera) — no existe todavía ningún tipo `LineItemRequest`/
+> `LineItemResponse` en el frontend (Hito 35 aún no se implementó), así que no hay nada más que tocar ahí.
+>
+> **Tests:** backend unitario 325 → **324** (-1, se eliminó `addLineItem_throwsNotFound_whenLinkedMaintenanceMissing`,
+> probaba el campo removido); suite completa con Testcontainers (`-Pfailsafe`) 365 → **364**; frontend
+> (`vitest run`) sin cambio, **68/68**; `tsc -b` limpio en `packages/api` y `apps/web`. Todo verde.
+
 ### Hito 35 — Frontend: Billing
 > Requiere: Hitos 30–33 (backend facturación a clientes + facturas de proveedor)
 - [ ] **[RED]** Handlers MSW — `GET /api/v1/invoices`, `POST`, `PATCH /{id}/issue`, `PATCH /{id}/pay`, `GET /{id}/pdf`, `POST /{id}/line-items`; `GET /api/v1/supplier-invoices`, `POST`, `PATCH /{id}/pay`
@@ -1273,7 +1326,7 @@ FleetMgm/
 
 ### Hito 43 — Demo y hardening final
 - [ ] `docker-compose.yml` — postgres:16 + backend + apps/web (nginx), health checks, `depends_on`
-- [ ] `Flyway V17` — seed datos demo realistas (5 vehículos, 3 conductores, 10 trabajos completados, 3 facturas de cliente, facturas de proveedor de ejemplo)
+- [ ] `Flyway V18` — seed datos demo realistas (5 vehículos, 3 conductores, 10 trabajos completados, 3 facturas de cliente, facturas de proveedor de ejemplo)
 - [ ] Revisar headers HTTP en `SecurityConfig`: `X-Content-Type-Options`, `X-Frame-Options`, `HSTS` (prod)
 - [ ] Rate limiting en `/api/v1/auth/login` y `/api/v1/auth/refresh` (Bucket4j o filtro Spring Security) — control declarado en Security Model desde el inicio pero sin hito propio hasta esta revisión
 - [ ] Structured JSON logging (`logstash-logback-encoder`, ya en `pom.xml`) con correlation ID en MDC en cada request
