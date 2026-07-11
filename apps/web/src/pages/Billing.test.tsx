@@ -52,6 +52,21 @@ describe('Billing', () => {
     expect(screen.getByText('Pagada')).toBeInTheDocument()
   })
 
+  it('shows the issue date column in the invoice table, with a placeholder for DRAFT invoices', async () => {
+    renderBilling()
+
+    const [draft, issued, paid] = SEED_INVOICES
+
+    const draftRow = (await screen.findByText(draft!.invoiceNumber)).closest('tr')!
+    expect(within(draftRow).getByText('—')).toBeInTheDocument()
+
+    const issuedRow = screen.getByText(issued!.invoiceNumber).closest('tr')!
+    expect(within(issuedRow).getByText(issued!.issueDate!)).toBeInTheDocument()
+
+    const paidRow = screen.getByText(paid!.invoiceNumber).closest('tr')!
+    expect(within(paidRow).getByText(paid!.issueDate!)).toBeInTheDocument()
+  })
+
   it('creates a new DRAFT invoice via the modal', async () => {
     const user = userEvent.setup()
     renderBilling()
@@ -125,9 +140,10 @@ describe('Billing', () => {
     const issued = SEED_INVOICES[1]!
     const issuedRow = screen.getByText(issued.invoiceNumber).closest('tr')!
     await user.click(within(issuedRow).getByRole('button', { name: /editar/i }))
-    expect(await screen.findByRole('heading', { name: 'Editar factura' })).toBeInTheDocument()
-    expect(screen.getByText(/fecha de emisión/i)).toBeInTheDocument()
-    expect(screen.getByText(issued.issueDate!)).toBeInTheDocument()
+    const dialog = await screen.findByRole('dialog')
+    expect(await within(dialog).findByRole('heading', { name: 'Editar factura' })).toBeInTheDocument()
+    expect(within(dialog).getByText(/fecha de emisión/i)).toBeInTheDocument()
+    expect(within(dialog).getByText(issued.issueDate!)).toBeInTheDocument()
   })
 
   it('adds a line item to a DRAFT invoice', async () => {

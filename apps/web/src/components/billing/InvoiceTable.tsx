@@ -17,6 +17,7 @@ export function InvoiceTable({ invoices, onEdit }: InvoiceTableProps) {
           <TableHead>Cliente</TableHead>
           <TableHead>Estado</TableHead>
           <TableHead>Total</TableHead>
+          <TableHead>Emisión</TableHead>
           <TableHead>Vencimiento</TableHead>
           <TableHead>Acciones</TableHead>
         </TableRow>
@@ -30,6 +31,7 @@ export function InvoiceTable({ invoices, onEdit }: InvoiceTableProps) {
               <InvoiceStatusBadge status={invoice.status} />
             </TableCell>
             <TableCell>{invoice.total.toFixed(2)}</TableCell>
+            <TableCell>{invoice.issueDate ?? '—'}</TableCell>
             <TableCell>{invoice.dueDate ?? '—'}</TableCell>
             <TableCell>
               <InvoiceActionButtons invoice={invoice} onEdit={onEdit} />

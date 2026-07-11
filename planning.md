@@ -1427,6 +1427,13 @@ FleetMgm/
 >     plano, sin `<Input>`; no aparece en facturas `DRAFT` (issueDate es `null`) ni al crear una
 >     factura nueva. Test nuevo: `shows the issue date as read-only for an ISSUED invoice, and hides
 >     it for a DRAFT invoice`. Suite: 76 → 77.
+> 12. **Pedido de seguimiento: mostrar también la fecha de emisión en la tabla.** Agregada columna
+>     "Emisión" en `InvoiceTable.tsx`, mismo patrón que "Vencimiento" (`invoice.issueDate ?? '—'`,
+>     texto plano, sin formateo). Test nuevo (`shows the issue date column in the invoice table...`)
+>     verifica el placeholder `—` en la factura `DRAFT` y la fecha real en las facturas `ISSUED`/
+>     `PAID`. Este cambio hizo colisionar una aserción del test anterior (nota 11): buscaba
+>     `screen.getByText(issued.issueDate!)` de forma global, y ahora esa fecha aparece tanto en la
+>     tabla como en el modal — corregido acotando la búsqueda con `within(dialog)`. Suite: 77 → 78.
 
 ---
 
