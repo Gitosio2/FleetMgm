@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import { Info } from 'lucide-react'
 import type { CreateInvoiceRequest, Invoice } from '@fleetmgm/api'
 import { useClients, useCreateInvoice, useUpdateInvoice } from '@fleetmgm/hooks'
 import { Button } from '@/components/ui/button'
@@ -116,7 +117,12 @@ export function InvoiceFormModal({ open, onOpenChange, invoice }: InvoiceFormMod
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="invoice-tax-rate">IVA (opcional, usa el valor por defecto si se deja vacío)</Label>
+              <div className="flex items-center gap-1">
+                <Label htmlFor="invoice-tax-rate">IVA (opcional)</Label>
+                <span title="Si se deja vacío, se usa el valor por defecto configurado.">
+                  <Info className="size-3.5 text-on-surface-variant" />
+                </span>
+              </div>
               <div className="flex items-center gap-2">
                 <Input
                   id="invoice-tax-rate"
