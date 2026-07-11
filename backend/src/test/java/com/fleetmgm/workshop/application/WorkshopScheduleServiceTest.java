@@ -5,6 +5,7 @@ import com.fleetmgm.auth.infrastructure.UserRepository;
 import com.fleetmgm.shared.PageResponse;
 import com.fleetmgm.shared.domain.AuditAction;
 import com.fleetmgm.shared.domain.AuditLog;
+import com.fleetmgm.shared.exception.BadRequestException;
 import com.fleetmgm.shared.exception.ConflictException;
 import com.fleetmgm.shared.exception.NotFoundException;
 import com.fleetmgm.shared.infrastructure.AuditLogRepository;
@@ -77,7 +78,7 @@ class WorkshopScheduleServiceTest {
     void create_persistsPendingSchedule() {
         UUID vehicleId = UUID.randomUUID();
         CreateScheduleRequest request = new CreateScheduleRequest(
-                vehicleId, null, null, LocalDate.now(), "Oil change", null, null);
+                vehicleId, null, null, LocalDate.now(), "Oil change", null, null, null, null);
 
         Vehicle vehicle = new Vehicle();
         WorkshopSchedule entity = new WorkshopSchedule();
@@ -101,7 +102,7 @@ class WorkshopScheduleServiceTest {
     void create_defaultsToMedium_whenPriorityNotProvided() {
         UUID vehicleId = UUID.randomUUID();
         CreateScheduleRequest request = new CreateScheduleRequest(
-                vehicleId, null, null, LocalDate.now(), "Oil change", null, null);
+                vehicleId, null, null, LocalDate.now(), "Oil change", null, null, null, null);
 
         Vehicle vehicle = new Vehicle();
         WorkshopSchedule entity = new WorkshopSchedule();
@@ -123,7 +124,7 @@ class WorkshopScheduleServiceTest {
     void create_persistsProvidedPriority_whenGiven() {
         UUID vehicleId = UUID.randomUUID();
         CreateScheduleRequest request = new CreateScheduleRequest(
-                vehicleId, null, null, LocalDate.now(), "Oil change", SchedulePriority.URGENT, null);
+                vehicleId, null, null, LocalDate.now(), "Oil change", SchedulePriority.URGENT, null, null, null);
 
         Vehicle vehicle = new Vehicle();
         WorkshopSchedule entity = new WorkshopSchedule();
@@ -145,7 +146,7 @@ class WorkshopScheduleServiceTest {
     void create_throwsNotFound_whenVehicleMissing() {
         UUID vehicleId = UUID.randomUUID();
         CreateScheduleRequest request = new CreateScheduleRequest(
-                vehicleId, null, null, LocalDate.now(), "Oil change", null, null);
+                vehicleId, null, null, LocalDate.now(), "Oil change", null, null, null, null);
 
         when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.empty());
 
@@ -161,7 +162,7 @@ class WorkshopScheduleServiceTest {
         UUID vehicleId = UUID.randomUUID();
         UUID technicianId = UUID.randomUUID();
         CreateScheduleRequest request = new CreateScheduleRequest(
-                vehicleId, technicianId, null, LocalDate.now(), "Oil change", null, null);
+                vehicleId, technicianId, null, LocalDate.now(), "Oil change", null, null, null, null);
 
         Vehicle vehicle = new Vehicle();
         Worker technician = new Worker();
@@ -186,7 +187,7 @@ class WorkshopScheduleServiceTest {
         UUID vehicleId = UUID.randomUUID();
         UUID technicianId = UUID.randomUUID();
         CreateScheduleRequest request = new CreateScheduleRequest(
-                vehicleId, technicianId, null, LocalDate.now(), "Oil change", null, null);
+                vehicleId, technicianId, null, LocalDate.now(), "Oil change", null, null, null, null);
 
         when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(new Vehicle()));
         when(workerRepository.findById(technicianId)).thenReturn(Optional.empty());
@@ -203,7 +204,7 @@ class WorkshopScheduleServiceTest {
         UUID vehicleId = UUID.randomUUID();
         UUID maintenanceId = UUID.randomUUID();
         CreateScheduleRequest request = new CreateScheduleRequest(
-                vehicleId, null, maintenanceId, LocalDate.now(), "Oil change", null, null);
+                vehicleId, null, maintenanceId, LocalDate.now(), "Oil change", null, null, null, null);
 
         Vehicle vehicle = new Vehicle();
         MaintenanceRecord maintenanceRecord = new MaintenanceRecord();
@@ -228,7 +229,7 @@ class WorkshopScheduleServiceTest {
         UUID vehicleId = UUID.randomUUID();
         UUID maintenanceId = UUID.randomUUID();
         CreateScheduleRequest request = new CreateScheduleRequest(
-                vehicleId, null, maintenanceId, LocalDate.now(), "Oil change", null, null);
+                vehicleId, null, maintenanceId, LocalDate.now(), "Oil change", null, null, null, null);
 
         when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(new Vehicle()));
         when(maintenanceRepository.findById(maintenanceId)).thenReturn(Optional.empty());
@@ -237,6 +238,184 @@ class WorkshopScheduleServiceTest {
                 .isInstanceOf(NotFoundException.class)
                 .satisfies(ex -> assertThat(((NotFoundException) ex).getCode()).isEqualTo("MAINTENANCE_NOT_FOUND"));
 
+        verify(workshopScheduleRepository, never()).save(any());
+    }
+
+    // --- create: time range (Hito 28) ---
+
+    @Test
+    void create_persists_whenOnlyStartTimeProvided() {
+        UUID vehicleId = UUID.randomUUID();
+        CreateScheduleRequest request = new CreateScheduleRequest(
+                vehicleId, null, null, LocalDate.now(), "Oil change", null, null,
+                java.time.LocalTime.of(9, 0), null);
+
+        Vehicle vehicle = new Vehicle();
+        WorkshopSchedule entity = new WorkshopSchedule();
+        ScheduleResponse expected = buildResponse(UUID.randomUUID());
+
+        when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(vehicle));
+        when(scheduleMapper.toEntity(request)).thenReturn(entity);
+        when(workshopScheduleRepository.save(entity)).thenReturn(entity);
+        when(scheduleMapper.toResponse(entity)).thenReturn(expected);
+
+        ScheduleResponse result = workshopScheduleService.create(request);
+
+        assertThat(result).isEqualTo(expected);
+        verify(workshopScheduleRepository).save(entity);
+    }
+
+    @Test
+    void create_persists_whenOnlyEndTimeProvided() {
+        UUID vehicleId = UUID.randomUUID();
+        CreateScheduleRequest request = new CreateScheduleRequest(
+                vehicleId, null, null, LocalDate.now(), "Oil change", null, null,
+                null, java.time.LocalTime.of(17, 0));
+
+        Vehicle vehicle = new Vehicle();
+        WorkshopSchedule entity = new WorkshopSchedule();
+        ScheduleResponse expected = buildResponse(UUID.randomUUID());
+
+        when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(vehicle));
+        when(scheduleMapper.toEntity(request)).thenReturn(entity);
+        when(workshopScheduleRepository.save(entity)).thenReturn(entity);
+        when(scheduleMapper.toResponse(entity)).thenReturn(expected);
+
+        ScheduleResponse result = workshopScheduleService.create(request);
+
+        assertThat(result).isEqualTo(expected);
+        verify(workshopScheduleRepository).save(entity);
+    }
+
+    @Test
+    void create_persists_whenBothTimesProvidedInValidOrder() {
+        UUID vehicleId = UUID.randomUUID();
+        CreateScheduleRequest request = new CreateScheduleRequest(
+                vehicleId, null, null, LocalDate.now(), "Oil change", null, null,
+                java.time.LocalTime.of(9, 0), java.time.LocalTime.of(17, 0));
+
+        Vehicle vehicle = new Vehicle();
+        WorkshopSchedule entity = new WorkshopSchedule();
+        ScheduleResponse expected = buildResponse(UUID.randomUUID());
+
+        when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(vehicle));
+        when(scheduleMapper.toEntity(request)).thenReturn(entity);
+        when(workshopScheduleRepository.save(entity)).thenReturn(entity);
+        when(scheduleMapper.toResponse(entity)).thenReturn(expected);
+
+        ScheduleResponse result = workshopScheduleService.create(request);
+
+        assertThat(result).isEqualTo(expected);
+        verify(workshopScheduleRepository).save(entity);
+    }
+
+    @Test
+    void create_throwsBadRequest_whenEndTimeNotAfterStartTime() {
+        UUID vehicleId = UUID.randomUUID();
+        CreateScheduleRequest request = new CreateScheduleRequest(
+                vehicleId, null, null, LocalDate.now(), "Oil change", null, null,
+                java.time.LocalTime.of(17, 0), java.time.LocalTime.of(9, 0));
+
+        assertThatThrownBy(() -> workshopScheduleService.create(request))
+                .isInstanceOf(BadRequestException.class)
+                .satisfies(ex -> assertThat(((BadRequestException) ex).getCode())
+                        .isEqualTo("SCHEDULE_INVALID_TIME_RANGE"));
+
+        verify(workshopScheduleRepository, never()).save(any());
+    }
+
+    @Test
+    void create_throwsBadRequest_whenEndTimeEqualsStartTime() {
+        UUID vehicleId = UUID.randomUUID();
+        java.time.LocalTime same = java.time.LocalTime.of(10, 0);
+        CreateScheduleRequest request = new CreateScheduleRequest(
+                vehicleId, null, null, LocalDate.now(), "Oil change", null, null, same, same);
+
+        assertThatThrownBy(() -> workshopScheduleService.create(request))
+                .isInstanceOf(BadRequestException.class)
+                .satisfies(ex -> assertThat(((BadRequestException) ex).getCode())
+                        .isEqualTo("SCHEDULE_INVALID_TIME_RANGE"));
+
+        verify(workshopScheduleRepository, never()).save(any());
+    }
+
+    @Test
+    void create_allowsOverlappingTimeRanges_forSameTechnician_noValidationPerformed() {
+        // Explicit decision (Hito 28): overlap between two schedules for the same technician is
+        // NOT validated at all — both must succeed. This locks in that behavior so it isn't
+        // accidentally reintroduced later.
+        UUID vehicleId = UUID.randomUUID();
+        UUID technicianId = UUID.randomUUID();
+        CreateScheduleRequest firstRequest = new CreateScheduleRequest(
+                vehicleId, technicianId, null, LocalDate.now(), "Oil change", null, null,
+                java.time.LocalTime.of(9, 0), java.time.LocalTime.of(11, 0));
+        CreateScheduleRequest secondRequest = new CreateScheduleRequest(
+                vehicleId, technicianId, null, LocalDate.now(), "Brake check", null, null,
+                java.time.LocalTime.of(10, 0), java.time.LocalTime.of(12, 0));
+
+        Vehicle vehicle = new Vehicle();
+        Worker technician = new Worker();
+        WorkshopSchedule firstEntity = new WorkshopSchedule();
+        WorkshopSchedule secondEntity = new WorkshopSchedule();
+        ScheduleResponse firstExpected = buildResponse(UUID.randomUUID());
+        ScheduleResponse secondExpected = buildResponse(UUID.randomUUID());
+
+        when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(vehicle));
+        when(workerRepository.findById(technicianId)).thenReturn(Optional.of(technician));
+        when(scheduleMapper.toEntity(firstRequest)).thenReturn(firstEntity);
+        when(scheduleMapper.toEntity(secondRequest)).thenReturn(secondEntity);
+        when(workshopScheduleRepository.save(firstEntity)).thenReturn(firstEntity);
+        when(workshopScheduleRepository.save(secondEntity)).thenReturn(secondEntity);
+        when(scheduleMapper.toResponse(firstEntity)).thenReturn(firstExpected);
+        when(scheduleMapper.toResponse(secondEntity)).thenReturn(secondExpected);
+
+        ScheduleResponse firstResult = workshopScheduleService.create(firstRequest);
+        ScheduleResponse secondResult = workshopScheduleService.create(secondRequest);
+
+        assertThat(firstResult).isEqualTo(firstExpected);
+        assertThat(secondResult).isEqualTo(secondExpected);
+        verify(workshopScheduleRepository).save(firstEntity);
+        verify(workshopScheduleRepository).save(secondEntity);
+    }
+
+    // --- update: time range (Hito 28) ---
+
+    @Test
+    void update_persists_whenBothTimesProvidedInValidOrder() {
+        UUID id = UUID.randomUUID();
+        UUID vehicleId = UUID.randomUUID();
+        UpdateScheduleRequest request = new UpdateScheduleRequest(
+                vehicleId, null, null, LocalDate.now(), "Brake check", SchedulePriority.HIGH, null,
+                java.time.LocalTime.of(9, 0), java.time.LocalTime.of(17, 0));
+        WorkshopSchedule entity = new WorkshopSchedule();
+        Vehicle vehicle = new Vehicle();
+        ScheduleResponse expected = buildResponse(id);
+
+        when(workshopScheduleRepository.findById(id)).thenReturn(Optional.of(entity));
+        when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(vehicle));
+        when(workshopScheduleRepository.save(entity)).thenReturn(entity);
+        when(scheduleMapper.toResponse(entity)).thenReturn(expected);
+
+        ScheduleResponse result = workshopScheduleService.update(id, request);
+
+        assertThat(result).isEqualTo(expected);
+        verify(workshopScheduleRepository).save(entity);
+    }
+
+    @Test
+    void update_throwsBadRequest_whenEndTimeNotAfterStartTime() {
+        UUID id = UUID.randomUUID();
+        UUID vehicleId = UUID.randomUUID();
+        UpdateScheduleRequest request = new UpdateScheduleRequest(
+                vehicleId, null, null, LocalDate.now(), "Brake check", SchedulePriority.HIGH, null,
+                java.time.LocalTime.of(17, 0), java.time.LocalTime.of(9, 0));
+
+        assertThatThrownBy(() -> workshopScheduleService.update(id, request))
+                .isInstanceOf(BadRequestException.class)
+                .satisfies(ex -> assertThat(((BadRequestException) ex).getCode())
+                        .isEqualTo("SCHEDULE_INVALID_TIME_RANGE"));
+
+        verify(workshopScheduleRepository, never()).findById(any());
         verify(workshopScheduleRepository, never()).save(any());
     }
 
@@ -326,7 +505,7 @@ class WorkshopScheduleServiceTest {
         UUID vehicleId = UUID.randomUUID();
         UUID technicianId = UUID.randomUUID();
         UpdateScheduleRequest request = new UpdateScheduleRequest(
-                vehicleId, technicianId, null, LocalDate.now(), "Brake check", SchedulePriority.HIGH, null);
+                vehicleId, technicianId, null, LocalDate.now(), "Brake check", SchedulePriority.HIGH, null, null, null);
         WorkshopSchedule entity = new WorkshopSchedule();
         Vehicle vehicle = new Vehicle();
         Worker technician = new Worker();
@@ -350,7 +529,7 @@ class WorkshopScheduleServiceTest {
     void update_throwsNotFound_whenMissing() {
         UUID id = UUID.randomUUID();
         UpdateScheduleRequest request = new UpdateScheduleRequest(
-                UUID.randomUUID(), null, null, LocalDate.now(), "Brake check", SchedulePriority.MEDIUM, null);
+                UUID.randomUUID(), null, null, LocalDate.now(), "Brake check", SchedulePriority.MEDIUM, null, null, null);
 
         when(workshopScheduleRepository.findById(id)).thenReturn(Optional.empty());
 
@@ -557,6 +736,6 @@ class WorkshopScheduleServiceTest {
 
     private ScheduleResponse buildResponse(UUID id) {
         return new ScheduleResponse(id, UUID.randomUUID(), "1234-ABC", null, null, null, null, null, null,
-                LocalDate.now(), "Oil change", SchedulePriority.MEDIUM, WorkshopStatus.PENDING, null, null);
+                LocalDate.now(), "Oil change", SchedulePriority.MEDIUM, WorkshopStatus.PENDING, null, null, null, null);
     }
 }

@@ -297,13 +297,33 @@ class MaintenanceServiceTest {
         when(maintenanceRepository.save(record)).thenReturn(record);
         when(maintenanceMapper.toResponse(record)).thenReturn(expected);
 
-        MaintenanceResponse result = maintenanceService.start(id, new StartMaintenanceRequest(15000L));
+        MaintenanceResponse result = maintenanceService.start(id, new StartMaintenanceRequest(15000L, null));
 
         assertThat(result).isEqualTo(expected);
         assertThat(record.getStatus()).isEqualTo(MaintenanceStatus.IN_PROGRESS);
         assertThat(record.getWorkshopEntryDate()).isNotNull();
+        assertThat(record.getWorkshopEntryTime()).isNotNull();
         assertThat(record.getUsageAtService()).isEqualTo(15000L);
         verify(eventPublisher).publishEvent(any(VehicleEntersWorkshopEvent.class));
+    }
+
+    @Test
+    void start_setsEntryTimeToNow_whenRequestIsNull_andScheduled() {
+        UUID id = UUID.randomUUID();
+        MaintenanceRecord record = new MaintenanceRecord();
+        record.setStatus(MaintenanceStatus.SCHEDULED);
+        record.setVehicle(new Vehicle());
+        MaintenanceResponse expected = buildResponse(id);
+
+        when(maintenanceRepository.findById(id)).thenReturn(Optional.of(record));
+        when(maintenanceRepository.save(record)).thenReturn(record);
+        when(maintenanceMapper.toResponse(record)).thenReturn(expected);
+
+        maintenanceService.start(id, null);
+
+        assertThat(record.getStatus()).isEqualTo(MaintenanceStatus.IN_PROGRESS);
+        assertThat(record.getWorkshopEntryDate()).isNotNull();
+        assertThat(record.getWorkshopEntryTime()).isNotNull();
     }
 
     @Test
@@ -337,13 +357,33 @@ class MaintenanceServiceTest {
         when(maintenanceRepository.save(record)).thenReturn(record);
         when(maintenanceMapper.toResponse(record)).thenReturn(expected);
 
-        MaintenanceResponse result = maintenanceService.complete(id, new CompleteMaintenanceRequest(new BigDecimal("250.00")));
+        MaintenanceResponse result = maintenanceService.complete(id, new CompleteMaintenanceRequest(new BigDecimal("250.00"), null));
 
         assertThat(result).isEqualTo(expected);
         assertThat(record.getStatus()).isEqualTo(MaintenanceStatus.COMPLETED);
         assertThat(record.getWorkshopExitDate()).isNotNull();
+        assertThat(record.getWorkshopExitTime()).isNotNull();
         assertThat(record.getCost()).isEqualByComparingTo("250.00");
         verify(eventPublisher).publishEvent(any(MaintenanceCompletedEvent.class));
+    }
+
+    @Test
+    void complete_setsExitTimeToNow_whenRequestIsNull_andInProgress() {
+        UUID id = UUID.randomUUID();
+        MaintenanceRecord record = new MaintenanceRecord();
+        record.setStatus(MaintenanceStatus.IN_PROGRESS);
+        record.setVehicle(new Vehicle());
+        MaintenanceResponse expected = buildResponse(id);
+
+        when(maintenanceRepository.findById(id)).thenReturn(Optional.of(record));
+        when(maintenanceRepository.save(record)).thenReturn(record);
+        when(maintenanceMapper.toResponse(record)).thenReturn(expected);
+
+        maintenanceService.complete(id, null);
+
+        assertThat(record.getStatus()).isEqualTo(MaintenanceStatus.COMPLETED);
+        assertThat(record.getWorkshopExitDate()).isNotNull();
+        assertThat(record.getWorkshopExitTime()).isNotNull();
     }
 
     @Test
@@ -592,6 +632,6 @@ class MaintenanceServiceTest {
     private MaintenanceResponse buildResponse(UUID id) {
         return new MaintenanceResponse(id, UUID.randomUUID(), "1234-ABC", null, null, "Oil change", null,
                 null, null, null, null, null, null, null, MaintenanceStatus.SCHEDULED,
-                MaintenanceCategory.PREVENTIVE, null);
+                MaintenanceCategory.PREVENTIVE, null, null, null);
     }
 }

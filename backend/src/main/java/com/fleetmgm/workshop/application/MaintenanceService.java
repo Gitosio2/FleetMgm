@@ -36,6 +36,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.UUID;
 
 @Service
@@ -172,6 +173,11 @@ public class MaintenanceService {
         }
         record.setStatus(MaintenanceStatus.IN_PROGRESS);
         record.setWorkshopEntryDate(LocalDate.now());
+        // workshopEntryTime mirrors workshopEntryDate's always-set behavior: auto-defaults to now()
+        // unless the caller supplies an explicit entryTime, for consistency with the date field
+        // (which has no such override and is always LocalDate.now()).
+        record.setWorkshopEntryTime(request != null && request.entryTime() != null
+                ? request.entryTime() : LocalTime.now());
         if (request != null && request.usageAtService() != null) {
             record.setUsageAtService(request.usageAtService());
         }
@@ -193,6 +199,10 @@ public class MaintenanceService {
         }
         record.setStatus(MaintenanceStatus.COMPLETED);
         record.setWorkshopExitDate(LocalDate.now());
+        // Same rationale as start(): workshopExitTime mirrors workshopExitDate's always-set
+        // behavior, defaulting to now() unless the caller supplies an explicit exitTime.
+        record.setWorkshopExitTime(request != null && request.exitTime() != null
+                ? request.exitTime() : LocalTime.now());
         if (request != null && request.cost() != null) {
             record.setCost(request.cost());
         }

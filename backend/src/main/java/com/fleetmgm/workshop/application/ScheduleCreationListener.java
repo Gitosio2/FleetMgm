@@ -32,7 +32,7 @@ public class ScheduleCreationListener {
         try {
             workshopScheduleService.create(new CreateScheduleRequest(
                     event.vehicleId(), event.technicianId(), event.maintenanceId(),
-                    event.scheduledDate(), event.type(), null, null));
+                    event.scheduledDate(), event.type(), null, null, null, null));
         } catch (RuntimeException e) {
             log.error("Failed to auto-create workshop schedule for maintenance record {}",
                     event.maintenanceId(), e);

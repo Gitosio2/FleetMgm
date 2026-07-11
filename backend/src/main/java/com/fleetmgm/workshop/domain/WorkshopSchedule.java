@@ -10,6 +10,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.UUID;
 
 @Entity
@@ -36,6 +37,12 @@ public class WorkshopSchedule {
 
     @Column(name = "scheduled_date", nullable = false)
     private LocalDate scheduledDate;
+
+    @Column(name = "scheduled_start_time")
+    private LocalTime scheduledStartTime;
+
+    @Column(name = "scheduled_end_time")
+    private LocalTime scheduledEndTime;
 
     @Column(nullable = false, length = 100)
     private String type;
@@ -75,6 +82,12 @@ public class WorkshopSchedule {
 
     public LocalDate getScheduledDate() { return scheduledDate; }
     public void setScheduledDate(LocalDate scheduledDate) { this.scheduledDate = scheduledDate; }
+
+    public LocalTime getScheduledStartTime() { return scheduledStartTime; }
+    public void setScheduledStartTime(LocalTime scheduledStartTime) { this.scheduledStartTime = scheduledStartTime; }
+
+    public LocalTime getScheduledEndTime() { return scheduledEndTime; }
+    public void setScheduledEndTime(LocalTime scheduledEndTime) { this.scheduledEndTime = scheduledEndTime; }
 
     public String getType() { return type; }
     public void setType(String type) { this.type = type; }

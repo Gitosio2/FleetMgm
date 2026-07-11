@@ -42,7 +42,7 @@ class WorkshopControllerTest {
 
     private ScheduleResponse sampleResponse() {
         return new ScheduleResponse(SCHEDULE_ID, VEHICLE_ID, "1234ABC", "Toyota", "Corolla", null, null, null, null,
-                LocalDate.now(), "Oil change", SchedulePriority.MEDIUM, WorkshopStatus.PENDING, null, null);
+                LocalDate.now(), "Oil change", SchedulePriority.MEDIUM, WorkshopStatus.PENDING, null, null, null, null);
     }
 
     // --- GET /api/v1/workshop/schedules ---

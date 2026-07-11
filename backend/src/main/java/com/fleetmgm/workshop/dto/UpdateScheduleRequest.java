@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.UUID;
 
 public record UpdateScheduleRequest(
@@ -14,5 +15,7 @@ public record UpdateScheduleRequest(
         @NotNull LocalDate scheduledDate,
         @NotBlank String type,
         @NotNull SchedulePriority priority,
-        String notes
+        String notes,
+        LocalTime scheduledStartTime,
+        LocalTime scheduledEndTime
 ) {}
