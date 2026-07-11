@@ -813,6 +813,41 @@ function buildLineItemMock(id: string, request: LineItemRequestBody): LineItemMo
   }
 }
 
+// Builds a small but *structurally valid* PDF (correct xref offsets, trailer, %%EOF) instead of a
+// string that merely starts with "%PDF" — a real PDF viewer (Chrome, Acrobat) rejects the latter
+// outright with "error loading document", which is indistinguishable from a real corruption bug
+// when manually testing the download flow against this mock (as opposed to the real backend) in
+// local dev. Content is plain ASCII throughout, so JS string .length is a valid byte offset.
+function buildMinimalPdf(bodyText: string): string {
+  const objects = [
+    '1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n',
+    '2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n',
+    '3 0 obj\n<< /Type /Page /Parent 2 0 R /Resources << /Font << /F1 5 0 R >> >> ' +
+      '/MediaBox [0 0 300 150] /Contents 4 0 R >>\nendobj\n',
+    (() => {
+      const stream = `BT /F1 14 Tf 20 100 Td (${bodyText}) Tj ET`
+      return `4 0 obj\n<< /Length ${stream.length} >>\nstream\n${stream}\nendstream\nendobj\n`
+    })(),
+    '5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n',
+  ]
+
+  let body = '%PDF-1.4\n'
+  const offsets: number[] = [0]
+  for (const object of objects) {
+    offsets.push(body.length)
+    body += object
+  }
+
+  const xrefStart = body.length
+  let xref = `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`
+  for (let i = 1; i <= objects.length; i++) {
+    xref += `${String(offsets[i]).padStart(10, '0')} 00000 n \n`
+  }
+  const trailer = `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF`
+
+  return body + xref + trailer
+}
+
 function recalcInvoiceTotals(invoice: InvoiceMock): InvoiceMock {
   const subtotal = invoice.lineItems.reduce((sum, lineItem) => sum + lineItem.subtotal, 0)
   const taxAmount = subtotal * invoice.taxRate
@@ -2369,10 +2404,12 @@ export const handlers = [
       )
     }
 
-    // The mock returns a small placeholder blob — asserting real PDF byte content is the
-    // backend's responsibility (InvoicePdfServiceTest); the frontend only needs to exercise the
-    // blob-download plumbing (see useDownloadInvoicePdf/PdfDownloadButton.test coverage).
-    return new HttpResponse(new Blob([`%PDF-1.4 mock content for ${existing.invoiceNumber}`]), {
+    // A real (if minimal) PDF — asserting actual invoice content is the backend's responsibility
+    // (PdfExportServiceTest); this only needs to exercise the blob-download plumbing, but it must
+    // still be a structurally valid PDF so manually testing the download against this mock in
+    // local dev (VITE_ENABLE_MSW=true) actually opens, instead of failing with a viewer error that
+    // looks identical to a real corruption bug.
+    return new HttpResponse(buildMinimalPdf(`Mock PDF for ${existing.invoiceNumber}`), {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="${existing.invoiceNumber}.pdf"`,

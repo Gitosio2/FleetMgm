@@ -1390,6 +1390,24 @@ FleetMgm/
 >    con `pdftotext` (probablemente falta de mapeo `ToUnicode` en la fuente Helvetica/WinAnsi por defecto de
 >    OpenPDF) — no impide abrir el archivo, pero sí afecta copiar/pegar o buscar texto; queda como deuda
 >    documentada para revisar si se retoma el feature de PDF.
+> 9. **El fix del punto 8 no resolvió el reporte del usuario — causa real distinta.** El usuario seguía
+>    viendo "Error al cargar el documento PDF" en Chrome y Acrobat Reader después del fix de
+>    `revokeObjectURL`. Se descartó el backend por segunda vez, ahora con más rigor: un test
+>    `@DataJpaTest` + Testcontainers nuevo (`PdfExportServiceRealDataDebugTest`, temporal, eliminado tras
+>    confirmar) persistió un `Client`/`Invoice`/`InvoiceLineItem` reales en Postgres (con `client` lazy,
+>    exactamente como en producción) y llamó a `PdfExportService` real — sigue produciendo un PDF válido
+>    (`file`/`pdftotext`), descartando también un problema de lazy-loading que el test original con
+>    Mockito no podía haber detectado. La causa real: `apps/web/.env.local` tiene
+>    `VITE_ENABLE_MSW=true` — el usuario probaba con `npm run dev`, que activa los mocks de MSW (no habla
+>    con el backend real). El handler mock de `GET /invoices/:id/pdf` devolvía el string literal
+>    `` `%PDF-1.4 mock content for ${invoiceNumber}` `` — **empieza** con la firma de PDF (por eso el test
+>    unitario `startsWith("%PDF")` pasaba) pero no tiene objetos, tabla `xref` ni `%%EOF`: no es un PDF real,
+>    y cualquier visor real lo rechaza correctamente. Corregido con `buildMinimalPdf()`
+>    (`apps/web/src/mocks/handlers.ts`) — construye un PDF mínimo pero estructuralmente válido (objetos,
+>    tabla xref con offsets calculados dinámicamente en bytes, trailer, `%%EOF`), verificado también con
+>    `file`/`pdftotext` fuera de la suite de tests antes de commitear. Contenido 100% ASCII, por lo que
+>    `string.length` de JS es un offset de bytes válido sin necesitar `TextEncoder`. Suite sin cambio de
+>    conteo (76/76) — el fix es en el mock, no agrega cobertura nueva.
 
 ---
 
