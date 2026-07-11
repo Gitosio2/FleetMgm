@@ -45,7 +45,13 @@ public interface ProfitabilityRepository extends Repository<Vehicle, UUID> {
                    + COALESCE((SELECT SUM(si.total)
                                FROM supplier_invoices si
                                WHERE si.vehicle_id = v.id
-                                 AND si.deleted_at IS NULL), 0) AS costs
+                                 AND si.deleted_at IS NULL), 0)
+                   + COALESCE((SELECT SUM(sili.subtotal)
+                               FROM supplier_invoice_line_items sili
+                               JOIN supplier_invoices si2 ON sili.invoice_id = si2.id
+                               WHERE sili.vehicle_id = v.id
+                                 AND si2.vehicle_id IS NULL
+                                 AND si2.deleted_at IS NULL), 0) AS costs
             FROM vehicles v
             WHERE v.deleted_at IS NULL
             """,

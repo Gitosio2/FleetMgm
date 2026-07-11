@@ -1178,6 +1178,33 @@ FleetMgm/
 >    por `ProfitabilityServiceTest`. No se agregó un `@WebMvcTest` dedicado.
 > 5. **Tests:** unitarios 322 → 325 (+3 `ProfitabilityServiceTest`); suite completa con Testcontainers
 >    (`-Pfailsafe`) 363 en verde, incluyendo 3 nuevos `ProfitabilityRepositoryTest`.
+> 6. **Bug post-merge (PR #45, no detectado por code review): facturas de proveedor multi-vehículo
+>    invisibles para el reporte.** `ProfitabilityRepository.findProfitabilityByVehicle` solo leía
+>    `SupplierInvoice.vehicle_id` (columna propia de la cabecera de la factura) para sumar costes.
+>    Esto ignoraba por completo `SupplierInvoiceLineItem.vehicle_id` — una asociación por-línea,
+>    nullable, separada de la de la cabecera. Detectado no por revisión de código sino razonando en
+>    conversación con el usuario sobre el propósito real de esa feature: una factura de proveedor
+>    puede legítimamente cubrir VARIOS vehículos a la vez (ej. una factura mensual de combustible para
+>    toda la flota) — en ese caso la factura no tiene un único `vehicle_id` (queda `NULL`, porque no
+>    pertenece a un solo vehículo) y el desglose de costes por vehículo vive en cambio en sus líneas
+>    (`SupplierInvoiceLineItem.vehicle_id` por línea, ej. "100L → vehículo 1", "80L → vehículo 2").
+>    Antes de esta corrección, una factura compartida contribuía `0` al coste de cada vehículo aunque
+>    el dato para atribuirlo correctamente ya existía en `supplier_invoice_line_items`.
+>    **Corrección:** se agregó una tercera subconsulta correlacionada a `costs`, sumando
+>    `SupplierInvoiceLineItem.subtotal` por vehículo, mediante `JOIN` a `supplier_invoices` y filtrando
+>    `si2.vehicle_id IS NULL` — es decir, solo se leen líneas de facturas SIN vehículo propio en la
+>    cabecera. Esto garantiza que cada factura se cuente por exactamente un camino: si tiene
+>    `vehicle_id` propio, se usa `SupplierInvoice.total` (como antes); si no lo tiene, se usa la suma de
+>    sus líneas. Nunca ambos a la vez para la misma factura (evita doble conteo).
+>    Test dedicado `findProfitabilityByVehicle_doesNotDoubleCount_singleVehicleInvoiceWithLineItems`
+>    construye una factura de un solo vehículo (`vehicle_id` seteado, total 200.00) que ADEMÁS tiene una
+>    línea etiquetada al mismo vehículo (subtotal 200.00, igual al total) — si la corrección estuviera
+>    mal (sumando ambos caminos), este vehículo mostraría 400.00 en lugar de 200.00; el test confirma
+>    200.00. Segundo test nuevo, `findProfitabilityByVehicle_attributesSharedSupplierInvoiceCosts_viaLineItems`,
+>    confirmó el bug en rojo contra la query original (esperaba 60.00, la query vieja devolvía 0) antes
+>    del fix, y en verde después.
+>    **Tests:** unitarios sin cambio (325, no se tocó `ProfitabilityServiceTest`); suite completa con
+>    Testcontainers (`-Pfailsafe`) 363 → 365 (+2 nuevos en `ProfitabilityRepositoryTest`), todos en verde.
 
 ### Hito 35 — Frontend: Billing
 > Requiere: Hitos 30–33 (backend facturación a clientes + facturas de proveedor)

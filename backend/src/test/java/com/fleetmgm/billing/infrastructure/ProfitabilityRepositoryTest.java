@@ -5,6 +5,7 @@ import com.fleetmgm.billing.domain.Invoice;
 import com.fleetmgm.billing.domain.InvoiceLineItem;
 import com.fleetmgm.billing.domain.InvoiceStatus;
 import com.fleetmgm.billing.domain.SupplierInvoice;
+import com.fleetmgm.billing.domain.SupplierInvoiceLineItem;
 import com.fleetmgm.client.domain.Client;
 import com.fleetmgm.config.AuditorAwareImpl;
 import com.fleetmgm.config.JpaAuditingConfig;
@@ -121,6 +122,47 @@ class ProfitabilityRepositoryTest {
         assertThat(projection.getCosts()).isEqualByComparingTo("50.00");
     }
 
+    @Test
+    void findProfitabilityByVehicle_attributesSharedSupplierInvoiceCosts_viaLineItems() {
+        Vehicle vehicleA = persistVehicle("4444DDD");
+        Vehicle vehicleB = persistVehicle("5555EEE");
+
+        // Shared invoice covering multiple vehicles: no single vehicle_id on the invoice itself,
+        // so the per-vehicle cost breakdown lives entirely in its line items.
+        SupplierInvoice sharedInvoice = persistSupplierInvoice(null, new BigDecimal("100.00"));
+        persistSupplierInvoiceLineItem(sharedInvoice, vehicleA, new BigDecimal("60.00"));
+        persistSupplierInvoiceLineItem(sharedInvoice, vehicleB, new BigDecimal("40.00"));
+
+        entityManager.getEntityManager().clear();
+
+        Page<VehicleProfitabilityProjection> result =
+                profitabilityRepository.findProfitabilityByVehicle(PageRequest.of(0, 20));
+
+        VehicleProfitabilityProjection projectionA = findByVehicleId(result, vehicleA.getId());
+        VehicleProfitabilityProjection projectionB = findByVehicleId(result, vehicleB.getId());
+        assertThat(projectionA.getCosts()).isEqualByComparingTo("60.00");
+        assertThat(projectionB.getCosts()).isEqualByComparingTo("40.00");
+    }
+
+    @Test
+    void findProfitabilityByVehicle_doesNotDoubleCount_singleVehicleInvoiceWithLineItems() {
+        Vehicle vehicle = persistVehicle("6666FFF");
+
+        // Single-vehicle invoice (vehicle_id set) that ALSO carries a line item tagged to the
+        // same vehicle, with a subtotal matching the invoice total — if the fix double-counts,
+        // this asserts 400.00 would surface instead of the correct 200.00.
+        SupplierInvoice invoice = persistSupplierInvoice(vehicle, new BigDecimal("200.00"));
+        persistSupplierInvoiceLineItem(invoice, vehicle, new BigDecimal("200.00"));
+
+        entityManager.getEntityManager().clear();
+
+        Page<VehicleProfitabilityProjection> result =
+                profitabilityRepository.findProfitabilityByVehicle(PageRequest.of(0, 20));
+
+        VehicleProfitabilityProjection projection = findByVehicleId(result, vehicle.getId());
+        assertThat(projection.getCosts()).isEqualByComparingTo("200.00");
+    }
+
     private VehicleProfitabilityProjection findByVehicleId(Page<VehicleProfitabilityProjection> page, java.util.UUID vehicleId) {
         List<VehicleProfitabilityProjection> matches = page.getContent().stream()
                 .filter(p -> p.getVehicleId().equals(vehicleId))
@@ -195,5 +237,16 @@ class ProfitabilityRepositoryTest {
         invoice.setTaxAmount(BigDecimal.ZERO);
         invoice.setTotal(total);
         return entityManager.persistAndFlush(invoice);
+    }
+
+    private SupplierInvoiceLineItem persistSupplierInvoiceLineItem(SupplierInvoice invoice, Vehicle vehicle, BigDecimal subtotal) {
+        SupplierInvoiceLineItem lineItem = new SupplierInvoiceLineItem();
+        lineItem.setInvoice(invoice);
+        lineItem.setDescription("Test supplier line item");
+        lineItem.setQuantity(BigDecimal.ONE);
+        lineItem.setUnitPrice(subtotal);
+        lineItem.setSubtotal(subtotal);
+        lineItem.setVehicle(vehicle);
+        return entityManager.persistAndFlush(lineItem);
     }
 }
