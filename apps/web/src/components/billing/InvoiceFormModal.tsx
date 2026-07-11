@@ -14,8 +14,20 @@ function toNullableString(value: string): string | null {
   return value === '' ? null : value
 }
 
-function toNullableNumber(value: string): number | null {
-  return value === '' ? null : Number(value)
+// invoice.taxRate is a fraction (0.2100) — the user enters/sees a whole percentage (21).
+// Rounding through an intermediate integer avoids floating-point drift (0.21 * 100 !== 21 exactly).
+function fractionToPercentageDisplay(fraction: number | null | undefined): string {
+  if (fraction == null) {
+    return ''
+  }
+  return String(Math.round(fraction * 10000) / 100)
+}
+
+function percentageInputToFraction(value: string): number | null {
+  if (value === '') {
+    return null
+  }
+  return Math.round(Number(value) * 100) / 10000
 }
 
 type InvoiceFormModalProps = {
@@ -43,7 +55,7 @@ export function InvoiceFormModal({ open, onOpenChange, invoice }: InvoiceFormMod
     setClientId(invoice?.clientId ?? '')
     setDueDate(invoice?.dueDate ?? '')
     setNotes(invoice?.notes ?? '')
-    setTaxRate(invoice?.taxRate != null ? String(invoice.taxRate) : '')
+    setTaxRate(fractionToPercentageDisplay(invoice?.taxRate))
   }, [open, invoice])
 
   const isPending = createInvoice.isPending || updateInvoice.isPending
@@ -55,7 +67,7 @@ export function InvoiceFormModal({ open, onOpenChange, invoice }: InvoiceFormMod
       clientId,
       dueDate: toNullableString(dueDate),
       notes: toNullableString(notes),
-      taxRate: toNullableNumber(taxRate),
+      taxRate: percentageInputToFraction(taxRate),
     }
 
     if (invoice) {
@@ -104,17 +116,18 @@ export function InvoiceFormModal({ open, onOpenChange, invoice }: InvoiceFormMod
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="invoice-tax-rate">
-                IVA (opcional, deja en blanco para usar el valor por defecto)
-              </Label>
-              <Input
-                id="invoice-tax-rate"
-                type="number"
-                min="0"
-                step="any"
-                value={taxRate}
-                onChange={(e) => setTaxRate(e.target.value)}
-              />
+              <Label htmlFor="invoice-tax-rate">IVA (opcional, usa el valor por defecto si se deja vacío)</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="invoice-tax-rate"
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={taxRate}
+                  onChange={(e) => setTaxRate(e.target.value)}
+                />
+                <span className="text-sm text-on-surface-variant">%</span>
+              </div>
             </div>
           </div>
 

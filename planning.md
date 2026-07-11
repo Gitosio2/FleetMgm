@@ -1337,6 +1337,17 @@ FleetMgm/
 > 5. **Tests:** 68 → 75 (7 tests nuevos en `Billing.test.tsx`). `tsc -b` limpio en
 >    `packages/api`/`packages/hooks`/`apps/web`. `oxlint` sin warnings nuevos (solo el warning
 >    preexistente documentado de `AssignmentModal.tsx`).
+> 6. **Bug de UX detectado por el usuario tras la primera implementación:** el campo de IVA mostraba
+>    y enviaba la fracción cruda (`0.21`) en vez del porcentaje entero (`21`) que un usuario esperaría
+>    escribir/leer. Corregido en `InvoiceFormModal.tsx` con dos helpers de conversión
+>    (`fractionToPercentageDisplay`/`percentageInputToFraction`), redondeando por un paso entero
+>    intermedio (`Math.round(x * 10000) / 100`, no una división/multiplicación directa) para evitar
+>    el drift de punto flotante de JS (`0.21 * 100 !== 21` exactamente). Se agregó un `%` visible junto
+>    al input. Test de regresión (`shows the tax rate as a whole percentage and submits it as a
+>    fraction`): crea una factura con `IVA=10`, reabre el formulario y confirma que el campo muestra
+>    `10` (no `0.1`), agrega una línea de 100.00 y emite — si el `10` se hubiera enviado como fracción
+>    cruda al backend, el total resultante sería `1100.00` (100 + 1000%) en vez de `110.00` (100 + 10%).
+>    Suite final: 75 → 76.
 
 ---
 

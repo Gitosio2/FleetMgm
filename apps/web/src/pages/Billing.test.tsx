@@ -69,6 +69,48 @@ describe('Billing', () => {
     expect(within(row).getByText('Borrador')).toBeInTheDocument()
   })
 
+  it('shows the tax rate as a whole percentage and submits it as a fraction', async () => {
+    const user = userEvent.setup()
+    renderBilling()
+
+    await screen.findByText(SEED_INVOICES[0]!.invoiceNumber)
+
+    await user.click(screen.getByRole('button', { name: /nueva factura/i }))
+    await user.selectOptions(screen.getByLabelText(/cliente/i), 'client-2')
+    await user.type(screen.getByLabelText(/iva/i), '10')
+    await user.click(screen.getByRole('button', { name: /crear factura/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText('INV-2026-00004')).toBeInTheDocument()
+    })
+    let row = screen.getByText('INV-2026-00004').closest('tr')!
+
+    // Reopening the form must show "10" (whole percent), not "0.1" (the raw
+    // fraction) — proves the display-side conversion, not just that whatever
+    // was typed comes back unchanged.
+    await user.click(within(row).getByRole('button', { name: /editar/i }))
+    expect(await screen.findByLabelText(/iva/i)).toHaveValue(10)
+    await user.click(screen.getByRole('button', { name: /guardar cambios/i }))
+
+    // Add a 100.00 line item and issue — if "10" had been sent to the backend
+    // as a raw fraction (10) instead of 0.10, the resulting total would be
+    // 1100.00 (100 + 1000%) instead of 110.00 (100 + 10%).
+    row = screen.getByText('INV-2026-00004').closest('tr')!
+    await user.click(within(row).getByRole('button', { name: /editar/i }))
+    await user.type(screen.getByLabelText(/^descripción$/i), 'Servicio')
+    await user.clear(screen.getByLabelText(/cantidad/i))
+    await user.type(screen.getByLabelText(/cantidad/i), '1')
+    await user.type(screen.getByLabelText(/precio unitario/i), '100')
+    await user.click(screen.getByRole('button', { name: /agregar línea/i }))
+    await waitFor(() => expect(screen.getByText('Servicio')).toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: /close/i }))
+
+    row = screen.getByText('INV-2026-00004').closest('tr')!
+    await user.click(within(row).getByRole('button', { name: /emitir/i }))
+
+    await waitFor(() => expect(within(row).getByText('110.00')).toBeInTheDocument())
+  })
+
   it('adds a line item to a DRAFT invoice', async () => {
     const user = userEvent.setup()
     renderBilling()
