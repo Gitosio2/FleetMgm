@@ -1,6 +1,7 @@
 package com.fleetmgm.billing.api;
 
 import com.fleetmgm.billing.application.InvoiceService;
+import com.fleetmgm.billing.application.PdfExportService;
 import com.fleetmgm.billing.dto.CreateInvoiceRequest;
 import com.fleetmgm.billing.dto.InvoiceResponse;
 import com.fleetmgm.billing.dto.LineItemRequest;
@@ -11,7 +12,10 @@ import com.fleetmgm.shared.PageResponse;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -24,9 +28,11 @@ import java.util.UUID;
 public class InvoiceController {
 
     private final InvoiceService invoiceService;
+    private final PdfExportService pdfExportService;
 
-    public InvoiceController(InvoiceService invoiceService) {
+    public InvoiceController(InvoiceService invoiceService, PdfExportService pdfExportService) {
         this.invoiceService = invoiceService;
+        this.pdfExportService = pdfExportService;
     }
 
     @GetMapping
@@ -80,5 +86,23 @@ public class InvoiceController {
             @Valid @RequestBody LineItemRequest request) {
         LineItemResponse response = invoiceService.addLineItem(id, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @GetMapping("/{id}/pdf")
+    public ResponseEntity<byte[]> exportPdf(@PathVariable UUID id) {
+        // Two lookups (getById for the invoice number, generateInvoicePdf for the bytes) is simple
+        // and cheap enough here — not a hot path — versus adding a wrapper return type to
+        // PdfExportService just to carry two values out of one call.
+        String invoiceNumber = invoiceService.getById(id).invoiceNumber();
+        byte[] pdf = pdfExportService.generateInvoicePdf(id);
+
+        ContentDisposition contentDisposition = ContentDisposition.attachment()
+                .filename(invoiceNumber + ".pdf")
+                .build();
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition.toString())
+                .body(pdf);
     }
 }
