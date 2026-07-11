@@ -46,7 +46,7 @@ class InvoiceControllerTest {
     private InvoiceResponse sampleResponse() {
         return new InvoiceResponse(INVOICE_ID, "INV-2026-00001", CLIENT_ID, "Acme Corp", InvoiceStatus.DRAFT,
                 null, null, null, new BigDecimal("0.2100"), BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
-                null, Instant.now());
+                null, Instant.now(), List.of());
     }
 
     // --- GET /api/v1/invoices ---

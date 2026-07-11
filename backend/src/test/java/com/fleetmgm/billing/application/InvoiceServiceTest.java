@@ -46,7 +46,9 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -171,8 +173,47 @@ class InvoiceServiceTest {
 
         when(invoiceRepository.findById(id)).thenReturn(Optional.of(invoice));
         when(invoiceMapper.toResponse(invoice)).thenReturn(expected);
+        when(lineItemRepository.findAllByInvoiceId(id)).thenReturn(List.of());
 
         assertThat(invoiceService.getById(id)).isEqualTo(expected);
+    }
+
+    @Test
+    void getById_populatesLineItems_whenInvoiceHasLines() {
+        UUID id = UUID.randomUUID();
+        Invoice invoice = new Invoice();
+        InvoiceLineItem line1 = new InvoiceLineItem();
+        InvoiceLineItem line2 = new InvoiceLineItem();
+        LineItemResponse response1 = new LineItemResponse(UUID.randomUUID(), "Parts",
+                BigDecimal.ONE, new BigDecimal("50.00"), new BigDecimal("50.00"), null);
+        LineItemResponse response2 = new LineItemResponse(UUID.randomUUID(), "Labor",
+                BigDecimal.ONE, new BigDecimal("30.00"), new BigDecimal("30.00"), null);
+        InvoiceResponse mappedInvoice = buildResponse(id);
+
+        when(invoiceRepository.findById(id)).thenReturn(Optional.of(invoice));
+        when(invoiceMapper.toResponse(invoice)).thenReturn(mappedInvoice);
+        when(lineItemRepository.findAllByInvoiceId(id)).thenReturn(List.of(line1, line2));
+        when(invoiceMapper.toResponse(line1)).thenReturn(response1);
+        when(invoiceMapper.toResponse(line2)).thenReturn(response2);
+
+        InvoiceResponse result = invoiceService.getById(id);
+
+        assertThat(result.lineItems()).containsExactly(response1, response2);
+    }
+
+    @Test
+    void getById_returnsEmptyLineItems_notNull_whenInvoiceHasNoLines() {
+        UUID id = UUID.randomUUID();
+        Invoice invoice = new Invoice();
+        InvoiceResponse mappedInvoice = buildResponse(id);
+
+        when(invoiceRepository.findById(id)).thenReturn(Optional.of(invoice));
+        when(invoiceMapper.toResponse(invoice)).thenReturn(mappedInvoice);
+        when(lineItemRepository.findAllByInvoiceId(id)).thenReturn(List.of());
+
+        InvoiceResponse result = invoiceService.getById(id);
+
+        assertThat(result.lineItems()).isNotNull().isEmpty();
     }
 
     @Test
@@ -433,17 +474,22 @@ class InvoiceServiceTest {
         line1.setSubtotal(new BigDecimal("100.00"));
         InvoiceLineItem line2 = new InvoiceLineItem();
         line2.setSubtotal(new BigDecimal("50.00"));
+        LineItemResponse line1Response = new LineItemResponse(UUID.randomUUID(), "Line 1", BigDecimal.ONE, new BigDecimal("100.00"), new BigDecimal("100.00"), null);
+        LineItemResponse line2Response = new LineItemResponse(UUID.randomUUID(), "Line 2", BigDecimal.ONE, new BigDecimal("50.00"), new BigDecimal("50.00"), null);
 
-        InvoiceResponse expected = buildResponse(id);
+        InvoiceResponse expected = buildResponse(id, List.of(line1Response, line2Response));
 
         when(invoiceRepository.findById(id)).thenReturn(Optional.of(invoice));
         when(lineItemRepository.findAllByInvoiceId(id)).thenReturn(List.of(line1, line2));
         when(invoiceRepository.save(invoice)).thenReturn(invoice);
         when(invoiceMapper.toResponse(invoice)).thenReturn(expected);
+        when(invoiceMapper.toResponse(line1)).thenReturn(line1Response);
+        when(invoiceMapper.toResponse(line2)).thenReturn(line2Response);
 
         InvoiceResponse result = invoiceService.issue(id);
 
         assertThat(result).isEqualTo(expected);
+        assertThat(result.lineItems()).containsExactly(line1Response, line2Response);
         assertThat(invoice.getStatus()).isEqualTo(InvoiceStatus.ISSUED);
         assertThat(invoice.getIssueDate()).isEqualTo(java.time.LocalDate.now());
         // subtotal = 150.00; tax = 150.00 * 0.21 = 31.50; total = 181.50
@@ -595,6 +641,93 @@ class InvoiceServiceTest {
         assertThat(result.totalElements()).isEqualTo(1);
     }
 
+    @Test
+    void list_groupsLineItems_perInvoice_notMixedAcrossInvoices() {
+        Pageable pageable = PageRequest.of(0, 20);
+        UUID invoiceId1 = UUID.randomUUID();
+        UUID invoiceId2 = UUID.randomUUID();
+        Invoice invoice1 = new Invoice();
+        setId(invoice1, invoiceId1);
+        Invoice invoice2 = new Invoice();
+        setId(invoice2, invoiceId2);
+
+        InvoiceLineItem line1 = new InvoiceLineItem();
+        line1.setInvoice(invoice1);
+        InvoiceLineItem line2 = new InvoiceLineItem();
+        line2.setInvoice(invoice2);
+        InvoiceLineItem line3 = new InvoiceLineItem();
+        line3.setInvoice(invoice1);
+
+        LineItemResponse response1 = new LineItemResponse(UUID.randomUUID(), "Line1",
+                BigDecimal.ONE, new BigDecimal("10.00"), new BigDecimal("10.00"), null);
+        LineItemResponse response2 = new LineItemResponse(UUID.randomUUID(), "Line2",
+                BigDecimal.ONE, new BigDecimal("20.00"), new BigDecimal("20.00"), null);
+        LineItemResponse response3 = new LineItemResponse(UUID.randomUUID(), "Line3",
+                BigDecimal.ONE, new BigDecimal("30.00"), new BigDecimal("30.00"), null);
+
+        InvoiceResponse mapped1 = buildResponse(invoiceId1);
+        InvoiceResponse mapped2 = buildResponse(invoiceId2);
+
+        when(invoiceRepository.findAllJoinFetch(pageable))
+                .thenReturn(new PageImpl<>(List.of(invoice1, invoice2), pageable, 2));
+        when(invoiceMapper.toResponse(invoice1)).thenReturn(mapped1);
+        when(invoiceMapper.toResponse(invoice2)).thenReturn(mapped2);
+        when(lineItemRepository.findAllByInvoiceIdIn(List.of(invoiceId1, invoiceId2)))
+                .thenReturn(List.of(line1, line2, line3));
+        when(invoiceMapper.toResponse(line1)).thenReturn(response1);
+        when(invoiceMapper.toResponse(line2)).thenReturn(response2);
+        when(invoiceMapper.toResponse(line3)).thenReturn(response3);
+
+        PageResponse<InvoiceResponse> result = invoiceService.list(pageable);
+
+        InvoiceResponse resultInvoice1 = result.content().stream()
+                .filter(r -> r.id().equals(invoiceId1)).findFirst().orElseThrow();
+        InvoiceResponse resultInvoice2 = result.content().stream()
+                .filter(r -> r.id().equals(invoiceId2)).findFirst().orElseThrow();
+
+        assertThat(resultInvoice1.lineItems()).containsExactly(response1, response3);
+        assertThat(resultInvoice2.lineItems()).containsExactly(response2);
+    }
+
+    @Test
+    void list_callsFindAllByInvoiceIdInExactlyOnce_perPage_notOncePerInvoice() {
+        Pageable pageable = PageRequest.of(0, 20);
+        UUID invoiceId1 = UUID.randomUUID();
+        UUID invoiceId2 = UUID.randomUUID();
+        Invoice invoice1 = new Invoice();
+        setId(invoice1, invoiceId1);
+        Invoice invoice2 = new Invoice();
+        setId(invoice2, invoiceId2);
+
+        when(invoiceRepository.findAllJoinFetch(pageable))
+                .thenReturn(new PageImpl<>(List.of(invoice1, invoice2), pageable, 2));
+        when(invoiceMapper.toResponse(invoice1)).thenReturn(buildResponse(invoiceId1));
+        when(invoiceMapper.toResponse(invoice2)).thenReturn(buildResponse(invoiceId2));
+        when(lineItemRepository.findAllByInvoiceIdIn(anyList())).thenReturn(List.of());
+
+        invoiceService.list(pageable);
+
+        verify(lineItemRepository, times(1)).findAllByInvoiceIdIn(anyList());
+        verify(lineItemRepository, never()).findAllByInvoiceId(any());
+    }
+
+    @Test
+    void list_returnsEmptyLineItems_notNull_forInvoiceWithNoLines() {
+        Pageable pageable = PageRequest.of(0, 20);
+        UUID invoiceId = UUID.randomUUID();
+        Invoice invoice = new Invoice();
+        setId(invoice, invoiceId);
+
+        when(invoiceRepository.findAllJoinFetch(pageable))
+                .thenReturn(new PageImpl<>(List.of(invoice), pageable, 1));
+        when(invoiceMapper.toResponse(invoice)).thenReturn(buildResponse(invoiceId));
+        when(lineItemRepository.findAllByInvoiceIdIn(List.of(invoiceId))).thenReturn(List.of());
+
+        PageResponse<InvoiceResponse> result = invoiceService.list(pageable);
+
+        assertThat(result.content().get(0).lineItems()).isNotNull().isEmpty();
+    }
+
     private static void setAuthentication(String email) {
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(email, null, List.of()));
@@ -611,8 +744,12 @@ class InvoiceServiceTest {
     }
 
     private InvoiceResponse buildResponse(UUID id) {
+        return buildResponse(id, List.of());
+    }
+
+    private InvoiceResponse buildResponse(UUID id, List<LineItemResponse> lineItems) {
         return new InvoiceResponse(id, "INV-2026-00001", UUID.randomUUID(), "Client", InvoiceStatus.DRAFT,
                 null, null, null, new BigDecimal("0.2100"), BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
-                null, Instant.now());
+                null, Instant.now(), lineItems);
     }
 }

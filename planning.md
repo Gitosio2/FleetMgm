@@ -1259,6 +1259,45 @@ FleetMgm/
 > probaba el campo removido); suite completa con Testcontainers (`-Pfailsafe`) 365 → **364**; frontend
 > (`vitest run`) sin cambio, **68/68**; `tsc -b` limpio en `packages/api` y `apps/web`. Todo verde.
 
+### Adenda — `InvoiceResponse.lineItems` *(nuevo, sin hito fijo — prerequisito de Hito 35)*
+> Al planificar Hito 35 (frontend Billing) surgió que no existía ninguna forma de leer las líneas ya
+> creadas de una factura: `InvoiceResponse` deliberadamente no incluía una lista anidada de line items
+> (decisión documentada en la nota de revisión de Hito 30, punto 2) y el único endpoint de line items es
+> `POST /{id}/line-items` (agregar una), no una lectura. El frontend necesita renderizar un `LineItemList`
+> para una factura existente, así que se confirmó con el usuario agregar `lineItems` a `InvoiceResponse`.
+>
+> **Riesgo N+1 (`InvoiceResponse` se usa tanto en `list()` paginado como en `getById()`):** `getById()`
+> resuelve las líneas con el `lineItemRepository.findAllByInvoiceId(id)` ya existente (una sola factura, una
+> consulta extra, sin problema). `list()` es el caso sensible: se agregó `LineItemRepository.findAllByInvoiceIdIn(List<UUID>)`
+> (derived query, sin `@Query`) para traer las líneas de **toda la página en una sola consulta**, agrupadas en
+> memoria por `invoice.getId()` (`Collectors.groupingBy`) — 2 consultas totales para la página completa, no
+> 1+N. Un invoice sin líneas recibe lista vacía (`getOrDefault(id, List.of())`), nunca `null`.
+>
+> **Ensamblado fuera de MapStruct:** `InvoiceMapper.toResponse(Invoice)` no puede mapear `lineItems` (no es
+> una propiedad de `Invoice`) — se declaró `@Mapping(target = "lineItems", ignore = true)` explícito (regla
+> de `CLAUDE.md`: nunca dejar un campo sin mapear silenciosamente) y un helper privado en `InvoiceService`
+> (`toResponseWithLineItems`) reconstruye el record final copiando los campos del mapeo base más la lista de
+> `LineItemResponse` ya resuelta por el caller.
+>
+> **Tests:** se agregó un regression test que verifica con Mockito que `findAllByInvoiceIdIn` se invoca
+> **exactamente una vez** por página (no una vez por factura), fijando la ausencia de N+1 como contrato, no
+> solo como detalle de implementación. Backend unitario 324 → **329** (+5); suite completa con Testcontainers
+> (`-Pfailsafe`) 364 → **369** (+5). Todo verde.
+>
+> **Bug real encontrado en revisión antes de comitear:** la primera versión solo enrutó `list()`/`getById()`
+> a través de `toResponseWithLineItems` — `create()`, `update()`, `issue()` y `pay()` seguían llamando a
+> `invoiceMapper.toResponse(...)` directo, así que devolvían `lineItems: null` incluso cuando la factura
+> **ya tenía líneas** (`issue()`/`pay()` solo pueden ejecutarse sobre una factura con al menos una línea, por
+> la propia guarda `INVOICE_NO_LINE_ITEMS`). Corregido: los cuatro métodos ahora pasan por
+> `toResponseWithLineItems` — `create()` con `List.of()` directo (una factura recién creada no puede tener
+> líneas todavía, se evita la consulta), `update()`/`pay()` con `lineItemRepository.findAllByInvoiceId(id)`,
+> `issue()` reutilizando las líneas que ya había cargado para el cálculo del IVA (sin consulta extra). Ajustado
+> también el test `issue_computesSubtotalTaxAndTotal_whenAtLeastOneLineItem`, que no mockeaba
+> `invoiceMapper.toResponse(lineItem)` y por eso el resultado real traía `lineItems=[null, null]` en vez de
+> fallar en silencio con una lista vacía — el mock de MapStruct para tipos no stubbeados no lanza excepción,
+> solo devuelve `null` por entrada. Suite final sin cambio de conteo (329/369), mismos tests corregidos, no
+> agregados.
+
 ### Hito 35 — Frontend: Billing
 > Requiere: Hitos 30–33 (backend facturación a clientes + facturas de proveedor)
 - [ ] **[RED]** Handlers MSW — `GET /api/v1/invoices`, `POST`, `PATCH /{id}/issue`, `PATCH /{id}/pay`, `GET /{id}/pdf`, `POST /{id}/line-items`; `GET /api/v1/supplier-invoices`, `POST`, `PATCH /{id}/pay`

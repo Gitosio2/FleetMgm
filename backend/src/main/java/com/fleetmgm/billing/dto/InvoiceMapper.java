@@ -9,8 +9,13 @@ import org.mapstruct.MappingTarget;
 @Mapper(componentModel = "spring")
 public interface InvoiceMapper {
 
+    // lineItems is not a property of Invoice — it's assembled by InvoiceService from a separate
+    // repository call (single query for getById(), batched for list() to avoid N+1) and attached
+    // after this base mapping runs. Declared ignore, per CLAUDE.md MapStruct convention: never
+    // rely on MapStruct's silent unmapped-field behaviour.
     @Mapping(target = "clientId", source = "client.id")
     @Mapping(target = "clientName", source = "client.name")
+    @Mapping(target = "lineItems", ignore = true)
     InvoiceResponse toResponse(Invoice invoice);
 
     @Mapping(target = "id", ignore = true)

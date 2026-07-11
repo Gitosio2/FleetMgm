@@ -24,6 +24,7 @@ import com.fleetmgm.shared.exception.ConflictException;
 import com.fleetmgm.shared.exception.NotFoundException;
 import com.fleetmgm.shared.infrastructure.AuditLogRepository;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -35,7 +36,9 @@ import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class InvoiceService {
@@ -80,7 +83,16 @@ public class InvoiceService {
     @Transactional(readOnly = true)
     @PreAuthorize(ROLES)
     public PageResponse<InvoiceResponse> list(Pageable pageable) {
-        return PageResponse.from(invoiceRepository.findAllJoinFetch(pageable).map(invoiceMapper::toResponse));
+        Page<Invoice> page = invoiceRepository.findAllJoinFetch(pageable);
+        List<UUID> invoiceIds = page.getContent().stream().map(Invoice::getId).toList();
+        // Single batched query for the whole page — grouping in memory here, instead of calling
+        // lineItemRepository.findAllByInvoiceId() once per invoice inside the loop below, is what
+        // keeps this at 2 queries total instead of 1+N (CLAUDE.md JPA N+1 rule).
+        Map<UUID, List<InvoiceLineItem>> lineItemsByInvoiceId = lineItemRepository.findAllByInvoiceIdIn(invoiceIds)
+                .stream()
+                .collect(Collectors.groupingBy(lineItem -> lineItem.getInvoice().getId()));
+        return PageResponse.from(page.map(invoice ->
+                toResponseWithLineItems(invoice, lineItemsByInvoiceId.getOrDefault(invoice.getId(), List.of()))));
     }
 
     @Transactional
@@ -91,13 +103,17 @@ public class InvoiceService {
         invoice.setClient(client);
         invoice.setInvoiceNumber(invoiceNumberGenerator.generate());
         invoice.setTaxRate(request.taxRate() != null ? request.taxRate() : defaultTaxRate);
-        return invoiceMapper.toResponse(invoiceRepository.save(invoice));
+        // A brand-new invoice can't have pre-existing line items (they're only added afterward via
+        // addLineItem()), so there's nothing to fetch here - skip the query entirely.
+        return toResponseWithLineItems(invoiceRepository.save(invoice), List.of());
     }
 
     @Transactional(readOnly = true)
     @PreAuthorize(ROLES)
     public InvoiceResponse getById(UUID id) {
-        return invoiceMapper.toResponse(findInvoiceOrThrow(id));
+        Invoice invoice = findInvoiceOrThrow(id);
+        List<InvoiceLineItem> lineItems = lineItemRepository.findAllByInvoiceId(id);
+        return toResponseWithLineItems(invoice, lineItems);
     }
 
     @Transactional
@@ -112,7 +128,8 @@ public class InvoiceService {
         if (request.taxRate() != null) {
             invoice.setTaxRate(request.taxRate());
         }
-        return invoiceMapper.toResponse(invoiceRepository.save(invoice));
+        Invoice saved = invoiceRepository.save(invoice);
+        return toResponseWithLineItems(saved, lineItemRepository.findAllByInvoiceId(saved.getId()));
     }
 
     @Transactional
@@ -164,7 +181,8 @@ public class InvoiceService {
         invoice.setTotal(total);
         invoice.setStatus(InvoiceStatus.ISSUED);
         invoice.setIssueDate(LocalDate.now());
-        return invoiceMapper.toResponse(invoiceRepository.save(invoice));
+        // Reuse the lineItems already fetched above for the tax computation - no extra query needed.
+        return toResponseWithLineItems(invoiceRepository.save(invoice), lineItems);
     }
 
     @Transactional
@@ -178,7 +196,8 @@ public class InvoiceService {
         invoice.setStatus(InvoiceStatus.PAID);
         invoice.setPaymentDate(request != null && request.paymentDate() != null
                 ? request.paymentDate() : LocalDate.now());
-        return invoiceMapper.toResponse(invoiceRepository.save(invoice));
+        Invoice saved = invoiceRepository.save(invoice);
+        return toResponseWithLineItems(saved, lineItemRepository.findAllByInvoiceId(saved.getId()));
     }
 
     @Transactional
@@ -197,6 +216,21 @@ public class InvoiceService {
     }
 
     // --- relation resolution helpers ---
+
+    // MapStruct can't express "attach a batched/pre-fetched collection" via @Mapping, so the base
+    // response is mapped normally (lineItems left unmapped, see InvoiceMapper) and the line items —
+    // resolved by the caller via whichever query strategy fits (single lookup for getById(),
+    // batched lookup for list()) — are attached here via the record's canonical constructor.
+    private InvoiceResponse toResponseWithLineItems(Invoice invoice, List<InvoiceLineItem> lineItems) {
+        InvoiceResponse base = invoiceMapper.toResponse(invoice);
+        List<LineItemResponse> lineItemResponses = lineItems.stream()
+                .map(invoiceMapper::toResponse)
+                .toList();
+        return new InvoiceResponse(base.id(), base.invoiceNumber(), base.clientId(), base.clientName(),
+                base.status(), base.issueDate(), base.dueDate(), base.paymentDate(), base.taxRate(),
+                base.subtotal(), base.taxAmount(), base.total(), base.notes(), base.createdAt(),
+                lineItemResponses);
+    }
 
     private Invoice findInvoiceOrThrow(UUID id) {
         return invoiceRepository.findById(id)
