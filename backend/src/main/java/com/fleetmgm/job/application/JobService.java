@@ -163,7 +163,10 @@ public class JobService {
         job.setActualEnd(Instant.now());
         Job saved = jobRepository.save(job);
         eventPublisher.publishEvent(new JobCompletedEvent(
-                saved.getId(), saved.getVehicle().getId(), saved.getEndUsageValue(), saved.getActualEnd()));
+                saved.getId(), saved.getVehicle().getId(),
+                saved.getClient() != null ? saved.getClient().getId() : null,
+                saved.getPrice(), saved.getTitle(),
+                saved.getEndUsageValue(), saved.getActualEnd()));
         return jobMapper.toResponse(saved);
     }
 

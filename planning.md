@@ -232,8 +232,10 @@ FleetMgm/
 │           ├── V11__add_maintenance_deleted_at.sql              ← aplicada, Hito 24
 │           ├── V12__add_maintenance_category.sql                ← aplicada, adenda preventivo/correctivo
 │           ├── V13__add_workshop_schedule_deleted_at.sql        ← aplicada, Hito 26
-│           ├── V14__add_workshop_time_range.sql                 ← pendiente, Hito 28 (hora inicio/fin agenda + mantenimiento)
-│           └── V15__seed_demo_data.sql                          ← pendiente, Hito 43 (única migración de datos que falta)
+│           ├── V14__add_workshop_time_range.sql                 ← aplicada, Hito 28
+│           ├── V15__add_job_price.sql                           ← aplicada, Hito 31 (precio del job, para la línea de factura automática)
+│           ├── V16__create_invoice_number_seq.sql               ← aplicada, Hito 31 (secuencia PostgreSQL para INV-2026-00001)
+│           └── V17__seed_demo_data.sql                          ← pendiente, Hito 43 (única migración de datos que falta)
 │
 ├── packages/                                   ← lógica compartida entre web y mobile
 │   ├── api/                                    ← @fleetmgm/api
@@ -546,7 +548,7 @@ FleetMgm/
 - [x] **[RED]** Tests `MaintenanceControllerTest` (`@WebMvcTest`) — 200/201/400/404/409 (el 403 por rol no se cubre acá — mismo gap AOP/`@PreAuthorize` heredado de Job/Vehicle: `@MockBean` en `@WebMvcTest` salta el proxy)
 - [x] **[GREEN]** `MaintenanceRepository` — `findAllJoinFetch` (JOIN FETCH vehicle/technician/invoice, sin N+1) + `existsByVehicleIdAndStatus` (para el edge case del listener)
 - [x] **[GREEN]** `VehicleEntersWorkshopEvent` + `MaintenanceCompletedEvent` (records, `workshop.domain`)
-- [x] **[GREEN]** Migración `V11__add_maintenance_deleted_at.sql` (`ALTER TABLE maintenance_records ADD COLUMN deleted_at TIMESTAMPTZ`) + campo `deletedAt` y `@SQLRestriction("deleted_at IS NULL")` en la entidad + `@Mapping(target = "deletedAt", ignore = true)` en `toEntity`/`updateEntity` del mapper *(la seed de datos, originalmente V11, pasó a V12, luego a V13, luego a V14/Hito 41 y ahora a **V15**/Hito 43 — Hito 28 inserta V14 para el rango horario de agenda/mantenimiento; ver adenda de categoría de mantenimiento, Hito 26 y Hito 28)*
+- [x] **[GREEN]** Migración `V11__add_maintenance_deleted_at.sql` (`ALTER TABLE maintenance_records ADD COLUMN deleted_at TIMESTAMPTZ`) + campo `deletedAt` y `@SQLRestriction("deleted_at IS NULL")` en la entidad + `@Mapping(target = "deletedAt", ignore = true)` en `toEntity`/`updateEntity` del mapper *(la seed de datos, originalmente V11, pasó a V12, luego a V13, luego a V14/Hito 41, luego a V15/Hito 43 y ahora a **V17**/Hito 43 — Hito 28 insertó V14 para el rango horario, Hito 31 inserta V15 (precio del job) y V16 (secuencia de numeración de factura); ver adenda de categoría de mantenimiento, Hito 26, Hito 28 y Hito 31)*
 - [x] **[GREEN]** `MaintenanceService.create()` — crear SCHEDULED (sin efecto sobre el vehículo todavía); `list()`/`getById()`/`update()` también cerrados (los stubs restantes del CRUD)
 - [x] **[GREEN]** `MaintenanceService.start()` — SCHEDULED → IN_PROGRESS, publicar `VehicleEntersWorkshopEvent` (el vehículo entra a `MAINTENANCE` acá, no en `create()`)
 - [x] **[GREEN]** `MaintenanceService.complete()` — IN_PROGRESS → COMPLETED, `workshopExitDate = now()`, publicar `MaintenanceCompletedEvent`
@@ -587,7 +589,7 @@ FleetMgm/
 - [x] **[RED]** Tests `ScheduleCompletionListenerTest` (o equivalente) — `MaintenanceCompletedEvent` con `maintenanceRecordId` enlazado a un schedule → `WorkshopSchedule.status` pasa a `COMPLETED`; sin schedule enlazado → no-op
 - [x] **[RED]** Tests `WorkshopScheduleRepositoryTest` (`@DataJpaTest` + Testcontainers) — queries por rango de fecha devuelven solo registros del periodo correcto; excluye soft-deleted
 - [x] **[RED]** Tests `WorkshopControllerTest` (`@WebMvcTest`) — 201, 400, 404, 409; parámetro `range` inválido → 400 (ya cubierto en Hito 25 vía `ScheduleRange.fromValue`, pero el `@WebMvcTest` completo llega acá)
-- [x] **[GREEN]** Migración `V13__add_workshop_schedule_deleted_at.sql` (`ALTER TABLE workshop_schedules ADD COLUMN deleted_at TIMESTAMPTZ`) + `deletedAt` + `@SQLRestriction` en la entidad + ignore en el mapper *(la seed de datos, hasta ahora V13, pasa a **V14**/Hito 41 en este hito — misma corrección de numeración que ya se hizo dos veces; actualizado `planning.md` línea del árbol de arquitectura, Hito 41, y `CLAUDE.md`; pasa de nuevo a **V15**/Hito 43 al insertarse Hito 28, ver nota de esa sección)*
+- [x] **[GREEN]** Migración `V13__add_workshop_schedule_deleted_at.sql` (`ALTER TABLE workshop_schedules ADD COLUMN deleted_at TIMESTAMPTZ`) + `deletedAt` + `@SQLRestriction` en la entidad + ignore en el mapper *(la seed de datos, hasta ahora V13, pasa a **V14**/Hito 41 en este hito — misma corrección de numeración que ya se hizo dos veces; actualizado `planning.md` línea del árbol de arquitectura, Hito 41, y `CLAUDE.md`; pasa a **V15**/Hito 43 al insertarse Hito 28, y a **V17**/Hito 43 al insertarse Hito 31 (dos migraciones nuevas: precio del job y secuencia de factura), ver notas de esas secciones)*
 - [x] **[GREEN]** `WorkshopScheduleRepository` — queries por rango de fecha: hoy, semana actual, mes actual
 - [x] **[GREEN]** `WorkshopScheduleService.create()` — crear `PENDING`; default `priority = MEDIUM` si viene null (mismo patrón que `category` en `MaintenanceService`)
 - [x] **[GREEN]** `WorkshopScheduleService.start()` — `PENDING` → `IN_PROGRESS`
@@ -930,16 +932,110 @@ FleetMgm/
 > 5. `@PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ADMINISTRATIVE')")` se agregó ya desde el stub (no se esperó al Hito 31): es una anotación de una línea que no depende de que exista lógica de negocio, y refleja la restricción de rol de facturación documentada en `CLAUDE.md`/planning (nunca `WORKSHOP_STAFF`/`DRIVER`).
 
 ### Hito 31 — Facturación (clientes): Lógica e implementación
-- [ ] **[RED]** Tests `BillingServiceTest` — crear DRAFT, emitir sin líneas → excepción, flujo completo DRAFT→ISSUED→PAID, cálculo IVA 21%, `JobCompletedEvent` crea línea en DRAFT del cliente
-- [ ] **[RED]** Tests `BillingControllerTest` (`@WebMvcTest`) — 201, 400, 404, 403; emitir factura sin líneas → 422
-- [ ] **[GREEN]** `InvoiceRepository`, `LineItemRepository`
-- [ ] **[GREEN]** `InvoiceNumberGenerator` — secuencia PostgreSQL `INV-2026-00001`
-- [ ] **[GREEN]** `BillingService.create()` — crear DRAFT
-- [ ] **[GREEN]** `BillingService.addLineItem()` — añadir línea a factura DRAFT
-- [ ] **[GREEN]** `BillingService.issue()` — DRAFT → ISSUED; valida ≥1 línea; calcula subtotal, IVA, total
-- [ ] **[GREEN]** `BillingService.markPaid()` — ISSUED → PAID, `paymentDate = now()`
-- [ ] **[GREEN]** `BillingService` — `JobCompletedEvent` consumer: crear línea de factura en la DRAFT del cliente
-- [ ] **[GREEN]** `@PreAuthorize` — solo ADMIN/MANAGER/ADMINISTRATIVE
+> **Nota de alcance:** el checklist original de este hito nombra `BillingService`/`BillingController`, pero
+> Hito 30 ya creó `InvoiceService`/`InvoiceController` (nombrados por la entidad, no por el paquete) — la
+> lógica de este hito va dentro de esos archivos ya existentes, no en clases nuevas.
+>
+> **Prerequisito descubierto al planificar este hito:** `Job` no tiene ningún campo de precio/tarifa, y
+> `JobCompletedEvent` tampoco lo lleva — sin eso, el consumer no puede calcular `quantity`/`unitPrice` para la
+> línea de factura automática. Decisión con el usuario: agregar `price` (`BigDecimal`, nullable — un `Job`
+> sin `clientId` no factura nada, y uno con `clientId` pero sin `price` cargado es un gap de datos que el
+> consumer trata como no-op, no como error bloqueante) a `Job`, seteable en `CreateJobRequest`/
+> `UpdateJobRequest`. Migración nueva `V15__add_job_price.sql`, más `V16__create_invoice_number_seq.sql`
+> (secuencia PostgreSQL para `InvoiceNumberGenerator`, ver más abajo) — la seed de datos pasa de **V15** a
+> **V17** (misma corrección de numeración ya documentada dos veces en Hito 24/26, ahora una tercera vez).
+- [x] `Flyway V15__add_job_price.sql` — `ALTER TABLE jobs ADD COLUMN price NUMERIC(12,2)` (nullable)
+- [x] `Job` entity — campo `price` (`BigDecimal`, nullable)
+- [x] `CreateJobRequest`/`UpdateJobRequest`/`JobResponse` — añaden `price` (opcional en create/update, siempre presente en response)
+- [x] `JobCompletedEvent` — gana `clientId`/`price`/`title` (denormalizados en el evento, mismo criterio ya usado para `vehicleId`/`endUsageValue` — el consumer no necesita volver a resolver el `Job`)
+- [x] `Flyway V16__create_invoice_number_seq.sql` — `CREATE SEQUENCE invoice_number_seq;`
+- [x] **[RED]** Tests `InvoiceServiceTest` — crear DRAFT, emitir sin líneas → `ConflictException` (409, mismo patrón que las demás transiciones de estado inválidas del proyecto — no se introduce un status 422 nuevo), flujo completo DRAFT→ISSUED→PAID, cálculo IVA 21%, `JobCompletedEvent` crea línea en DRAFT del cliente (con `price`), `JobCompletedEvent` sin `clientId` o sin `price` → no-op
+- [x] **[RED]** Tests `InvoiceControllerTest` (`@WebMvcTest`) — 201, 400, 404, 403 (el 403 por rol no se cubre acá — mismo gap AOP/`@PreAuthorize` heredado de Job/Vehicle/Maintenance: `@MockBean` en `@WebMvcTest` salta el proxy); emitir factura sin líneas → 409
+- [x] **[GREEN]** `InvoiceRepository`, `LineItemRepository`
+- [x] **[GREEN]** `InvoiceNumberGenerator` — secuencia PostgreSQL `INV-2026-00001` (año actual + secuencia de 5 dígitos con cero a la izquierda)
+- [x] **[GREEN]** `InvoiceService.create()` — crear DRAFT
+- [x] **[GREEN]** `InvoiceService.addLineItem()` — añadir línea a factura DRAFT
+- [x] **[GREEN]** `InvoiceService.issue()` — DRAFT → ISSUED; valida ≥1 línea; calcula subtotal, IVA, total
+- [x] **[GREEN]** `InvoiceService.pay()` — ISSUED → PAID, `paymentDate = now()` (el checklist original decía `markPaid()`; el controller ya expuesto en Hito 30 llama `pay()`, se implementó con ese nombre para matchear el contrato existente)
+- [x] **[GREEN]** `InvoiceJobCompletionListener` — `JobCompletedEvent` consumer: crea línea de factura en la DRAFT del cliente (o crea una DRAFT nueva si no hay ninguna abierta)
+- [x] **[GREEN]** `@PreAuthorize` — ya presente desde el stub de Hito 30, confirmado correcto (sin cambios)
+
+> **Nota (revisión Hito 31):**
+> 1. **Redondeo de `BigDecimal`:** `RoundingMode.HALF_UP` a 2 decimales (`MONEY_SCALE`) en `InvoiceService.issue()`
+>    para `subtotal`/`taxAmount`/`total`. No había precedente de redondeo de dinero en el resto del código
+>    (`MaintenanceRecord.cost` se persiste tal cual, nunca se calcula), así que se adoptó el estándar
+>    convencional para aritmética de moneda.
+> 2. **Guards DRAFT-only:** `update()`, `delete()`, `addLineItem()` e `issue()` en `InvoiceService` exigen
+>    `status == DRAFT` (409 `INVOICE_INVALID_STATE_TRANSITION`/`INVOICE_DELETE_NOT_ALLOWED` si no) — decisión
+>    deliberada, no un descuido: mejora consciente sobre el gap ya documentado y aceptado en
+>    `MaintenanceService.update()`/`WorkshopScheduleService.update()` (sin guard de estado en `update()`).
+>    Al construir `InvoiceService` desde cero para este hito, se cerró el guard correctamente en vez de
+>    reproducir la misma deuda técnica.
+> 3. **Secuencia de numeración:** `InvoiceRepository.nextInvoiceNumberSequenceValue()` — un método
+>    `@Query(nativeQuery = true)` que envuelve `SELECT nextval('invoice_number_seq')`, expuesto en el mismo
+>    `JpaRepository` de la entidad. No había precedente de `EntityManager`/`JdbcTemplate` en el resto del
+>    código — cada repositorio en este proyecto es un `JpaRepository` plano — así que mantener el pull de la
+>    secuencia dentro del propio repositorio de `Invoice` es la opción más simple y consistente, sin
+>    introducir un mecanismo de acceso nuevo. `InvoiceNumberGenerator` (`billing.application`) formatea el
+>    resultado como `INV-<Year.now()>-<%05d>`.
+> 4. **`InvoiceJobCompletionListener` (find-or-create DRAFT):** vive en `billing.application` (mutó
+>    `Invoice`/`InvoiceLineItem`, no `Job`) y sigue el mismo patrón `@TransactionalEventListener(phase =
+>    AFTER_COMMIT)` con try/catch + log de error sin relanzar que ya usan los listeners de `workshop`.
+>    No-op si `clientId` o `price` son `null`. Si hay una `DRAFT` abierta del cliente, la reutiliza
+>    (`findFirstByClientIdAndStatusOrderByCreatedAtAsc`, empate resuelto por la más antigua); si no,
+>    crea una nueva. La descripción de la línea auto-generada es simplemente `event.title()` (el título
+>    del `Job`, sin prefijo) — se mantuvo simple según lo indicado, con fallback a `"Job " + jobId` si el
+>    título viniera nulo (no debería ocurrir, `Job.title` es `@NotBlank`, pero se resuelve igual de forma
+>    defensiva, como el resto de las relaciones opcionales en este código).
+> 5. **Tests finales:** `./mvnw test` 230 → 271 (unit, +41: 40 tests nuevos en `billing.api`/`billing.application`
+>    + 1 test nuevo en `JobServiceTest` para el evento sin cliente/precio). `./mvnw test -Pfailsafe`
+>    254 → 300 (+46: los mismos 41 más las 5 pruebas nuevas de `InvoiceRepositoryTest`). Ambas suites en
+>    verde, 0 failures/errors.
+> 6. **Bug real encontrado en revisión independiente antes de comitear:** `addLineItem()` calculaba
+>    `subtotal = quantity.multiply(unitPrice)` sin redondear a `MONEY_SCALE`, a diferencia de `issue()`, que sí
+>    redondea todo. `LineItemRequest` no restringe la escala de `quantity`/`unitPrice`, así que un `quantity`
+>    o `unitPrice` con más de 2 decimales (ej. `3 × 10.005 = 30.015`) devolvía un `subtotal` de escala 3 en el
+>    `LineItemResponse` de `POST /{id}/line-items` — inconsistente con el contrato de moneda a 2 decimales que
+>    el resto del feature respeta. No corrompía los totales agregados de `issue()` (la columna `NUMERIC(12,2)`
+>    ya redondea al persistir), pero sí era una respuesta de API visible con más precisión de la prometida.
+>    Corregido aplicando el mismo `.setScale(MONEY_SCALE, RoundingMode.HALF_UP)` que ya usa `issue()`. Test de
+>    regresión añadido (`addLineItem_roundsSubtotalToTwoDecimals_whenMultiplicationProducesMore`, verifica
+>    valor y escala explícitamente, no solo `isEqualByComparingTo` que ignora la escala). Suite final: 271 → 272.
+> 7. **`taxRate` hardcodeado al 21%, detectado por el usuario tras abrir el PR:** `Invoice.taxRate` tenía un
+>    valor por defecto en la entidad (`new BigDecimal("0.2100")`), pero ni `CreateInvoiceRequest` ni
+>    `UpdateInvoiceRequest` exponían el campo, y `InvoiceMapper` lo ignoraba explícitamente en ambos
+>    (`@Mapping(target = "taxRate", ignore = true)`) — no existía ninguna forma de cambiarlo sin tocar código.
+>    El usuario señaló que el IVA cambia con el tiempo y que existen tarifas reducidas/bonificadas para
+>    algunos escenarios, así que el 21% fijo no era aceptable. Solución en dos partes, sin tocar el `ignore
+>    = true` del mapper (mismo criterio ya usado para `priority` en `ScheduleMapper`/`category` en
+>    `MaintenanceMapper`: el default de la entidad no debe ser pisado silenciosamente por un `null` del
+>    request; el service resuelve el default de forma explícita):
+>    - **Default configurable:** `billing.default-tax-rate: ${BILLING_DEFAULT_TAX_RATE:0.2100}` en
+>      `application.yml` (mismo patrón que `workshop.auto-create-schedule-on-maintenance-create`).
+>      `InvoiceService` gana un parámetro de constructor `@Value("${billing.default-tax-rate}") BigDecimal
+>      defaultTaxRate`, mismo estilo de inyección que `autoCreateScheduleOnCreate` en `MaintenanceService`.
+>    - **Override opcional por factura:** `CreateInvoiceRequest`/`UpdateInvoiceRequest` ganan un campo
+>      `taxRate` (`BigDecimal`, nullable, sin `@Positive` — un `@DecimalMin(value = "0")` permite una tarifa
+>      reducida del 0%, legalmente real). Semántica de `null` **distinta** entre los dos métodos: en
+>      `create()`, `null` → usa `defaultTaxRate`; en `update()`, `null` → **no toca** la tarifa ya existente
+>      de la factura (no la resetea al default configurado). Esta asimetría es intencional: `update()` solo
+>      debe aplicar lo que el caller provee explícitamente, nunca reemplazar un valor ya asignado por el
+>      valor por defecto global.
+>    - Tests nuevos en `InvoiceServiceTest`: default aplicado en `create()` sin `taxRate` en el request,
+>      tarifa explícita respetada en `create()`, override aplicado en `update()`, tarifa existente preservada
+>      en `update()` con `taxRate = null`, y un caso de `issue()` con tarifa no-21% (`0.10`) para probar que el
+>      cálculo de impuesto lee el campo real y no tiene el 21% hardcodeado en ninguna parte. Suite final:
+>      272 → 277 (5 tests nuevos). `BILLING_DEFAULT_TAX_RATE` no se agregó a la lista de variables de entorno
+>      de producción en la sección "Despliegue" — es opcional con un default sano, mismo criterio ya aplicado
+>      a `WORKSHOP_AUTO_CREATE_SCHEDULE` (tampoco listada ahí).
+> 8. **`pay()` no aceptaba fecha de pago, detectado por el usuario tras el punto anterior:** igual que
+>    `taxRate`, `PATCH /{id}/pay` no recibía body — siempre `LocalDate.now()`, sin forma de registrar un pago
+>    retroactivo (ej. se cobró la semana pasada pero se carga hoy). Corregido con el mismo patrón ya usado en
+>    `StartMaintenanceRequest`/`CompleteMaintenanceRequest`: nuevo `PayInvoiceRequest(LocalDate paymentDate)`
+>    opcional (`@RequestBody(required = false)` en el controller); si `request`/`request.paymentDate()` es
+>    `null`, usa `LocalDate.now()`, igual que antes. Tests nuevos en `InvoiceServiceTest` (fecha explícita
+>    respetada, `null` cae a `now()`, request completo `null` cae a `now()`) y `InvoiceControllerTest`
+>    (200 sin body, 200 con body). Suite final: 277 → 280.
 
 ### Hito 32 — Facturas de proveedor: Contrato API *(nuevo — sin hito asignado en el plan original)*
 - [x] `Flyway V7` — tablas `supplier_invoices` + `supplier_invoice_line_items` *(ya aplicada, misma migración que invoices)*
@@ -1031,7 +1127,7 @@ FleetMgm/
 
 ### Hito 43 — Demo y hardening final
 - [ ] `docker-compose.yml` — postgres:16 + backend + apps/web (nginx), health checks, `depends_on`
-- [ ] `Flyway V15` — seed datos demo realistas (5 vehículos, 3 conductores, 10 trabajos completados, 3 facturas de cliente, facturas de proveedor de ejemplo)
+- [ ] `Flyway V17` — seed datos demo realistas (5 vehículos, 3 conductores, 10 trabajos completados, 3 facturas de cliente, facturas de proveedor de ejemplo)
 - [ ] Revisar headers HTTP en `SecurityConfig`: `X-Content-Type-Options`, `X-Frame-Options`, `HSTS` (prod)
 - [ ] Rate limiting en `/api/v1/auth/login` y `/api/v1/auth/refresh` (Bucket4j o filtro Spring Security) — control declarado en Security Model desde el inicio pero sin hito propio hasta esta revisión
 - [ ] Structured JSON logging (`logstash-logback-encoder`, ya en `pom.xml`) con correlation ID en MDC en cada request

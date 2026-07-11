@@ -31,6 +31,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -66,7 +67,7 @@ class JobServiceTest {
         UUID driverId = UUID.randomUUID();
         UUID clientId = UUID.randomUUID();
         CreateJobRequest request = new CreateJobRequest(vehicleId, driverId, clientId, "Delivery", null,
-                "Origin", "Destination", null, null, null);
+                "Origin", "Destination", null, null, null, null);
 
         Vehicle vehicle = new Vehicle();
         Worker driver = new Worker();
@@ -96,7 +97,7 @@ class JobServiceTest {
     void create_throwsNotFound_whenVehicleMissing() {
         UUID vehicleId = UUID.randomUUID();
         CreateJobRequest request = new CreateJobRequest(vehicleId, null, null, "Delivery", null,
-                "Origin", "Destination", null, null, null);
+                "Origin", "Destination", null, null, null, null);
 
         when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.empty());
 
@@ -150,11 +151,17 @@ class JobServiceTest {
     void complete_publishesJobCompletedEvent_withCorrectPayload() {
         UUID id = UUID.randomUUID();
         UUID vehicleId = UUID.randomUUID();
+        UUID clientId = UUID.randomUUID();
         Vehicle vehicle = mock(Vehicle.class);
         when(vehicle.getId()).thenReturn(vehicleId);
+        Client client = mock(Client.class);
+        when(client.getId()).thenReturn(clientId);
         Job job = new Job();
         job.setStatus(JobStatus.IN_PROGRESS);
         job.setVehicle(vehicle);
+        job.setClient(client);
+        job.setTitle("Delivery");
+        job.setPrice(new BigDecimal("150.00"));
         JobResponse expected = buildJobResponse(id);
 
         when(jobRepository.findById(id)).thenReturn(Optional.of(job));
@@ -172,8 +179,35 @@ class JobServiceTest {
         verify(eventPublisher).publishEvent(captor.capture());
         JobCompletedEvent event = captor.getValue();
         assertThat(event.vehicleId()).isEqualTo(vehicleId);
+        assertThat(event.clientId()).isEqualTo(clientId);
+        assertThat(event.price()).isEqualByComparingTo("150.00");
+        assertThat(event.title()).isEqualTo("Delivery");
         assertThat(event.endUsageValue()).isEqualTo(5000L);
         assertThat(event.completedAt()).isEqualTo(job.getActualEnd());
+    }
+
+    @Test
+    void complete_publishesJobCompletedEvent_withNullClientAndPrice_whenJobHasNeither() {
+        UUID id = UUID.randomUUID();
+        UUID vehicleId = UUID.randomUUID();
+        Vehicle vehicle = mock(Vehicle.class);
+        when(vehicle.getId()).thenReturn(vehicleId);
+        Job job = new Job();
+        job.setStatus(JobStatus.IN_PROGRESS);
+        job.setVehicle(vehicle);
+        JobResponse expected = buildJobResponse(id);
+
+        when(jobRepository.findById(id)).thenReturn(Optional.of(job));
+        when(jobRepository.save(job)).thenReturn(job);
+        when(jobMapper.toResponse(job)).thenReturn(expected);
+
+        jobService.complete(id, null);
+
+        ArgumentCaptor<JobCompletedEvent> captor = ArgumentCaptor.forClass(JobCompletedEvent.class);
+        verify(eventPublisher).publishEvent(captor.capture());
+        JobCompletedEvent event = captor.getValue();
+        assertThat(event.clientId()).isNull();
+        assertThat(event.price()).isNull();
     }
 
     @Test
@@ -415,6 +449,6 @@ class JobServiceTest {
     private JobResponse buildJobResponse(UUID id) {
         return new JobResponse(id, "Delivery", null, UUID.randomUUID(), "1234ABC", null, null,
                 null, null, null, null, JobStatus.PENDING,
-                "Origin", "Destination", null, null, null, null, null, null, null, Instant.now());
+                "Origin", "Destination", null, null, null, null, null, null, null, null, Instant.now());
     }
 }

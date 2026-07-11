@@ -44,7 +44,7 @@ class JobControllerTest {
     private JobResponse sampleResponse() {
         return new JobResponse(JOB_ID, "Delivery", "desc", VEHICLE_ID, "1234ABC", "Toyota", "Corolla",
                 null, null, null, null, JobStatus.PENDING,
-                "Origin", "Destination", null, null, null, null, null, null, null, Instant.now());
+                "Origin", "Destination", null, null, null, null, null, null, null, null, Instant.now());
     }
 
     // --- GET /api/v1/jobs ---

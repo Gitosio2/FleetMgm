@@ -2,6 +2,7 @@ package com.fleetmgm.job.dto;
 
 import com.fleetmgm.job.domain.JobStatus;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -27,5 +28,6 @@ public record JobResponse(
         Instant actualEnd,
         Long startUsageValue,
         Long endUsageValue,
+        BigDecimal price,
         Instant createdAt
 ) {}
