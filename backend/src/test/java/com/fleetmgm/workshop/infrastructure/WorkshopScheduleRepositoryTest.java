@@ -76,7 +76,10 @@ class WorkshopScheduleRepositoryTest {
     @Test
     void findAllByScheduledDateBetween_excludesRecordsOutsidePeriod() {
         Vehicle vehicle = persistVehicle("2222BBB");
-        persistSchedule(vehicle, null, LocalDate.now().minusDays(10));
+        // Last day of the previous month — always outside [firstDayOfMonth, lastDayOfMonth] of
+        // the current month regardless of which day of the month the suite runs on (a fixed
+        // minusDays(N) offset can land back inside the current month depending on today's date).
+        persistSchedule(vehicle, null, LocalDate.now().withDayOfMonth(1).minusDays(1));
         entityManager.getEntityManager().clear();
 
         Page<WorkshopSchedule> result = workshopScheduleRepository.findAllByScheduledDateBetween(
