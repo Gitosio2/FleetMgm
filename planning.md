@@ -771,6 +771,63 @@ FleetMgm/
 > run`, 0 fallos — `Workshop.test.tsx` cubre el botón "Nueva entrada" y la creación de agenda vinculada al
 > crear una orden). `oxlint`/`tsc -b` limpios en ambos paquetes tocados.
 
+### Adenda — Edición de órdenes de mantenimiento y entradas de agenda + "Iniciar" en la agenda *(implementado en `fixing-hito27-review-findings`)*
+> Mismo patrón raíz que las dos adendas anteriores: el backend ya exponía los tres endpoints desde
+> Hito 25/26/27 (`PUT /api/v1/maintenance/{id}` → `MaintenanceController.update()` →
+> `MaintenanceService.update()`; `PUT /api/v1/workshop/schedules/{id}` → `WorkshopController.update()` →
+> `WorkshopScheduleService.update()`; `PATCH /api/v1/workshop/schedules/{id}/start` →
+> `WorkshopController.start()` → `WorkshopScheduleService.start()`, guardado con 409
+> `SCHEDULE_INVALID_STATE_TRANSITION` si el estado no es `PENDING`), pero el frontend nunca los cableó —
+> ni un botón "Editar", ni un botón "Iniciar" para la agenda, ni los hooks correspondientes. Se decidió con
+> el usuario cerrar este hueco en esta misma rama por ser trabajo de cableado puro (sin endpoints ni schema
+> nuevos), dejando fuera de alcance (deferido a un hito futuro) los campos de hora de inicio/fin de la
+> entrada de agenda — eso sí requiere diseño de contrato nuevo.
+>
+> **Implementado:**
+> 1. `packages/api/src/types.ts` — nuevo tipo `UpdateScheduleRequest`, espejo del `UpdateScheduleRequest.java`
+>    del backend. `UpdateMaintenanceRequest` no cambió — no tiene `scheduledDate` porque la fecha programada
+>    solo es asignable al crear.
+> 2. `packages/hooks/src/useMaintenance.ts` — reexportado `useUpdateMaintenance` desde el `useUpdate()` que
+>    `createCrudHooks` ya generaba (nunca se había reexportado, mismo patrón que `useUpdateVehicle`).
+> 3. `packages/hooks/src/useWorkshop.ts` — nuevos `useUpdateWorkshopSchedule`/`useStartWorkshopSchedule`
+>    (archivo custom, no usa `createCrudHooks`). A diferencia de `useCancelWorkshopSchedule`/
+>    `useCompleteMaintenance`, ninguno de los dos invalida la clave `['maintenance']` — ni un `update()` ni
+>    un `start()` publican evento hacia `MaintenanceRecord` en el backend, así que no hay cascada que
+>    reflejar; invalidan solo `['workshop']`.
+> 4. `MaintenanceFormModal`/`ScheduleFormModal` ganan un prop opcional (`record`/`schedule`) y modo edición,
+>    mismo patrón que `VehicleFormModal` (`isEditing`, prellenado en el `useEffect` de reset, título y label
+>    del botón condicionales). En `MaintenanceFormModal`, el campo "Fecha" solo se renderiza en modo creación
+>    (`UpdateMaintenanceRequest` no tiene ese campo); en `ScheduleFormModal` todos los campos de
+>    `CreateScheduleRequest` tienen equivalente en `UpdateScheduleRequest`, sin ocultamiento condicional.
+> 5. `MaintenanceTable`/`ScheduleTable` ganan un botón "Editar" (ícono `Pencil`, mismo patrón que
+>    `VehicleTable`) sin restricción por estado — el backend no la tiene, así que el frontend no inventa una.
+>    `ScheduleTable` gana además un botón "Iniciar" (solo visible en `PENDING`, mismo patrón condicional que
+>    el "Iniciar" ya existente en `MaintenanceTable`), con su propio manejo de error `role="alert"`.
+> 6. `Workshop.tsx` — nuevo estado `editingMaintenance`/`editingSchedule`, limpiado tanto al cerrar el modal
+>    como al abrir el formulario de creación (para que "Nueva orden"/"Nueva entrada" no reabran el último
+>    registro editado).
+> 7. `apps/web/src/mocks/handlers.ts` — tres handlers nuevos (`PUT /maintenance/:id`, `PUT
+>    /workshop/schedules/:id`, `PATCH /workshop/schedules/:id/start`), mismo estilo que sus hermanos
+>    existentes (404 con el mismo shape de error, 409 `SCHEDULE_INVALID_STATE_TRANSITION` en `start` si el
+>    estado no es `PENDING`).
+>
+> **Deuda aceptada, no corregida aquí (decisión explícita, fuera de alcance):** `MaintenanceService.update()`
+> y `WorkshopScheduleService.update()` no tienen guarda de estado en el backend — permiten editar un registro
+> en cualquier estado, incluidos `COMPLETED`/`CANCELLED`. El frontend ahora expone un botón "Editar" siempre
+> visible que hereda ese comportamiento tal cual: es posible editar una orden de mantenimiento o una entrada
+> de agenda ya completada o cancelada desde la UI. Se documenta como gap conocido, no bloqueante — corregirlo
+> requeriría una decisión de producto (¿qué campos son editables post-cierre, si alguno?) que no corresponde
+> tomar unilateralmente en un hito de cableado de frontend.
+>
+> **Tests:** frontend 54 → 58 (`vitest run` en `apps/web`, 0 fallos — 4 tests nuevos en `Workshop.test.tsx`:
+> edición de una orden de mantenimiento con prellenado y ocultamiento del campo Fecha, edición de una entrada
+> de agenda con prellenado completo, "Iniciar" transiciona el badge de una entrada `PENDING` a `En curso`, y
+> el camino triste de un doble clic en "Iniciar" que dispara el 409). `packages/hooks` sigue sin archivos de
+> test (`createCrudHooks`/las mutaciones nuevas se ejercitan indirectamente vía los tests de componente de
+> `apps/web`, mismo criterio ya aplicado a `useUpdateVehicle`). `tsc -b`/`tsc --noEmit` limpios en
+> `apps/web`, `packages/api` y `packages/hooks`; `oxlint` sin errores nuevos (mismo warning preexistente en
+> `AssignmentModal.tsx`, no tocado en esta rama). Backend no tocado — su suite no se ejecutó en este pase.
+
 ---
 
 ### Hito 28 — Facturación (clientes): Contrato API
