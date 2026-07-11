@@ -1373,6 +1373,23 @@ FleetMgm/
 >    `taskkill` de procesos `node.exe` colgados que tenían binarios nativos bloqueados, seguido de `npm ci`
 >    limpio. Las corridas de reproducción posteriores se hicieron copiando el repo al propio filesystem del
 >    contenedor (`tar` + `docker cp`), no vía bind-mount, para no repetir el riesgo.
+> 8. **Bug real reportado por el usuario: los PDF descargados no abrían.** Investigado metódicamente antes
+>    de asumir la causa: (a) se generó un PDF real vía `PdfExportService` (test temporal, luego eliminado) y
+>    se validó con `file`/`pdftotext` (poppler, implementación de PDF completamente independiente de
+>    OpenPDF) — el archivo es un PDF 1.5 válido y legible; (b) se hizo pasar esos mismos bytes por un test
+>    `@WebMvcTest` real de `InvoiceController` (no un mock del servicio, la serialización HTTP real de
+>    Spring) y se confirmó igualdad byte a byte antes/después — descarta corrupción en el backend o en el
+>    transporte HTTP. La causa real estaba en el frontend: `useDownloadInvoicePdf` llamaba a
+>    `window.URL.revokeObjectURL(url)` en el mismo tick que `link.click()` — una condición de carrera
+>    documentada (Firefox bug 1282407, Chromium issue 41380177): el navegador puede no haber empezado a leer
+>    el blob para la descarga real antes de que la URL se invalide, produciendo un archivo vacío o
+>    corrupto. Corregido diferiendo la revocación con `setTimeout(() => window.URL.revokeObjectURL(url), 0)`.
+>    Test ajustado para esperar (`waitFor`) la revocación en vez de asumirla síncrona. Suite sin cambio de
+>    conteo (76/76), mismo test corregido, no agregado. Efecto colateral menor detectado en el camino (no
+>    corregido, no era la causa raíz): el texto con acentos del PDF (`Descripción`, `emisión`) se extrae mal
+>    con `pdftotext` (probablemente falta de mapeo `ToUnicode` en la fuente Helvetica/WinAnsi por defecto de
+>    OpenPDF) — no impide abrir el archivo, pero sí afecta copiar/pegar o buscar texto; queda como deuda
+>    documentada para revisar si se retoma el feature de PDF.
 
 ---
 

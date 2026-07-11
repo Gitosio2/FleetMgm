@@ -122,7 +122,10 @@ export function useDownloadInvoicePdf() {
       document.body.appendChild(link)
       link.click()
       link.remove()
-      window.URL.revokeObjectURL(url)
+      // Revoking synchronously in the same tick as click() is a documented browser race: the
+      // download read of the blob may not have started yet, producing an empty/corrupted file
+      // (Firefox bug 1282407, Chromium issue 41380177). Deferring lets the download start first.
+      setTimeout(() => window.URL.revokeObjectURL(url), 0)
     },
   })
 }

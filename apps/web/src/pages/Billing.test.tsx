@@ -202,9 +202,11 @@ describe('Billing', () => {
 
     await waitFor(() => expect(clickSpy).toHaveBeenCalledTimes(1))
     expect(createObjectURL).toHaveBeenCalledTimes(1)
-    expect(revokeObjectURL).toHaveBeenCalledWith('blob:mock-url')
     expect(clickedHref).toBe('blob:mock-url')
     expect(clickedDownload).toBe(`${paid.invoiceNumber}.pdf`)
+    // revokeObjectURL is deferred (setTimeout) so the browser has time to actually start reading
+    // the blob before the URL is invalidated — see useDownloadInvoicePdf for why.
+    await waitFor(() => expect(revokeObjectURL).toHaveBeenCalledWith('blob:mock-url'))
 
     clickSpy.mockRestore()
   })
