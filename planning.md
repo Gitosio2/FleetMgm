@@ -1040,9 +1040,42 @@ FleetMgm/
 ### Hito 32 — Facturas de proveedor: Contrato API *(nuevo — sin hito asignado en el plan original)*
 - [x] `Flyway V7` — tablas `supplier_invoices` + `supplier_invoice_line_items` *(ya aplicada, misma migración que invoices)*
 - [x] `SupplierInvoice`, `SupplierInvoiceLineItem`, `SupplierInvoiceStatus` (PENDING/PAID), `ExpenseCategory` *(ya scaffoldeadas)*
-- [ ] `CreateSupplierInvoiceRequest` / `SupplierInvoiceResponse` / `SupplierLineItemRequest` (records)
-- [ ] `SupplierInvoiceMapper` (MapStruct)
-- [ ] `SupplierInvoiceController` — CRUD + `PATCH /{id}/pay`, `POST /{id}/line-items`
+- [x] `CreateSupplierInvoiceRequest` / `UpdateSupplierInvoiceRequest` / `SupplierInvoiceResponse` / `SupplierLineItemRequest` / `SupplierLineItemResponse` (records)
+- [x] `SupplierInvoiceMapper` (MapStruct)
+- [x] `SupplierInvoiceController` — CRUD (incl. `PUT` full replace) + `PATCH /{id}/pay`, `POST /{id}/line-items`
+- [x] `SupplierInvoiceService` — stub, every method `throw new UnsupportedOperationException("Pending Hito 33")`, mirrors the `InvoiceService` Hito-30 contract-hito precedent
+
+> **Nota (revisión Hito 32):**
+> 1. **`subtotal`/`taxAmount`/`total` provistos directamente, no calculados:** a diferencia de `Invoice`
+>    (facturación a clientes), donde la app calcula estos valores sumando line items al momento de `issue()`,
+>    una `SupplierInvoice` representa una factura YA RECIBIDA de un proveedor externo — sus montos vienen tal
+>    cual figuran en el documento físico/recibido. No existe un paso equivalente a `issue()` en el ciclo de
+>    vida de este feature (`SupplierInvoiceStatus` es solo PENDING/PAID, sin DRAFT/ISSUED).
+>    `SupplierInvoiceLineItem` existe puramente como desglose informativo de costos (ej. repartir el costo de
+>    una factura de combustible entre varios vehículos, o vincular parte del gasto a un `MaintenanceRecord`
+>    puntual) — sus líneas NO retroalimentan ni recalculan los totales de la factura. Por eso
+>    `CreateSupplierInvoiceRequest`/`UpdateSupplierInvoiceRequest` exponen `subtotal`/`taxAmount`/`total` como
+>    campos `@NotNull` directamente provistos, y `SupplierInvoiceMapper` los mapea por nombre en vez de
+>    ignorarlos (a diferencia de `InvoiceMapper.toEntity()`, que sí los ignora porque en `Invoice` se calculan
+>    después).
+> 2. **`PayInvoiceRequest` reutilizado, no duplicado:** `SupplierInvoiceController.pay()` reutiliza el mismo
+>    `PayInvoiceRequest(LocalDate paymentDate)` de `billing.dto` agregado en el Hito 31 para `Invoice.pay()` —
+>    misma forma exacta (un único campo `paymentDate` opcional), no se justifica un
+>    `PaySupplierInvoiceRequest` separado. Esto también aplica la lección ya aprendida en el Hito 31 (punto 8
+>    de su nota de revisión) desde el arranque: el stub de `SupplierInvoiceService.pay()` acepta el
+>    `paymentDate` opcional desde el día uno, sin necesitar un fix de seguimiento como le pasó a `Invoice`.
+> 3. **Firma de `list()` con filtros por adelantado:** `SupplierInvoiceService.list(UUID vehicleId,
+>    ExpenseCategory category, Pageable pageable)` define ya los dos parámetros de filtro opcionales que el
+>    Hito 33 va a implementar ("listar por vehicleId, listar por categoría" en su checklist) — el stub
+>    simplemente lanza `UnsupportedOperationException` sin importar los argumentos. Mismo criterio ya usado en
+>    Hito 25 (definió el query param `range` antes de que Hito 26 implementara su lógica real).
+> 4. `SupplierInvoice`/`SupplierInvoiceLineItem` no fueron modificadas — se usaron tal cual estaban
+>    scaffoldeadas.
+> 5. `@PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ADMINISTRATIVE')")` agregado ya desde el stub, mismo
+>    criterio que Hito 30 — refleja la restricción de rol de facturación, nunca `WORKSHOP_STAFF`/`DRIVER`.
+> 6. **Tests finales:** sin tests nuevos en este hito (contrato-only, `SupplierInvoiceServiceTest`/
+>    `SupplierInvoiceControllerTest` quedan para el Hito 33). `./mvnw test` se mantiene en 280, 0
+>    failures/errors — sin regresión.
 
 ### Hito 33 — Facturas de proveedor: Lógica e implementación *(nuevo)*
 - [ ] **[RED]** Tests `SupplierInvoiceServiceTest` — crear PENDING, marcar PAID, listar por vehicleId, listar por categoría, @PreAuthorize solo ADMIN/MANAGER/ADMINISTRATIVE
