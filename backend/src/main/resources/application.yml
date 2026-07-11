@@ -30,6 +30,9 @@ jwt:
 workshop:
   auto-create-schedule-on-maintenance-create: ${WORKSHOP_AUTO_CREATE_SCHEDULE:true}
 
+billing:
+  default-tax-rate: ${BILLING_DEFAULT_TAX_RATE:0.2100}
+
 management:
   endpoints:
     web:

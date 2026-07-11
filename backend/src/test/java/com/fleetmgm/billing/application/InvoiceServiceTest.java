@@ -26,10 +26,10 @@ import com.fleetmgm.shared.infrastructure.AuditLogRepository;
 import com.fleetmgm.workshop.domain.MaintenanceRecord;
 import com.fleetmgm.workshop.infrastructure.MaintenanceRepository;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
@@ -63,7 +63,20 @@ class InvoiceServiceTest {
     @Mock InvoiceNumberGenerator invoiceNumberGenerator;
     @Mock AuditLogRepository auditLogRepository;
     @Mock UserRepository userRepository;
-    @InjectMocks InvoiceService invoiceService;
+    InvoiceService invoiceService;
+
+    // Configured default tax rate mirrors billing.default-tax-rate in application.yml (21%).
+    private static final BigDecimal DEFAULT_TAX_RATE = new BigDecimal("0.2100");
+
+    @BeforeEach
+    void setUp() {
+        // @InjectMocks can't be used here: BigDecimal has no @Mock, so Mockito's constructor-injection
+        // engine would silently pass null for defaultTaxRate instead of the configured value. Constructed
+        // manually once, matching the pattern already used in MaintenanceServiceTest for its @Value param.
+        invoiceService = new InvoiceService(invoiceRepository, lineItemRepository, clientRepository,
+                jobRepository, maintenanceRepository, invoiceMapper, invoiceNumberGenerator,
+                auditLogRepository, userRepository, DEFAULT_TAX_RATE);
+    }
 
     @AfterEach
     void clearSecurityContext() {
@@ -75,7 +88,7 @@ class InvoiceServiceTest {
     @Test
     void create_persistsDraftInvoice_withGeneratedNumber() {
         UUID clientId = UUID.randomUUID();
-        CreateInvoiceRequest request = new CreateInvoiceRequest(clientId, null, null);
+        CreateInvoiceRequest request = new CreateInvoiceRequest(clientId, null, null, null);
         Client client = new Client();
         Invoice entity = new Invoice();
         InvoiceResponse expected = buildResponse(UUID.randomUUID());
@@ -98,7 +111,7 @@ class InvoiceServiceTest {
     @Test
     void create_throwsNotFound_whenClientMissing() {
         UUID clientId = UUID.randomUUID();
-        CreateInvoiceRequest request = new CreateInvoiceRequest(clientId, null, null);
+        CreateInvoiceRequest request = new CreateInvoiceRequest(clientId, null, null, null);
 
         when(clientRepository.findById(clientId)).thenReturn(Optional.empty());
 
@@ -107,6 +120,47 @@ class InvoiceServiceTest {
                 .satisfies(ex -> assertThat(((NotFoundException) ex).getCode()).isEqualTo("CLIENT_NOT_FOUND"));
 
         verify(invoiceRepository, never()).save(any());
+    }
+
+    @Test
+    void create_usesConfiguredDefaultTaxRate_whenNotProvidedInRequest() {
+        UUID clientId = UUID.randomUUID();
+        CreateInvoiceRequest request = new CreateInvoiceRequest(clientId, null, null, null);
+        Client client = new Client();
+        Invoice entity = new Invoice();
+
+        when(clientRepository.findById(clientId)).thenReturn(Optional.of(client));
+        when(invoiceMapper.toEntity(request)).thenReturn(entity);
+        when(invoiceNumberGenerator.generate()).thenReturn("INV-2026-00001");
+        when(invoiceRepository.save(entity)).thenReturn(entity);
+        when(invoiceMapper.toResponse(entity)).thenReturn(buildResponse(UUID.randomUUID()));
+
+        invoiceService.create(request);
+
+        ArgumentCaptor<Invoice> captor = ArgumentCaptor.forClass(Invoice.class);
+        verify(invoiceRepository).save(captor.capture());
+        assertThat(captor.getValue().getTaxRate()).isEqualByComparingTo(DEFAULT_TAX_RATE);
+    }
+
+    @Test
+    void create_usesProvidedTaxRate_whenPresentInRequest() {
+        UUID clientId = UUID.randomUUID();
+        BigDecimal reducedRate = new BigDecimal("0.10");
+        CreateInvoiceRequest request = new CreateInvoiceRequest(clientId, null, null, reducedRate);
+        Client client = new Client();
+        Invoice entity = new Invoice();
+
+        when(clientRepository.findById(clientId)).thenReturn(Optional.of(client));
+        when(invoiceMapper.toEntity(request)).thenReturn(entity);
+        when(invoiceNumberGenerator.generate()).thenReturn("INV-2026-00001");
+        when(invoiceRepository.save(entity)).thenReturn(entity);
+        when(invoiceMapper.toResponse(entity)).thenReturn(buildResponse(UUID.randomUUID()));
+
+        invoiceService.create(request);
+
+        ArgumentCaptor<Invoice> captor = ArgumentCaptor.forClass(Invoice.class);
+        verify(invoiceRepository).save(captor.capture());
+        assertThat(captor.getValue().getTaxRate()).isEqualByComparingTo(reducedRate);
     }
 
     // --- getById ---
@@ -139,7 +193,7 @@ class InvoiceServiceTest {
     void update_updatesFields_whenDraft() {
         UUID id = UUID.randomUUID();
         UUID clientId = UUID.randomUUID();
-        UpdateInvoiceRequest request = new UpdateInvoiceRequest(clientId, null, "updated notes");
+        UpdateInvoiceRequest request = new UpdateInvoiceRequest(clientId, null, "updated notes", null);
         Invoice invoice = new Invoice();
         invoice.setStatus(InvoiceStatus.DRAFT);
         Client client = new Client();
@@ -160,7 +214,7 @@ class InvoiceServiceTest {
     @Test
     void update_throwsConflict_whenNotDraft() {
         UUID id = UUID.randomUUID();
-        UpdateInvoiceRequest request = new UpdateInvoiceRequest(UUID.randomUUID(), null, null);
+        UpdateInvoiceRequest request = new UpdateInvoiceRequest(UUID.randomUUID(), null, null, null);
         Invoice invoice = new Invoice();
         invoice.setStatus(InvoiceStatus.ISSUED);
 
@@ -172,6 +226,47 @@ class InvoiceServiceTest {
                         .isEqualTo("INVOICE_INVALID_STATE_TRANSITION"));
 
         verify(invoiceRepository, never()).save(any());
+    }
+
+    @Test
+    void update_overridesTaxRate_whenProvided() {
+        UUID id = UUID.randomUUID();
+        UUID clientId = UUID.randomUUID();
+        BigDecimal newRate = new BigDecimal("0.10");
+        UpdateInvoiceRequest request = new UpdateInvoiceRequest(clientId, null, null, newRate);
+        Invoice invoice = new Invoice();
+        invoice.setStatus(InvoiceStatus.DRAFT);
+        Client client = new Client();
+
+        when(invoiceRepository.findById(id)).thenReturn(Optional.of(invoice));
+        when(clientRepository.findById(clientId)).thenReturn(Optional.of(client));
+        when(invoiceRepository.save(invoice)).thenReturn(invoice);
+        when(invoiceMapper.toResponse(invoice)).thenReturn(buildResponse(id));
+
+        invoiceService.update(id, request);
+
+        assertThat(invoice.getTaxRate()).isEqualByComparingTo(newRate);
+    }
+
+    @Test
+    void update_leavesExistingTaxRate_unchanged_whenTaxRateNull() {
+        UUID id = UUID.randomUUID();
+        UUID clientId = UUID.randomUUID();
+        BigDecimal existingRate = new BigDecimal("0.10");
+        UpdateInvoiceRequest request = new UpdateInvoiceRequest(clientId, null, null, null);
+        Invoice invoice = new Invoice();
+        invoice.setStatus(InvoiceStatus.DRAFT);
+        invoice.setTaxRate(existingRate);
+        Client client = new Client();
+
+        when(invoiceRepository.findById(id)).thenReturn(Optional.of(invoice));
+        when(clientRepository.findById(clientId)).thenReturn(Optional.of(client));
+        when(invoiceRepository.save(invoice)).thenReturn(invoice);
+        when(invoiceMapper.toResponse(invoice)).thenReturn(buildResponse(id));
+
+        invoiceService.update(id, request);
+
+        assertThat(invoice.getTaxRate()).isEqualByComparingTo(existingRate);
     }
 
     // --- delete ---
@@ -375,6 +470,29 @@ class InvoiceServiceTest {
         assertThat(invoice.getSubtotal()).isEqualByComparingTo("150.00");
         assertThat(invoice.getTaxAmount()).isEqualByComparingTo("31.50");
         assertThat(invoice.getTotal()).isEqualByComparingTo("181.50");
+    }
+
+    @Test
+    void issue_computesTaxCorrectly_withNonDefaultTaxRate() {
+        UUID id = UUID.randomUUID();
+        Invoice invoice = new Invoice();
+        invoice.setStatus(InvoiceStatus.DRAFT);
+        invoice.setTaxRate(new BigDecimal("0.10"));
+
+        InvoiceLineItem line1 = new InvoiceLineItem();
+        line1.setSubtotal(new BigDecimal("100.00"));
+
+        when(invoiceRepository.findById(id)).thenReturn(Optional.of(invoice));
+        when(lineItemRepository.findAllByInvoiceId(id)).thenReturn(List.of(line1));
+        when(invoiceRepository.save(invoice)).thenReturn(invoice);
+        when(invoiceMapper.toResponse(invoice)).thenReturn(buildResponse(id));
+
+        invoiceService.issue(id);
+
+        // subtotal = 100.00; tax = 100.00 * 0.10 = 10.00 (would be 21.00 if hardcoded to 21%); total = 110.00
+        assertThat(invoice.getSubtotal()).isEqualByComparingTo("100.00");
+        assertThat(invoice.getTaxAmount()).isEqualByComparingTo("10.00");
+        assertThat(invoice.getTotal()).isEqualByComparingTo("110.00");
     }
 
     @Test

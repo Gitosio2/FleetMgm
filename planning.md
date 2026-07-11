@@ -1001,6 +1001,33 @@ FleetMgm/
 >    Corregido aplicando el mismo `.setScale(MONEY_SCALE, RoundingMode.HALF_UP)` que ya usa `issue()`. Test de
 >    regresión añadido (`addLineItem_roundsSubtotalToTwoDecimals_whenMultiplicationProducesMore`, verifica
 >    valor y escala explícitamente, no solo `isEqualByComparingTo` que ignora la escala). Suite final: 271 → 272.
+> 7. **`taxRate` hardcodeado al 21%, detectado por el usuario tras abrir el PR:** `Invoice.taxRate` tenía un
+>    valor por defecto en la entidad (`new BigDecimal("0.2100")`), pero ni `CreateInvoiceRequest` ni
+>    `UpdateInvoiceRequest` exponían el campo, y `InvoiceMapper` lo ignoraba explícitamente en ambos
+>    (`@Mapping(target = "taxRate", ignore = true)`) — no existía ninguna forma de cambiarlo sin tocar código.
+>    El usuario señaló que el IVA cambia con el tiempo y que existen tarifas reducidas/bonificadas para
+>    algunos escenarios, así que el 21% fijo no era aceptable. Solución en dos partes, sin tocar el `ignore
+>    = true` del mapper (mismo criterio ya usado para `priority` en `ScheduleMapper`/`category` en
+>    `MaintenanceMapper`: el default de la entidad no debe ser pisado silenciosamente por un `null` del
+>    request; el service resuelve el default de forma explícita):
+>    - **Default configurable:** `billing.default-tax-rate: ${BILLING_DEFAULT_TAX_RATE:0.2100}` en
+>      `application.yml` (mismo patrón que `workshop.auto-create-schedule-on-maintenance-create`).
+>      `InvoiceService` gana un parámetro de constructor `@Value("${billing.default-tax-rate}") BigDecimal
+>      defaultTaxRate`, mismo estilo de inyección que `autoCreateScheduleOnCreate` en `MaintenanceService`.
+>    - **Override opcional por factura:** `CreateInvoiceRequest`/`UpdateInvoiceRequest` ganan un campo
+>      `taxRate` (`BigDecimal`, nullable, sin `@Positive` — un `@DecimalMin(value = "0")` permite una tarifa
+>      reducida del 0%, legalmente real). Semántica de `null` **distinta** entre los dos métodos: en
+>      `create()`, `null` → usa `defaultTaxRate`; en `update()`, `null` → **no toca** la tarifa ya existente
+>      de la factura (no la resetea al default configurado). Esta asimetría es intencional: `update()` solo
+>      debe aplicar lo que el caller provee explícitamente, nunca reemplazar un valor ya asignado por el
+>      valor por defecto global.
+>    - Tests nuevos en `InvoiceServiceTest`: default aplicado en `create()` sin `taxRate` en el request,
+>      tarifa explícita respetada en `create()`, override aplicado en `update()`, tarifa existente preservada
+>      en `update()` con `taxRate = null`, y un caso de `issue()` con tarifa no-21% (`0.10`) para probar que el
+>      cálculo de impuesto lee el campo real y no tiene el 21% hardcodeado en ninguna parte. Suite final:
+>      272 → 277 (5 tests nuevos). `BILLING_DEFAULT_TAX_RATE` no se agregó a la lista de variables de entorno
+>      de producción en la sección "Despliegue" — es opcional con un default sano, mismo criterio ya aplicado
+>      a `WORKSHOP_AUTO_CREATE_SCHEDULE` (tampoco listada ahí).
 
 ### Hito 32 — Facturas de proveedor: Contrato API *(nuevo — sin hito asignado en el plan original)*
 - [x] `Flyway V7` — tablas `supplier_invoices` + `supplier_invoice_line_items` *(ya aplicada, misma migración que invoices)*

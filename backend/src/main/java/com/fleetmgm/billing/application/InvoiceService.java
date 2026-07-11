@@ -24,6 +24,7 @@ import com.fleetmgm.shared.exception.NotFoundException;
 import com.fleetmgm.shared.infrastructure.AuditLogRepository;
 import com.fleetmgm.workshop.domain.MaintenanceRecord;
 import com.fleetmgm.workshop.infrastructure.MaintenanceRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -56,6 +57,7 @@ public class InvoiceService {
     private final InvoiceNumberGenerator invoiceNumberGenerator;
     private final AuditLogRepository auditLogRepository;
     private final UserRepository userRepository;
+    private final BigDecimal defaultTaxRate;
 
     public InvoiceService(InvoiceRepository invoiceRepository,
                            LineItemRepository lineItemRepository,
@@ -65,7 +67,8 @@ public class InvoiceService {
                            InvoiceMapper invoiceMapper,
                            InvoiceNumberGenerator invoiceNumberGenerator,
                            AuditLogRepository auditLogRepository,
-                           UserRepository userRepository) {
+                           UserRepository userRepository,
+                           @Value("${billing.default-tax-rate}") BigDecimal defaultTaxRate) {
         this.invoiceRepository = invoiceRepository;
         this.lineItemRepository = lineItemRepository;
         this.clientRepository = clientRepository;
@@ -75,6 +78,7 @@ public class InvoiceService {
         this.invoiceNumberGenerator = invoiceNumberGenerator;
         this.auditLogRepository = auditLogRepository;
         this.userRepository = userRepository;
+        this.defaultTaxRate = defaultTaxRate;
     }
 
     @Transactional(readOnly = true)
@@ -90,6 +94,7 @@ public class InvoiceService {
         Invoice invoice = invoiceMapper.toEntity(request);
         invoice.setClient(client);
         invoice.setInvoiceNumber(invoiceNumberGenerator.generate());
+        invoice.setTaxRate(request.taxRate() != null ? request.taxRate() : defaultTaxRate);
         return invoiceMapper.toResponse(invoiceRepository.save(invoice));
     }
 
@@ -108,6 +113,9 @@ public class InvoiceService {
         Client client = resolveClient(request.clientId());
         invoiceMapper.updateEntity(request, invoice);
         invoice.setClient(client);
+        if (request.taxRate() != null) {
+            invoice.setTaxRate(request.taxRate());
+        }
         return invoiceMapper.toResponse(invoiceRepository.save(invoice));
     }
 
