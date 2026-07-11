@@ -1348,6 +1348,31 @@ FleetMgm/
 >    `10` (no `0.1`), agrega una línea de 100.00 y emite — si el `10` se hubiera enviado como fracción
 >    cruda al backend, el total resultante sería `1100.00` (100 + 1000%) en vez de `110.00` (100 + 10%).
 >    Suite final: 75 → 76.
+> 7. **Fallo real de CI, mal diagnosticado en el primer intento:** el test de descarga de PDF fallaba en CI
+>    (`click` llamado 0 veces) pero pasaba siempre en local. Primer diagnóstico (incorrecto, sin evidencia):
+>    "CI es más lento, el `waitFor` necesita más timeout" — se subió a 5000ms sin reproducir el problema
+>    real. El log de CI mostró el verdadero error: `TypeError: object.stream is not a function` dentro de
+>    `extractBody`/`Response` de undici, al construir MSW un `Response` interno desde un `Blob` de jsdom
+>    (que carece de `.stream()`) para servir una petición XHR con `responseType: 'blob'`. Reproducido de
+>    forma determinística corriendo la suite dentro de un contenedor Docker con **Node 22** real (la versión
+>    exacta de CI — local usa Node 24, que tolera esta combinación jsdom/undici sin fallar, de ahí que nunca
+>    se viera en desarrollo). Cambiar el `Blob` del handler mock por un `string` (primer intento de fix) NO
+>    resolvió nada — se confirmó reproduciendo el mismo error con ese cambio ya aplicado dentro del mismo
+>    contenedor, porque el `Blob` problemático no lo construye el handler: lo construye jsdom internamente al
+>    resolver `xhr.response` para `responseType: 'blob'`, antes de que MSW lo pase a undici. **Fix real:** en
+>    `apps/web/src/test/setup.ts`, forzar `globalThis.Blob` al `Blob` nativo de `node:buffer` (el mismo que
+>    usa undici internamente) antes de que arranque el servidor MSW, sustituyendo el polyfill incompleto de
+>    jsdom. Revertidos ambos intentos anteriores (el `Blob`→`string` del mock y el timeout de 5000ms) al
+>    quedar sin justificación una vez corregida la causa real. Verificado corriendo la suite completa dentro
+>    del mismo contenedor Node 22 (76/76, sin "unhandled rejection") y en local Node 24 (76/76). El import de
+>    `node:buffer` necesitó `@ts-expect-error` — este proyecto de frontend no tiene `@types/node` y no se
+>    justifica agregarlo solo por este import de test.
+>    **Incidente colateral:** un primer intento de reproducir esto en Docker con bind-mount directo al
+>    repositorio (`-v` al path real de Windows) dejó `npm ci` a medio correr dentro del contenedor, que
+>    alcanzó a borrar paquetes del `node_modules` local antes de fallar con un error de E/S — reparado con
+>    `taskkill` de procesos `node.exe` colgados que tenían binarios nativos bloqueados, seguido de `npm ci`
+>    limpio. Las corridas de reproducción posteriores se hicieron copiando el repo al propio filesystem del
+>    contenedor (`tar` + `docker cp`), no vía bind-mount, para no repetir el riesgo.
 
 ---
 
