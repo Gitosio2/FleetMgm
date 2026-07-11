@@ -44,7 +44,7 @@ class JobEventListenerTest {
         Vehicle vehicle = new Vehicle();
         vehicle.setUsageMeasure(UsageMeasure.KILOMETERS);
         Job jobReference = new Job();
-        JobCompletedEvent event = new JobCompletedEvent(jobId, vehicleId, 15000L, Instant.now());
+        JobCompletedEvent event = new JobCompletedEvent(jobId, vehicleId, null, null, null, 15000L, Instant.now());
 
         when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(vehicle));
         when(jobRepository.getReferenceById(jobId)).thenReturn(jobReference);
@@ -72,7 +72,7 @@ class JobEventListenerTest {
         UUID jobId = UUID.randomUUID();
         Vehicle vehicle = new Vehicle();
         vehicle.setUsageMeasure(UsageMeasure.HOURS);
-        JobCompletedEvent event = new JobCompletedEvent(jobId, vehicleId, 320L, Instant.now());
+        JobCompletedEvent event = new JobCompletedEvent(jobId, vehicleId, null, null, null, 320L, Instant.now());
 
         when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(vehicle));
         when(jobRepository.getReferenceById(jobId)).thenReturn(new Job());
@@ -90,7 +90,7 @@ class JobEventListenerTest {
 
     @Test
     void onJobCompleted_doesNothing_whenEndUsageValueIsNull() {
-        JobCompletedEvent event = new JobCompletedEvent(UUID.randomUUID(), UUID.randomUUID(), null, Instant.now());
+        JobCompletedEvent event = new JobCompletedEvent(UUID.randomUUID(), UUID.randomUUID(), null, null, null, null, Instant.now());
 
         jobEventListener.onJobCompleted(event);
 
@@ -106,7 +106,7 @@ class JobEventListenerTest {
         Vehicle vehicle = new Vehicle();
         vehicle.setUsageMeasure(UsageMeasure.KILOMETERS);
         vehicle.setCurrentKm(10000L);
-        JobCompletedEvent event = new JobCompletedEvent(jobId, vehicleId, 9000L, Instant.now());
+        JobCompletedEvent event = new JobCompletedEvent(jobId, vehicleId, null, null, null, 9000L, Instant.now());
 
         when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(vehicle));
 

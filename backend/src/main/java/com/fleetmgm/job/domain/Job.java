@@ -9,6 +9,7 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -71,6 +72,11 @@ public class Job {
     @Column(name = "end_usage_value")
     private Long endUsageValue;
 
+    // Nullable: a Job with no clientId bills nothing, and a Job with a clientId but no price is
+    // an accepted data gap the JobCompletedEvent consumer treats as a no-op, not an error.
+    @Column(precision = 12, scale = 2)
+    private BigDecimal price;
+
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
@@ -128,6 +134,9 @@ public class Job {
 
     public Long getEndUsageValue() { return endUsageValue; }
     public void setEndUsageValue(Long endUsageValue) { this.endUsageValue = endUsageValue; }
+
+    public BigDecimal getPrice() { return price; }
+    public void setPrice(BigDecimal price) { this.price = price; }
 
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
