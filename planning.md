@@ -1259,14 +1259,181 @@ FleetMgm/
 > probaba el campo removido); suite completa con Testcontainers (`-Pfailsafe`) 365 → **364**; frontend
 > (`vitest run`) sin cambio, **68/68**; `tsc -b` limpio en `packages/api` y `apps/web`. Todo verde.
 
+### Adenda — `InvoiceResponse.lineItems` *(nuevo, sin hito fijo — prerequisito de Hito 35)*
+> Al planificar Hito 35 (frontend Billing) surgió que no existía ninguna forma de leer las líneas ya
+> creadas de una factura: `InvoiceResponse` deliberadamente no incluía una lista anidada de line items
+> (decisión documentada en la nota de revisión de Hito 30, punto 2) y el único endpoint de line items es
+> `POST /{id}/line-items` (agregar una), no una lectura. El frontend necesita renderizar un `LineItemList`
+> para una factura existente, así que se confirmó con el usuario agregar `lineItems` a `InvoiceResponse`.
+>
+> **Riesgo N+1 (`InvoiceResponse` se usa tanto en `list()` paginado como en `getById()`):** `getById()`
+> resuelve las líneas con el `lineItemRepository.findAllByInvoiceId(id)` ya existente (una sola factura, una
+> consulta extra, sin problema). `list()` es el caso sensible: se agregó `LineItemRepository.findAllByInvoiceIdIn(List<UUID>)`
+> (derived query, sin `@Query`) para traer las líneas de **toda la página en una sola consulta**, agrupadas en
+> memoria por `invoice.getId()` (`Collectors.groupingBy`) — 2 consultas totales para la página completa, no
+> 1+N. Un invoice sin líneas recibe lista vacía (`getOrDefault(id, List.of())`), nunca `null`.
+>
+> **Ensamblado fuera de MapStruct:** `InvoiceMapper.toResponse(Invoice)` no puede mapear `lineItems` (no es
+> una propiedad de `Invoice`) — se declaró `@Mapping(target = "lineItems", ignore = true)` explícito (regla
+> de `CLAUDE.md`: nunca dejar un campo sin mapear silenciosamente) y un helper privado en `InvoiceService`
+> (`toResponseWithLineItems`) reconstruye el record final copiando los campos del mapeo base más la lista de
+> `LineItemResponse` ya resuelta por el caller.
+>
+> **Tests:** se agregó un regression test que verifica con Mockito que `findAllByInvoiceIdIn` se invoca
+> **exactamente una vez** por página (no una vez por factura), fijando la ausencia de N+1 como contrato, no
+> solo como detalle de implementación. Backend unitario 324 → **329** (+5); suite completa con Testcontainers
+> (`-Pfailsafe`) 364 → **369** (+5). Todo verde.
+>
+> **Bug real encontrado en revisión antes de comitear:** la primera versión solo enrutó `list()`/`getById()`
+> a través de `toResponseWithLineItems` — `create()`, `update()`, `issue()` y `pay()` seguían llamando a
+> `invoiceMapper.toResponse(...)` directo, así que devolvían `lineItems: null` incluso cuando la factura
+> **ya tenía líneas** (`issue()`/`pay()` solo pueden ejecutarse sobre una factura con al menos una línea, por
+> la propia guarda `INVOICE_NO_LINE_ITEMS`). Corregido: los cuatro métodos ahora pasan por
+> `toResponseWithLineItems` — `create()` con `List.of()` directo (una factura recién creada no puede tener
+> líneas todavía, se evita la consulta), `update()`/`pay()` con `lineItemRepository.findAllByInvoiceId(id)`,
+> `issue()` reutilizando las líneas que ya había cargado para el cálculo del IVA (sin consulta extra). Ajustado
+> también el test `issue_computesSubtotalTaxAndTotal_whenAtLeastOneLineItem`, que no mockeaba
+> `invoiceMapper.toResponse(lineItem)` y por eso el resultado real traía `lineItems=[null, null]` en vez de
+> fallar en silencio con una lista vacía — el mock de MapStruct para tipos no stubbeados no lanza excepción,
+> solo devuelve `null` por entrada. Suite final sin cambio de conteo (329/369), mismos tests corregidos, no
+> agregados.
+
 ### Hito 35 — Frontend: Billing
 > Requiere: Hitos 30–33 (backend facturación a clientes + facturas de proveedor)
-- [ ] **[RED]** Handlers MSW — `GET /api/v1/invoices`, `POST`, `PATCH /{id}/issue`, `PATCH /{id}/pay`, `GET /{id}/pdf`, `POST /{id}/line-items`; `GET /api/v1/supplier-invoices`, `POST`, `PATCH /{id}/pay`
-- [ ] **[RED]** Tests `Billing.test.tsx` — lista de facturas de cliente renderiza con badge de estado; flujo DRAFT→ISSUED→PAID actualiza UI; botón PDF dispara descarga (`Content-Disposition: attachment`); lista de facturas de proveedor renderiza filtrable por categoría; 403 oculta acciones a DRIVER
-- [ ] **[GREEN]** `packages/hooks/src/useBilling.ts` — lista paginada, create, addLineItem, issue, markPaid
-- [ ] **[GREEN]** `packages/hooks/src/useSupplierInvoices.ts` — lista paginada, create, markPaid
-- [ ] **[GREEN]** `apps/web/src/components/billing/` — `InvoiceTable`, `InvoiceStatusBadge`, `InvoiceFormModal`, `LineItemList`, `PdfDownloadButton`, `SupplierInvoiceTable`, `SupplierInvoiceFormModal`
-- [ ] **[GREEN]** Página `Billing` — secciones separadas: facturación a clientes / gastos de proveedor
+- [x] **[RED]** Handlers MSW — `GET /api/v1/invoices`, `POST`, `PATCH /{id}/issue`, `PATCH /{id}/pay`, `GET /{id}/pdf`, `POST /{id}/line-items` *(cliente; proveedor sigue pendiente)*
+- [ ] ~~Handlers MSW — `GET /api/v1/supplier-invoices`, `POST`, `PATCH /{id}/pay`~~ *(fuera de alcance de esta revisión — trabajo de proveedor por separado)*
+- [x] **[RED]** Tests `Billing.test.tsx` — lista de facturas de cliente renderiza con badge de estado; flujo DRAFT→ISSUED→PAID actualiza UI; botón PDF dispara descarga; 409 sin líneas de factura muestra error
+- [ ] ~~Tests `Billing.test.tsx` — lista de facturas de proveedor renderiza filtrable por categoría~~ *(fuera de alcance — proveedor)*
+- [x] **[GREEN]** `packages/hooks/src/useBilling.ts` — lista paginada, detalle por id, create, update, delete, addLineItem, issue, pay, downloadPdf
+- [ ] ~~`packages/hooks/src/useSupplierInvoices.ts`~~ *(fuera de alcance — proveedor)*
+- [x] **[GREEN]** `apps/web/src/components/billing/` — `InvoiceTable`, `InvoiceStatusBadge`, `InvoiceFormModal`, `LineItemList`, `PdfDownloadButton`, `InvoiceActionButtons`
+- [ ] ~~`SupplierInvoiceTable`, `SupplierInvoiceFormModal`~~ *(fuera de alcance — proveedor)*
+- [x] **[GREEN]** Página `Billing` — sección de facturación a clientes (`/billing`, `MANAGEMENT_ROLES`) *(sección de gastos de proveedor pendiente, trabajo separado)*
+
+> **Nota (revisión Hito 35 — clientes):** Esta revisión implementó únicamente la porción de
+> facturación a **clientes** de Hito 35; `SupplierInvoiceTable`/`SupplierInvoiceFormModal`/
+> `useSupplierInvoices.ts` quedan pendientes como trabajo separado y posterior.
+> 1. **Descarga de PDF:** primera feature de descarga de archivos en el frontend — no había
+>    precedente en el código. Implementado en `useDownloadInvoicePdf` (`packages/hooks/src/useBilling.ts`)
+>    como `useMutation` sin invalidación de caché (es un efecto lateral de un solo disparo, no
+>    estado de aplicación): `apiClient.get(..., { responseType: 'blob' })` → `URL.createObjectURL`
+>    → click sintético en un `<a download>` → `URL.revokeObjectURL`. En jsdom, `URL.createObjectURL`
+>    no está implementado — `Billing.test.tsx` lo stubea localmente y espía
+>    `HTMLAnchorElement.prototype.click` en vez de intentar validar contenido binario real.
+> 2. **Edición permitida sin importar el estado (guard solo en backend):** `InvoiceActionButtons`
+>    muestra "Editar" siempre, igual que `MaintenanceTable`/`ScheduleTable` muestran "Editar orden"/
+>    "Editar entrada" sin condicionar por estado — el backend devuelve 409 si `update()` se llama
+>    fuera de `DRAFT`. Se mantiene el mismo precedente por consistencia; no se inventó un guard de
+>    UI que el resto del código no usa.
+> 3. **Sin test específico de DRIVER/403:** `ProtectedRoute.test.tsx` ya cubre genéricamente el
+>    caso "rol no permitido → 403" (incluyendo un caso concreto con rol `DRIVER`), y `/billing` usa
+>    el mismo `ProtectedRoute allowedRoles={MANAGEMENT_ROLES}` que `/clients`. Al ser un guardado a
+>    nivel de ruta (DRIVER no puede ni siquiera llegar a `/billing`, no hay acciones parcialmente
+>    visibles como en Jobs/Workshop), no se agregó un test redundante en `Billing.test.tsx`.
+> 4. **Layout de `InvoiceTable`/`LineItemList`:** sin expandir/colapsar filas — mismo patrón simple
+>    que `JobTable`/`MaintenanceTable` (que tampoco lo tienen). Las líneas de factura solo se
+>    muestran dentro de `InvoiceFormModal` en modo edición y cuando `status === 'DRAFT'`, ya que el
+>    modal ya tiene el objeto `Invoice` completo — evita una vista de detalle separada.
+> 5. **Tests:** 68 → 75 (7 tests nuevos en `Billing.test.tsx`). `tsc -b` limpio en
+>    `packages/api`/`packages/hooks`/`apps/web`. `oxlint` sin warnings nuevos (solo el warning
+>    preexistente documentado de `AssignmentModal.tsx`).
+> 6. **Bug de UX detectado por el usuario tras la primera implementación:** el campo de IVA mostraba
+>    y enviaba la fracción cruda (`0.21`) en vez del porcentaje entero (`21`) que un usuario esperaría
+>    escribir/leer. Corregido en `InvoiceFormModal.tsx` con dos helpers de conversión
+>    (`fractionToPercentageDisplay`/`percentageInputToFraction`), redondeando por un paso entero
+>    intermedio (`Math.round(x * 10000) / 100`, no una división/multiplicación directa) para evitar
+>    el drift de punto flotante de JS (`0.21 * 100 !== 21` exactamente). Se agregó un `%` visible junto
+>    al input. Test de regresión (`shows the tax rate as a whole percentage and submits it as a
+>    fraction`): crea una factura con `IVA=10`, reabre el formulario y confirma que el campo muestra
+>    `10` (no `0.1`), agrega una línea de 100.00 y emite — si el `10` se hubiera enviado como fracción
+>    cruda al backend, el total resultante sería `1100.00` (100 + 1000%) en vez de `110.00` (100 + 10%).
+>    Suite final: 75 → 76.
+> 7. **Fallo real de CI, mal diagnosticado en el primer intento:** el test de descarga de PDF fallaba en CI
+>    (`click` llamado 0 veces) pero pasaba siempre en local. Primer diagnóstico (incorrecto, sin evidencia):
+>    "CI es más lento, el `waitFor` necesita más timeout" — se subió a 5000ms sin reproducir el problema
+>    real. El log de CI mostró el verdadero error: `TypeError: object.stream is not a function` dentro de
+>    `extractBody`/`Response` de undici, al construir MSW un `Response` interno desde un `Blob` de jsdom
+>    (que carece de `.stream()`) para servir una petición XHR con `responseType: 'blob'`. Reproducido de
+>    forma determinística corriendo la suite dentro de un contenedor Docker con **Node 22** real (la versión
+>    exacta de CI — local usa Node 24, que tolera esta combinación jsdom/undici sin fallar, de ahí que nunca
+>    se viera en desarrollo). Cambiar el `Blob` del handler mock por un `string` (primer intento de fix) NO
+>    resolvió nada — se confirmó reproduciendo el mismo error con ese cambio ya aplicado dentro del mismo
+>    contenedor, porque el `Blob` problemático no lo construye el handler: lo construye jsdom internamente al
+>    resolver `xhr.response` para `responseType: 'blob'`, antes de que MSW lo pase a undici. **Fix real:** en
+>    `apps/web/src/test/setup.ts`, forzar `globalThis.Blob` al `Blob` nativo de `node:buffer` (el mismo que
+>    usa undici internamente) antes de que arranque el servidor MSW, sustituyendo el polyfill incompleto de
+>    jsdom. Revertidos ambos intentos anteriores (el `Blob`→`string` del mock y el timeout de 5000ms) al
+>    quedar sin justificación una vez corregida la causa real. Verificado corriendo la suite completa dentro
+>    del mismo contenedor Node 22 (76/76, sin "unhandled rejection") y en local Node 24 (76/76). El import de
+>    `node:buffer` necesitó `@ts-expect-error` — este proyecto de frontend no tiene `@types/node` y no se
+>    justifica agregarlo solo por este import de test.
+>    **Incidente colateral:** un primer intento de reproducir esto en Docker con bind-mount directo al
+>    repositorio (`-v` al path real de Windows) dejó `npm ci` a medio correr dentro del contenedor, que
+>    alcanzó a borrar paquetes del `node_modules` local antes de fallar con un error de E/S — reparado con
+>    `taskkill` de procesos `node.exe` colgados que tenían binarios nativos bloqueados, seguido de `npm ci`
+>    limpio. Las corridas de reproducción posteriores se hicieron copiando el repo al propio filesystem del
+>    contenedor (`tar` + `docker cp`), no vía bind-mount, para no repetir el riesgo.
+> 8. **Bug real reportado por el usuario: los PDF descargados no abrían.** Investigado metódicamente antes
+>    de asumir la causa: (a) se generó un PDF real vía `PdfExportService` (test temporal, luego eliminado) y
+>    se validó con `file`/`pdftotext` (poppler, implementación de PDF completamente independiente de
+>    OpenPDF) — el archivo es un PDF 1.5 válido y legible; (b) se hizo pasar esos mismos bytes por un test
+>    `@WebMvcTest` real de `InvoiceController` (no un mock del servicio, la serialización HTTP real de
+>    Spring) y se confirmó igualdad byte a byte antes/después — descarta corrupción en el backend o en el
+>    transporte HTTP. La causa real estaba en el frontend: `useDownloadInvoicePdf` llamaba a
+>    `window.URL.revokeObjectURL(url)` en el mismo tick que `link.click()` — una condición de carrera
+>    documentada (Firefox bug 1282407, Chromium issue 41380177): el navegador puede no haber empezado a leer
+>    el blob para la descarga real antes de que la URL se invalide, produciendo un archivo vacío o
+>    corrupto. Corregido diferiendo la revocación con `setTimeout(() => window.URL.revokeObjectURL(url), 0)`.
+>    Test ajustado para esperar (`waitFor`) la revocación en vez de asumirla síncrona. Suite sin cambio de
+>    conteo (76/76), mismo test corregido, no agregado. Efecto colateral menor detectado en el camino (no
+>    corregido, no era la causa raíz): el texto con acentos del PDF (`Descripción`, `emisión`) se extrae mal
+>    con `pdftotext` (probablemente falta de mapeo `ToUnicode` en la fuente Helvetica/WinAnsi por defecto de
+>    OpenPDF) — no impide abrir el archivo, pero sí afecta copiar/pegar o buscar texto; queda como deuda
+>    documentada para revisar si se retoma el feature de PDF.
+> 9. **El fix del punto 8 no resolvió el reporte del usuario — causa real distinta.** El usuario seguía
+>    viendo "Error al cargar el documento PDF" en Chrome y Acrobat Reader después del fix de
+>    `revokeObjectURL`. Se descartó el backend por segunda vez, ahora con más rigor: un test
+>    `@DataJpaTest` + Testcontainers nuevo (`PdfExportServiceRealDataDebugTest`, temporal, eliminado tras
+>    confirmar) persistió un `Client`/`Invoice`/`InvoiceLineItem` reales en Postgres (con `client` lazy,
+>    exactamente como en producción) y llamó a `PdfExportService` real — sigue produciendo un PDF válido
+>    (`file`/`pdftotext`), descartando también un problema de lazy-loading que el test original con
+>    Mockito no podía haber detectado. La causa real: `apps/web/.env.local` tiene
+>    `VITE_ENABLE_MSW=true` — el usuario probaba con `npm run dev`, que activa los mocks de MSW (no habla
+>    con el backend real). El handler mock de `GET /invoices/:id/pdf` devolvía el string literal
+>    `` `%PDF-1.4 mock content for ${invoiceNumber}` `` — **empieza** con la firma de PDF (por eso el test
+>    unitario `startsWith("%PDF")` pasaba) pero no tiene objetos, tabla `xref` ni `%%EOF`: no es un PDF real,
+>    y cualquier visor real lo rechaza correctamente. Corregido con `buildMinimalPdf()`
+>    (`apps/web/src/mocks/handlers.ts`) — construye un PDF mínimo pero estructuralmente válido (objetos,
+>    tabla xref con offsets calculados dinámicamente en bytes, trailer, `%%EOF`), verificado también con
+>    `file`/`pdftotext` fuera de la suite de tests antes de commitear. Contenido 100% ASCII, por lo que
+>    `string.length` de JS es un offset de bytes válido sin necesitar `TextEncoder`. Suite sin cambio de
+>    conteo (76/76) — el fix es en el mock, no agrega cobertura nueva.
+> 10. **Ajuste de UX pedido por el usuario: el botón de guardado debe quedar al final del modal.** El botón
+>     "Guardar cambios"/"Crear factura" estaba dentro del `<form>` principal, antes de la sección "Líneas de
+>     factura" (que se renderiza como hermano después de `</form>`) — visualmente el botón quedaba antes de
+>     las líneas, no al final. Mover el bloque de líneas dentro del `<form>` principal no era viable:
+>     `LineItemList.tsx` renderiza su propio `<form>` para "Agregar línea", y anidar un `<form>` dentro de
+>     otro es HTML5 inválido (comportamiento indefinido entre navegadores). Corregido asociando el botón al
+>     formulario por `id` en vez de por anidación DOM: `<form id="invoice-form">` y
+>     `<Button type="submit" form="invoice-form">` fuera del `<form>`, renderizado después del bloque de
+>     líneas — atributo HTML5 estándar para botones de submit ubicados fuera de su `<form>`. Suite sin cambio
+>     de conteo (76/76 — ningún test dependía de la posición DOM del botón).
+> 11. **Pregunta del usuario: ¿agregar fecha de emisión al formulario?** `issueDate` no es un campo
+>     libre: `InvoiceService.issue()` lo fija automáticamente a `LocalDate.now()` al pasar `DRAFT` →
+>     `ISSUED` (línea 183), y `InvoiceMapper` lo ignora explícitamente en create/update — permitir
+>     editarlo en el modal contradiría esa regla de auditoría (la fecha real de emisión). Se
+>     consultó al usuario, que confirmó mostrarlo solo como dato de solo lectura. Agregado en
+>     `InvoiceFormModal.tsx`: fila condicional (`invoice?.issueDate != null`) con la fecha en texto
+>     plano, sin `<Input>`; no aparece en facturas `DRAFT` (issueDate es `null`) ni al crear una
+>     factura nueva. Test nuevo: `shows the issue date as read-only for an ISSUED invoice, and hides
+>     it for a DRAFT invoice`. Suite: 76 → 77.
+> 12. **Pedido de seguimiento: mostrar también la fecha de emisión en la tabla.** Agregada columna
+>     "Emisión" en `InvoiceTable.tsx`, mismo patrón que "Vencimiento" (`invoice.issueDate ?? '—'`,
+>     texto plano, sin formateo). Test nuevo (`shows the issue date column in the invoice table...`)
+>     verifica el placeholder `—` en la factura `DRAFT` y la fecha real en las facturas `ISSUED`/
+>     `PAID`. Este cambio hizo colisionar una aserción del test anterior (nota 11): buscaba
+>     `screen.getByText(issued.issueDate!)` de forma global, y ahora esa fecha aparece tanto en la
+>     tabla como en el modal — corregido acotando la búsqueda con `within(dialog)`. Suite: 77 → 78.
 
 ---
 

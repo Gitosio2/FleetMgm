@@ -5,6 +5,7 @@ import com.fleetmgm.billing.domain.InvoiceStatus;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 public record InvoiceResponse(
@@ -21,5 +22,6 @@ public record InvoiceResponse(
         BigDecimal taxAmount,
         BigDecimal total,
         String notes,
-        Instant createdAt
+        Instant createdAt,
+        List<LineItemResponse> lineItems
 ) {}
