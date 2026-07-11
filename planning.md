@@ -1118,11 +1118,11 @@ FleetMgm/
 
 ### Hito 34 — PDF y rentabilidad
 - [x] **[RED]** Tests `PdfExportServiceTest` — PDF generado contiene cabecera, líneas y totales correctos; IVA calculado dinámicamente desde `invoice.getTaxRate()`
-- [ ] **[RED]** Tests `ProfitabilityRepositoryTest` (`@DataJpaTest` + Testcontainers) — proyección devuelve ingresos, costes (mantenimiento + facturas de proveedor) y margen correctos por vehículo
+- [x] **[RED]** Tests `ProfitabilityRepositoryTest` (`@DataJpaTest` + Testcontainers) — proyección devuelve ingresos, costes (mantenimiento + facturas de proveedor) y margen correctos por vehículo
 - [x] **[GREEN]** `PdfExportService` — generar PDF con OpenPDF (cabecera, líneas, totales, IVA)
 - [x] **[GREEN]** `GET /api/v1/invoices/{id}/pdf` — `Content-Disposition: attachment; filename="INV-...pdf"`
-- [ ] **[GREEN]** `ProfitabilityRepository` — `@Query` projection: ingresos (`SUM` line items), costes (`SUM MaintenanceRecord.cost` + `SUM SupplierInvoice.total` por vehículo), margen por vehículo
-- [ ] **[GREEN]** `GET /api/v1/reports/profitability` — paginado, solo ADMIN/MANAGER
+- [x] **[GREEN]** `ProfitabilityRepository` — `@Query` projection: ingresos (`SUM` line items), costes (`SUM MaintenanceRecord.cost` + `SUM SupplierInvoice.total` por vehículo), margen por vehículo
+- [x] **[GREEN]** `GET /api/v1/reports/profitability` — paginado, ADMIN/MANAGER/ADMINISTRATIVE
 
 > **Nota (revisión Hito 34 — PDF):** Slice parcial — solo la parte de exportación PDF; `ProfitabilityRepository`/`GET /api/v1/reports/profitability` quedan pendientes como trabajo separado.
 > 1. **API de OpenPDF (primer uso en el codebase):** `com.lowagie.text.Document` + `PdfWriter.getInstance(document, outputStream)` para el documento; `Paragraph`/`Chunk.NEWLINE` para cabecera y totales; `PdfPTable`/`PdfPCell`/`Phrase` para la tabla de líneas. Lectura de vuelta para tests con `PdfReader` + `com.lowagie.text.pdf.parser.PdfTextExtractor.getTextFromPage(int)`.
@@ -1140,6 +1140,44 @@ FleetMgm/
 >    luego GREEN) verifica las etiquetas nuevas vía el mismo `PdfTextExtractor` ya usado por los demás tests —
 >    los acentos (á/é/í/ó/ú/ñ) se conservan correctamente en la extracción, sin necesidad de configurar una
 >    fuente/encoding distinta a la Helvetica por defecto de OpenPDF. Suite final: 321 → 322.
+>
+> **Nota (revisión Hito 34 — rentabilidad, segunda mitad):**
+> 1. **Corrección de permisos:** el checklist de este hito dice "solo ADMIN/MANAGER" para
+>    `GET /api/v1/reports/profitability`, pero la Matriz de Permisos (fila "Informes de rentabilidad")
+>    marca ✅ para ADMIN, MANAGER **y ADMINISTRATIVE** — el mismo trío usado en
+>    `InvoiceService.ROLES`/`SupplierInvoiceService.ROLES`/`PdfExportService.ROLES` en todo el resto de
+>    `billing`. Se usó el trío (`hasAnyRole('ADMIN', 'MANAGER', 'ADMINISTRATIVE')`), no la frase del
+>    checklist — la Matriz es la fuente de verdad de permisos de este proyecto, el checklist es texto
+>    heredado del plan pre-Gentle-AI y ya se sabía impreciso (mismo tipo de inconsistencia corregida antes
+>    para el naming `InvoiceService`/`BillingService`).
+> 2. **Por qué native query y no JPQL — verificado, no asumido:** `MaintenanceRecord.vehicle` y
+>    `SupplierInvoice.vehicle` SÍ son relaciones `@ManyToOne` directas a `Vehicle`, y `InvoiceLineItem`
+>    llega a `Vehicle` en dos saltos vía `linkedJob.vehicle` (`Job.vehicle` también es `@ManyToOne`
+>    directa). Es decir, cada suma individual (ingresos, mantenimiento, facturas de proveedor) sí es
+>    expresable en JPQL por separado. Lo que JPQL/HQL no permite es combinarlas en una sola fila por
+>    vehículo sin duplicación: la especificación JPA no permite subconsultas correlacionadas en la
+>    cláusula `SELECT`, así que un único `SELECT` con tres `JOIN` (jobs, maintenance_records,
+>    supplier_invoices) hacia el mismo vehículo produce el clásico problema de "fan-out" — cada
+>    combinación cruzada de filas de las tres colecciones multiplica el `SUM`, dando totales incorrectos.
+>    La alternativa sin fan-out en JPQL puro exigiría tres queries por separado más un merge en memoria
+>    por vehículo, lo cual complica la paginación sobre `vehicles`. Por eso `ProfitabilityRepository` usa
+>    una query nativa está con tres subconsultas correlacionadas (`COALESCE((SELECT SUM(...) ... WHERE
+>    x.vehicle_id = v.id), 0)`), sin concatenación de ningún valor provisto por el llamador — la única
+>    parte dinámica es el `Pageable` estándar de Spring Data (LIMIT/OFFSET con bind parameters), por lo
+>    que no viola la regla de "no native queries dinámicas" de `CLAUDE.md` (esa regla apunta a
+>    concatenación de strings, no a native queries per se).
+> 3. **Regla "solo Jobs" para ingresos:** el modelo de dominio dice explícitamente "vinculados a Jobs de
+>    ese vehículo" — `InvoiceLineItem.linkedMaintenance` existe pero NO cuenta para ingresos, aunque
+>    ambos campos (`linkedJob`, `linkedMaintenance`) conviven en la misma entidad. Test dedicado
+>    `findProfitabilityByVehicle_excludesLineItemsLinkedOnlyViaMaintenance_notJob` prueba esto
+>    explícitamente: un line item de 999.00 vinculado solo por `linkedMaintenance` no aparece en
+>    `revenue` (queda en 0), mientras que el coste de mantenimiento del mismo vehículo sí se contabiliza
+>    en `costs` — evita que la regla dependa solo de que nunca se ejercite el otro camino.
+> 4. **Sin test de controller nuevo:** igual que con `PdfExportService`, `ProfitabilityController` es una
+>    delegación fina de una sola línea (`profitabilityService.list(pageable)`), ya cubierta indirectamente
+>    por `ProfitabilityServiceTest`. No se agregó un `@WebMvcTest` dedicado.
+> 5. **Tests:** unitarios 322 → 325 (+3 `ProfitabilityServiceTest`); suite completa con Testcontainers
+>    (`-Pfailsafe`) 363 en verde, incluyendo 3 nuevos `ProfitabilityRepositoryTest`.
 
 ### Hito 35 — Frontend: Billing
 > Requiere: Hitos 30–33 (backend facturación a clientes + facturas de proveedor)
