@@ -111,6 +111,25 @@ describe('Billing', () => {
     await waitFor(() => expect(within(row).getByText('110.00')).toBeInTheDocument())
   })
 
+  it('shows the issue date as read-only for an ISSUED invoice, and hides it for a DRAFT invoice', async () => {
+    const user = userEvent.setup()
+    renderBilling()
+
+    const draft = SEED_INVOICES[0]!
+    const draftRow = (await screen.findByText(draft.invoiceNumber)).closest('tr')!
+    await user.click(within(draftRow).getByRole('button', { name: /editar/i }))
+    expect(await screen.findByRole('heading', { name: 'Editar factura' })).toBeInTheDocument()
+    expect(screen.queryByText(/fecha de emisión/i)).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /close/i }))
+
+    const issued = SEED_INVOICES[1]!
+    const issuedRow = screen.getByText(issued.invoiceNumber).closest('tr')!
+    await user.click(within(issuedRow).getByRole('button', { name: /editar/i }))
+    expect(await screen.findByRole('heading', { name: 'Editar factura' })).toBeInTheDocument()
+    expect(screen.getByText(/fecha de emisión/i)).toBeInTheDocument()
+    expect(screen.getByText(issued.issueDate!)).toBeInTheDocument()
+  })
+
   it('adds a line item to a DRAFT invoice', async () => {
     const user = userEvent.setup()
     renderBilling()

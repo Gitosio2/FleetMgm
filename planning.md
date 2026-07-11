@@ -1418,6 +1418,15 @@ FleetMgm/
 >     `<Button type="submit" form="invoice-form">` fuera del `<form>`, renderizado después del bloque de
 >     líneas — atributo HTML5 estándar para botones de submit ubicados fuera de su `<form>`. Suite sin cambio
 >     de conteo (76/76 — ningún test dependía de la posición DOM del botón).
+> 11. **Pregunta del usuario: ¿agregar fecha de emisión al formulario?** `issueDate` no es un campo
+>     libre: `InvoiceService.issue()` lo fija automáticamente a `LocalDate.now()` al pasar `DRAFT` →
+>     `ISSUED` (línea 183), y `InvoiceMapper` lo ignora explícitamente en create/update — permitir
+>     editarlo en el modal contradiría esa regla de auditoría (la fecha real de emisión). Se
+>     consultó al usuario, que confirmó mostrarlo solo como dato de solo lectura. Agregado en
+>     `InvoiceFormModal.tsx`: fila condicional (`invoice?.issueDate != null`) con la fecha en texto
+>     plano, sin `<Input>`; no aparece en facturas `DRAFT` (issueDate es `null`) ni al crear una
+>     factura nueva. Test nuevo: `shows the issue date as read-only for an ISSUED invoice, and hides
+>     it for a DRAFT invoice`. Suite: 76 → 77.
 
 ---
 

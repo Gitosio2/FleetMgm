@@ -106,6 +106,13 @@ export function InvoiceFormModal({ open, onOpenChange, invoice }: InvoiceFormMod
             </select>
           </div>
 
+          {invoice?.issueDate != null && (
+            <div className="flex flex-col gap-1.5">
+              <Label>Fecha de emisión</Label>
+              <p className="text-sm text-on-surface-variant">{invoice.issueDate}</p>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="invoice-due-date">Fecha de vencimiento</Label>
