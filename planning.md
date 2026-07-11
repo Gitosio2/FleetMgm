@@ -1300,12 +1300,43 @@ FleetMgm/
 
 ### Hito 35 — Frontend: Billing
 > Requiere: Hitos 30–33 (backend facturación a clientes + facturas de proveedor)
-- [ ] **[RED]** Handlers MSW — `GET /api/v1/invoices`, `POST`, `PATCH /{id}/issue`, `PATCH /{id}/pay`, `GET /{id}/pdf`, `POST /{id}/line-items`; `GET /api/v1/supplier-invoices`, `POST`, `PATCH /{id}/pay`
-- [ ] **[RED]** Tests `Billing.test.tsx` — lista de facturas de cliente renderiza con badge de estado; flujo DRAFT→ISSUED→PAID actualiza UI; botón PDF dispara descarga (`Content-Disposition: attachment`); lista de facturas de proveedor renderiza filtrable por categoría; 403 oculta acciones a DRIVER
-- [ ] **[GREEN]** `packages/hooks/src/useBilling.ts` — lista paginada, create, addLineItem, issue, markPaid
-- [ ] **[GREEN]** `packages/hooks/src/useSupplierInvoices.ts` — lista paginada, create, markPaid
-- [ ] **[GREEN]** `apps/web/src/components/billing/` — `InvoiceTable`, `InvoiceStatusBadge`, `InvoiceFormModal`, `LineItemList`, `PdfDownloadButton`, `SupplierInvoiceTable`, `SupplierInvoiceFormModal`
-- [ ] **[GREEN]** Página `Billing` — secciones separadas: facturación a clientes / gastos de proveedor
+- [x] **[RED]** Handlers MSW — `GET /api/v1/invoices`, `POST`, `PATCH /{id}/issue`, `PATCH /{id}/pay`, `GET /{id}/pdf`, `POST /{id}/line-items` *(cliente; proveedor sigue pendiente)*
+- [ ] ~~Handlers MSW — `GET /api/v1/supplier-invoices`, `POST`, `PATCH /{id}/pay`~~ *(fuera de alcance de esta revisión — trabajo de proveedor por separado)*
+- [x] **[RED]** Tests `Billing.test.tsx` — lista de facturas de cliente renderiza con badge de estado; flujo DRAFT→ISSUED→PAID actualiza UI; botón PDF dispara descarga; 409 sin líneas de factura muestra error
+- [ ] ~~Tests `Billing.test.tsx` — lista de facturas de proveedor renderiza filtrable por categoría~~ *(fuera de alcance — proveedor)*
+- [x] **[GREEN]** `packages/hooks/src/useBilling.ts` — lista paginada, detalle por id, create, update, delete, addLineItem, issue, pay, downloadPdf
+- [ ] ~~`packages/hooks/src/useSupplierInvoices.ts`~~ *(fuera de alcance — proveedor)*
+- [x] **[GREEN]** `apps/web/src/components/billing/` — `InvoiceTable`, `InvoiceStatusBadge`, `InvoiceFormModal`, `LineItemList`, `PdfDownloadButton`, `InvoiceActionButtons`
+- [ ] ~~`SupplierInvoiceTable`, `SupplierInvoiceFormModal`~~ *(fuera de alcance — proveedor)*
+- [x] **[GREEN]** Página `Billing` — sección de facturación a clientes (`/billing`, `MANAGEMENT_ROLES`) *(sección de gastos de proveedor pendiente, trabajo separado)*
+
+> **Nota (revisión Hito 35 — clientes):** Esta revisión implementó únicamente la porción de
+> facturación a **clientes** de Hito 35; `SupplierInvoiceTable`/`SupplierInvoiceFormModal`/
+> `useSupplierInvoices.ts` quedan pendientes como trabajo separado y posterior.
+> 1. **Descarga de PDF:** primera feature de descarga de archivos en el frontend — no había
+>    precedente en el código. Implementado en `useDownloadInvoicePdf` (`packages/hooks/src/useBilling.ts`)
+>    como `useMutation` sin invalidación de caché (es un efecto lateral de un solo disparo, no
+>    estado de aplicación): `apiClient.get(..., { responseType: 'blob' })` → `URL.createObjectURL`
+>    → click sintético en un `<a download>` → `URL.revokeObjectURL`. En jsdom, `URL.createObjectURL`
+>    no está implementado — `Billing.test.tsx` lo stubea localmente y espía
+>    `HTMLAnchorElement.prototype.click` en vez de intentar validar contenido binario real.
+> 2. **Edición permitida sin importar el estado (guard solo en backend):** `InvoiceActionButtons`
+>    muestra "Editar" siempre, igual que `MaintenanceTable`/`ScheduleTable` muestran "Editar orden"/
+>    "Editar entrada" sin condicionar por estado — el backend devuelve 409 si `update()` se llama
+>    fuera de `DRAFT`. Se mantiene el mismo precedente por consistencia; no se inventó un guard de
+>    UI que el resto del código no usa.
+> 3. **Sin test específico de DRIVER/403:** `ProtectedRoute.test.tsx` ya cubre genéricamente el
+>    caso "rol no permitido → 403" (incluyendo un caso concreto con rol `DRIVER`), y `/billing` usa
+>    el mismo `ProtectedRoute allowedRoles={MANAGEMENT_ROLES}` que `/clients`. Al ser un guardado a
+>    nivel de ruta (DRIVER no puede ni siquiera llegar a `/billing`, no hay acciones parcialmente
+>    visibles como en Jobs/Workshop), no se agregó un test redundante en `Billing.test.tsx`.
+> 4. **Layout de `InvoiceTable`/`LineItemList`:** sin expandir/colapsar filas — mismo patrón simple
+>    que `JobTable`/`MaintenanceTable` (que tampoco lo tienen). Las líneas de factura solo se
+>    muestran dentro de `InvoiceFormModal` en modo edición y cuando `status === 'DRAFT'`, ya que el
+>    modal ya tiene el objeto `Invoice` completo — evita una vista de detalle separada.
+> 5. **Tests:** 68 → 75 (7 tests nuevos en `Billing.test.tsx`). `tsc -b` limpio en
+>    `packages/api`/`packages/hooks`/`apps/web`. `oxlint` sin warnings nuevos (solo el warning
+>    preexistente documentado de `AssignmentModal.tsx`).
 
 ---
 

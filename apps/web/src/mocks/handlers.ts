@@ -751,6 +751,143 @@ function buildWorkshopScheduleMock(params: {
   }
 }
 
+type InvoiceStatus = 'DRAFT' | 'ISSUED' | 'PAID' | 'OVERDUE'
+
+type LineItemMock = {
+  id: string
+  description: string
+  quantity: number
+  unitPrice: number
+  subtotal: number
+  linkedJobId: string | null
+}
+
+type LineItemRequestBody = {
+  description: string
+  quantity: number
+  unitPrice: number
+  linkedJobId?: string | null
+}
+
+type InvoiceMock = {
+  id: string
+  invoiceNumber: string
+  clientId: string
+  clientName: string
+  status: InvoiceStatus
+  issueDate: string | null
+  dueDate: string | null
+  paymentDate: string | null
+  taxRate: number
+  subtotal: number
+  taxAmount: number
+  total: number
+  notes: string | null
+  createdAt: string
+  lineItems: LineItemMock[]
+}
+
+type InvoiceRequestBody = {
+  clientId: string
+  dueDate?: string | null
+  notes?: string | null
+  taxRate?: number | null
+}
+
+type PayInvoiceRequestBody = {
+  paymentDate?: string | null
+}
+
+// Mirrors the backend's configurable default tax rate (see InvoiceFormModal's "usa el valor por
+// defecto" label) — the mock always falls back to this when taxRate isn't provided.
+const DEFAULT_TAX_RATE = 0.21
+
+function buildLineItemMock(id: string, request: LineItemRequestBody): LineItemMock {
+  return {
+    id,
+    description: request.description,
+    quantity: request.quantity,
+    unitPrice: request.unitPrice,
+    subtotal: request.quantity * request.unitPrice,
+    linkedJobId: request.linkedJobId ?? null,
+  }
+}
+
+function recalcInvoiceTotals(invoice: InvoiceMock): InvoiceMock {
+  const subtotal = invoice.lineItems.reduce((sum, lineItem) => sum + lineItem.subtotal, 0)
+  const taxAmount = subtotal * invoice.taxRate
+  return { ...invoice, subtotal, taxAmount, total: subtotal + taxAmount }
+}
+
+export const SEED_INVOICES: InvoiceMock[] = [
+  recalcInvoiceTotals({
+    id: 'invoice-1',
+    invoiceNumber: 'INV-2026-00001',
+    clientId: SEED_CLIENTS[0]!.id,
+    clientName: SEED_CLIENTS[0]!.name,
+    status: 'DRAFT',
+    issueDate: null,
+    dueDate: '2026-08-01',
+    paymentDate: null,
+    taxRate: DEFAULT_TAX_RATE,
+    subtotal: 0,
+    taxAmount: 0,
+    total: 0,
+    notes: null,
+    createdAt: '2026-07-05T09:00:00Z',
+    lineItems: [
+      buildLineItemMock('line-item-1', { description: 'Transporte de mercancía', quantity: 2, unitPrice: 150 }),
+      buildLineItemMock('line-item-2', { description: 'Combustible', quantity: 1, unitPrice: 80 }),
+    ],
+  }),
+  recalcInvoiceTotals({
+    id: 'invoice-2',
+    invoiceNumber: 'INV-2026-00002',
+    clientId: SEED_CLIENTS[1]!.id,
+    clientName: SEED_CLIENTS[1]!.name,
+    status: 'ISSUED',
+    issueDate: '2026-07-06',
+    dueDate: '2026-08-06',
+    paymentDate: null,
+    taxRate: DEFAULT_TAX_RATE,
+    subtotal: 0,
+    taxAmount: 0,
+    total: 0,
+    notes: null,
+    createdAt: '2026-07-06T09:00:00Z',
+    lineItems: [
+      buildLineItemMock('line-item-3', { description: 'Servicio de flete', quantity: 1, unitPrice: 500 }),
+    ],
+  }),
+  recalcInvoiceTotals({
+    id: 'invoice-3',
+    invoiceNumber: 'INV-2026-00003',
+    clientId: SEED_CLIENTS[0]!.id,
+    clientName: SEED_CLIENTS[0]!.name,
+    status: 'PAID',
+    issueDate: '2026-06-01',
+    dueDate: '2026-07-01',
+    paymentDate: '2026-06-28',
+    taxRate: DEFAULT_TAX_RATE,
+    subtotal: 0,
+    taxAmount: 0,
+    total: 0,
+    notes: 'Pagada por transferencia',
+    createdAt: '2026-06-01T09:00:00Z',
+    lineItems: [
+      buildLineItemMock('line-item-4', { description: 'Transporte de mercancía', quantity: 3, unitPrice: 200 }),
+    ],
+  }),
+]
+
+let invoices: InvoiceMock[] = [...SEED_INVOICES]
+
+export function resetInvoicesMock() {
+  invoices = [...SEED_INVOICES]
+}
+
+let lineItemSequence = SEED_INVOICES.reduce((count, invoice) => count + invoice.lineItems.length, 0)
+
 export const handlers = [
   http.get('/api/v1/clients', ({ request }) => {
     const url = new URL(request.url)
@@ -1929,6 +2066,318 @@ export const handlers = [
 
     const { rangeTags: _rangeTags, ...response } = updated
     return HttpResponse.json(response)
+  }),
+
+  http.get('/api/v1/invoices', ({ request }) => {
+    const url = new URL(request.url)
+    const page = Number(url.searchParams.get('page') ?? 0)
+    const size = Number(url.searchParams.get('size') ?? 20)
+    const start = page * size
+    const content = invoices.slice(start, start + size)
+
+    return HttpResponse.json({
+      content,
+      page,
+      size,
+      totalElements: invoices.length,
+      totalPages: Math.max(1, Math.ceil(invoices.length / size)),
+    })
+  }),
+
+  http.post('/api/v1/invoices', async ({ request }) => {
+    const body = (await request.json()) as InvoiceRequestBody
+
+    const client = clients.find((c) => c.id === body.clientId)
+    if (!client) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'CLIENT_NOT_FOUND',
+          message: `Client ${body.clientId} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    const newInvoice = recalcInvoiceTotals({
+      id: `invoice-${invoices.length + 1}`,
+      invoiceNumber: `INV-2026-${String(invoices.length + 1).padStart(5, '0')}`,
+      clientId: client.id,
+      clientName: client.name,
+      status: 'DRAFT',
+      issueDate: null,
+      dueDate: body.dueDate ?? null,
+      paymentDate: null,
+      taxRate: body.taxRate ?? DEFAULT_TAX_RATE,
+      subtotal: 0,
+      taxAmount: 0,
+      total: 0,
+      notes: body.notes ?? null,
+      createdAt: new Date().toISOString(),
+      lineItems: [],
+    })
+    invoices = [...invoices, newInvoice]
+
+    return HttpResponse.json(newInvoice, { status: 201 })
+  }),
+
+  http.get('/api/v1/invoices/:id', ({ params }) => {
+    const invoice = invoices.find((i) => i.id === params.id)
+
+    if (!invoice) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'INVOICE_NOT_FOUND',
+          message: `Invoice ${params.id} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    return HttpResponse.json(invoice)
+  }),
+
+  http.put('/api/v1/invoices/:id', async ({ request, params }) => {
+    const body = (await request.json()) as InvoiceRequestBody
+    const index = invoices.findIndex((invoice) => invoice.id === params.id)
+    const existing = invoices[index]
+
+    if (!existing) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'INVOICE_NOT_FOUND',
+          message: `Invoice ${params.id} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    if (existing.status !== 'DRAFT') {
+      return HttpResponse.json(
+        {
+          status: 409,
+          code: 'INVOICE_INVALID_STATE_TRANSITION',
+          message: `Invoice ${params.id} cannot be updated from state ${existing.status}`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 409 },
+      )
+    }
+
+    const client = clients.find((c) => c.id === body.clientId)
+    if (!client) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'CLIENT_NOT_FOUND',
+          message: `Client ${body.clientId} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    const updated = recalcInvoiceTotals({
+      ...existing,
+      clientId: client.id,
+      clientName: client.name,
+      dueDate: body.dueDate ?? null,
+      notes: body.notes ?? null,
+      taxRate: body.taxRate ?? DEFAULT_TAX_RATE,
+    })
+    invoices = invoices.map((invoice, i) => (i === index ? updated : invoice))
+
+    return HttpResponse.json(updated)
+  }),
+
+  http.delete('/api/v1/invoices/:id', ({ params }) => {
+    const existing = invoices.find((invoice) => invoice.id === params.id)
+
+    if (!existing) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'INVOICE_NOT_FOUND',
+          message: `Invoice ${params.id} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    if (existing.status !== 'DRAFT') {
+      return HttpResponse.json(
+        {
+          status: 409,
+          code: 'INVOICE_INVALID_STATE_TRANSITION',
+          message: `Invoice ${params.id} cannot be deleted from state ${existing.status}`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 409 },
+      )
+    }
+
+    invoices = invoices.filter((invoice) => invoice.id !== params.id)
+    return new HttpResponse(null, { status: 204 })
+  }),
+
+  http.patch('/api/v1/invoices/:id/issue', ({ params }) => {
+    const index = invoices.findIndex((invoice) => invoice.id === params.id)
+    const existing = invoices[index]
+
+    if (!existing) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'INVOICE_NOT_FOUND',
+          message: `Invoice ${params.id} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    if (existing.status !== 'DRAFT') {
+      return HttpResponse.json(
+        {
+          status: 409,
+          code: 'INVOICE_INVALID_STATE_TRANSITION',
+          message: `Invoice ${params.id} cannot be issued from state ${existing.status}`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 409 },
+      )
+    }
+
+    if (existing.lineItems.length === 0) {
+      return HttpResponse.json(
+        {
+          status: 409,
+          code: 'INVOICE_NO_LINE_ITEMS',
+          message: `Invoice ${params.id} has no line items`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 409 },
+      )
+    }
+
+    const updated: InvoiceMock = {
+      ...existing,
+      status: 'ISSUED',
+      issueDate: new Date().toISOString().slice(0, 10),
+    }
+    invoices = invoices.map((invoice, i) => (i === index ? updated : invoice))
+
+    return HttpResponse.json(updated)
+  }),
+
+  http.patch('/api/v1/invoices/:id/pay', async ({ request, params }) => {
+    const index = invoices.findIndex((invoice) => invoice.id === params.id)
+    const existing = invoices[index]
+
+    if (!existing) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'INVOICE_NOT_FOUND',
+          message: `Invoice ${params.id} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    if (existing.status !== 'ISSUED') {
+      return HttpResponse.json(
+        {
+          status: 409,
+          code: 'INVOICE_INVALID_STATE_TRANSITION',
+          message: `Invoice ${params.id} cannot be paid from state ${existing.status}`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 409 },
+      )
+    }
+
+    const body = (await request.json().catch(() => null)) as PayInvoiceRequestBody | null
+
+    const updated: InvoiceMock = {
+      ...existing,
+      status: 'PAID',
+      paymentDate: body?.paymentDate ?? new Date().toISOString().slice(0, 10),
+    }
+    invoices = invoices.map((invoice, i) => (i === index ? updated : invoice))
+
+    return HttpResponse.json(updated)
+  }),
+
+  http.post('/api/v1/invoices/:id/line-items', async ({ request, params }) => {
+    const index = invoices.findIndex((invoice) => invoice.id === params.id)
+    const existing = invoices[index]
+
+    if (!existing) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'INVOICE_NOT_FOUND',
+          message: `Invoice ${params.id} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    if (existing.status !== 'DRAFT') {
+      return HttpResponse.json(
+        {
+          status: 409,
+          code: 'INVOICE_INVALID_STATE_TRANSITION',
+          message: `Invoice ${params.id} cannot receive line items from state ${existing.status}`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 409 },
+      )
+    }
+
+    const body = (await request.json()) as LineItemRequestBody
+    lineItemSequence += 1
+    const newLineItem = buildLineItemMock(`line-item-${lineItemSequence}`, body)
+
+    const updated = recalcInvoiceTotals({ ...existing, lineItems: [...existing.lineItems, newLineItem] })
+    invoices = invoices.map((invoice, i) => (i === index ? updated : invoice))
+
+    return HttpResponse.json(updated, { status: 201 })
+  }),
+
+  http.get('/api/v1/invoices/:id/pdf', ({ params }) => {
+    const existing = invoices.find((invoice) => invoice.id === params.id)
+
+    if (!existing) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'INVOICE_NOT_FOUND',
+          message: `Invoice ${params.id} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    // The mock returns a small placeholder blob — asserting real PDF byte content is the
+    // backend's responsibility (InvoicePdfServiceTest); the frontend only needs to exercise the
+    // blob-download plumbing (see useDownloadInvoicePdf/PdfDownloadButton.test coverage).
+    return new HttpResponse(new Blob([`%PDF-1.4 mock content for ${existing.invoiceNumber}`]), {
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="${existing.invoiceNumber}.pdf"`,
+      },
+    })
   }),
 
   http.post('/api/v1/auth/login', async ({ request }) => {

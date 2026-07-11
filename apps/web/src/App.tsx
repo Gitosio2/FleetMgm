@@ -8,6 +8,7 @@ import { Vehicles } from '@/pages/Vehicles'
 import { Workers } from '@/pages/Workers'
 import { Jobs } from '@/pages/Jobs'
 import { Workshop } from '@/pages/Workshop'
+import { Billing } from '@/pages/Billing'
 import { NotImplemented } from '@/pages/NotImplemented'
 import { NAV_ITEMS, MANAGEMENT_ROLES } from '@/components/layout/nav-items'
 
@@ -64,6 +65,14 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/billing"
+          element={
+            <ProtectedRoute allowedRoles={MANAGEMENT_ROLES}>
+              <Billing />
+            </ProtectedRoute>
+          }
+        />
         {NAV_ITEMS.filter(
           (item) =>
             item.to !== '/' &&
@@ -71,7 +80,8 @@ function App() {
             item.to !== '/vehicles' &&
             item.to !== '/workers' &&
             item.to !== '/jobs' &&
-            item.to !== '/workshop',
+            item.to !== '/workshop' &&
+            item.to !== '/billing',
         ).map((item) => (
           <Route key={item.to} path={item.to} element={<NotImplemented />} />
         ))}

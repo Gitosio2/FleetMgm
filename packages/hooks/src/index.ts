@@ -1,5 +1,6 @@
 export * from './useAssignments'
 export * from './useAuth'
+export * from './useBilling'
 export * from './useClients'
 export * from './useJobs'
 export * from './useMaintenance'

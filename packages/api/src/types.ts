@@ -272,3 +272,52 @@ export type UpdateScheduleRequest = {
   priority: SchedulePriority
   notes?: string | null
 }
+
+export type InvoiceStatus = 'DRAFT' | 'ISSUED' | 'PAID' | 'OVERDUE'
+
+export type LineItemResponse = {
+  id: string
+  description: string
+  quantity: number
+  unitPrice: number
+  subtotal: number
+  linkedJobId: string | null
+}
+
+export type LineItemRequest = {
+  description: string
+  quantity: number
+  unitPrice: number
+  linkedJobId?: string | null
+}
+
+export type Invoice = {
+  id: string
+  invoiceNumber: string
+  clientId: string
+  clientName: string
+  status: InvoiceStatus
+  issueDate: string | null
+  dueDate: string | null
+  paymentDate: string | null
+  taxRate: number
+  subtotal: number
+  taxAmount: number
+  total: number
+  notes: string | null
+  createdAt: string
+  lineItems: LineItemResponse[]
+}
+
+export type CreateInvoiceRequest = {
+  clientId: string
+  dueDate?: string | null
+  notes?: string | null
+  taxRate?: number | null
+}
+
+export type UpdateInvoiceRequest = CreateInvoiceRequest
+
+export type PayInvoiceRequest = {
+  paymentDate?: string | null
+}
