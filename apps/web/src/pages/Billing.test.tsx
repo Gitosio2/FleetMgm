@@ -200,7 +200,10 @@ describe('Billing', () => {
 
     await user.click(within(row).getByRole('button', { name: /descargar pdf/i }))
 
-    await waitFor(() => expect(clickSpy).toHaveBeenCalledTimes(1))
+    // Default waitFor timeout (1000ms) has been observed flaking under CI's shared runners,
+    // where several monorepo workspaces build/test concurrently — the mutation's async chain
+    // (blob fetch -> createObjectURL -> click) is fine locally but can be slower there.
+    await waitFor(() => expect(clickSpy).toHaveBeenCalledTimes(1), { timeout: 5000 })
     expect(createObjectURL).toHaveBeenCalledTimes(1)
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:mock-url')
     expect(clickedHref).toBe('blob:mock-url')
