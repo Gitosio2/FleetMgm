@@ -199,6 +199,8 @@ export type MaintenanceRecord = {
   cost: number | null
   workshopEntryDate: string | null
   workshopExitDate: string | null
+  workshopEntryTime: string | null
+  workshopExitTime: string | null
   technicianId: string | null
   technicianName: string | null
   invoiceId: string | null
@@ -239,6 +241,8 @@ export type WorkshopSchedule = {
   maintenanceRecordId: string | null
   maintenanceCategory: MaintenanceCategory | null
   scheduledDate: string
+  scheduledStartTime: string | null
+  scheduledEndTime: string | null
   type: string
   priority: SchedulePriority
   status: WorkshopStatus
@@ -251,6 +255,8 @@ export type CreateScheduleRequest = {
   technicianId?: string | null
   maintenanceRecordId?: string | null
   scheduledDate: string
+  scheduledStartTime?: string | null
+  scheduledEndTime?: string | null
   type: string
   priority?: SchedulePriority | null
   notes?: string | null
@@ -261,6 +267,8 @@ export type UpdateScheduleRequest = {
   technicianId?: string | null
   maintenanceRecordId?: string | null
   scheduledDate: string
+  scheduledStartTime?: string | null
+  scheduledEndTime?: string | null
   type: string
   priority: SchedulePriority
   notes?: string | null

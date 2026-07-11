@@ -496,6 +496,8 @@ type MaintenanceRecordMock = {
   cost: number | null
   workshopEntryDate: string | null
   workshopExitDate: string | null
+  workshopEntryTime: string | null
+  workshopExitTime: string | null
   technicianId: string | null
   technicianName: string | null
   invoiceId: string | null
@@ -536,6 +538,8 @@ export const SEED_MAINTENANCE: MaintenanceRecordMock[] = [
     cost: null,
     workshopEntryDate: null,
     workshopExitDate: null,
+    workshopEntryTime: null,
+    workshopExitTime: null,
     technicianId: TECHNICIAN_WORKER_ID,
     technicianName: SEED_WORKERS[1]!.fullName,
     invoiceId: null,
@@ -555,6 +559,8 @@ export const SEED_MAINTENANCE: MaintenanceRecordMock[] = [
     cost: null,
     workshopEntryDate: '2026-07-03',
     workshopExitDate: null,
+    workshopEntryTime: '08:30:00',
+    workshopExitTime: null,
     technicianId: TECHNICIAN_WORKER_ID,
     technicianName: SEED_WORKERS[1]!.fullName,
     invoiceId: null,
@@ -574,6 +580,8 @@ export const SEED_MAINTENANCE: MaintenanceRecordMock[] = [
     cost: 85.5,
     workshopEntryDate: '2026-06-10',
     workshopExitDate: '2026-06-11',
+    workshopEntryTime: '09:00:00',
+    workshopExitTime: '17:00:00',
     technicianId: null,
     technicianName: null,
     invoiceId: null,
@@ -608,6 +616,8 @@ type WorkshopScheduleMock = {
   maintenanceRecordId: string | null
   maintenanceCategory: MaintenanceCategory | null
   scheduledDate: string
+  scheduledStartTime: string | null
+  scheduledEndTime: string | null
   type: string
   priority: SchedulePriority
   status: WorkshopStatus
@@ -621,6 +631,8 @@ type ScheduleRequestBody = {
   technicianId?: string | null
   maintenanceRecordId?: string | null
   scheduledDate: string
+  scheduledStartTime?: string | null
+  scheduledEndTime?: string | null
   type: string
   priority?: SchedulePriority | null
   notes?: string | null
@@ -631,6 +643,8 @@ type ScheduleUpdateRequestBody = {
   technicianId?: string | null
   maintenanceRecordId?: string | null
   scheduledDate: string
+  scheduledStartTime?: string | null
+  scheduledEndTime?: string | null
   type: string
   priority: SchedulePriority
   notes?: string | null
@@ -648,6 +662,8 @@ export const SEED_SCHEDULES: WorkshopScheduleMock[] = [
     maintenanceRecordId: SEED_MAINTENANCE[0]!.id,
     maintenanceCategory: SEED_MAINTENANCE[0]!.category,
     scheduledDate: '2026-07-09',
+    scheduledStartTime: '08:00:00',
+    scheduledEndTime: '09:00:00',
     type: 'Cambio de aceite',
     priority: 'MEDIUM',
     status: 'PENDING',
@@ -666,6 +682,8 @@ export const SEED_SCHEDULES: WorkshopScheduleMock[] = [
     maintenanceRecordId: SEED_MAINTENANCE[1]!.id,
     maintenanceCategory: SEED_MAINTENANCE[1]!.category,
     scheduledDate: '2026-07-11',
+    scheduledStartTime: null,
+    scheduledEndTime: null,
     type: 'Revisión de frenos',
     priority: 'HIGH',
     status: 'IN_PROGRESS',
@@ -684,6 +702,8 @@ export const SEED_SCHEDULES: WorkshopScheduleMock[] = [
     maintenanceRecordId: null,
     maintenanceCategory: null,
     scheduledDate: '2026-07-25',
+    scheduledStartTime: null,
+    scheduledEndTime: null,
     type: 'Revisión general',
     priority: 'LOW',
     status: 'PENDING',
@@ -705,6 +725,8 @@ function buildWorkshopScheduleMock(params: {
   maintenanceRecordId?: string | null
   maintenanceCategory?: MaintenanceCategory | null
   scheduledDate: string
+  scheduledStartTime?: string | null
+  scheduledEndTime?: string | null
   type: string
   priority: SchedulePriority
   notes?: string | null
@@ -720,6 +742,8 @@ function buildWorkshopScheduleMock(params: {
     maintenanceRecordId: params.maintenanceRecordId ?? null,
     maintenanceCategory: params.maintenanceCategory ?? null,
     scheduledDate: params.scheduledDate,
+    scheduledStartTime: params.scheduledStartTime ?? null,
+    scheduledEndTime: params.scheduledEndTime ?? null,
     type: params.type,
     priority: params.priority,
     status: 'PENDING',
@@ -1428,6 +1452,8 @@ export const handlers = [
       cost: null,
       workshopEntryDate: null,
       workshopExitDate: null,
+      workshopEntryTime: null,
+      workshopExitTime: null,
       technicianId: technician?.id ?? null,
       technicianName: technician?.fullName ?? null,
       invoiceId: null,
@@ -1554,6 +1580,9 @@ export const handlers = [
       ...existing,
       status: 'IN_PROGRESS',
       workshopEntryDate: new Date().toISOString().slice(0, 10),
+      // Fixed, deterministic time — mirrors the rangeTags comment above: real-clock-derived
+      // values here would make time-ordering assertions flaky depending on when the test runs.
+      workshopEntryTime: '08:00:00',
       usageAtService: body?.usageAtService ?? existing.usageAtService,
     }
     maintenanceRecords = maintenanceRecords.map((record, i) => (i === index ? updated : record))
@@ -1595,6 +1624,8 @@ export const handlers = [
       ...existing,
       status: 'COMPLETED',
       workshopExitDate: new Date().toISOString().slice(0, 10),
+      // Fixed, deterministic time — same rationale as the /start handler above.
+      workshopExitTime: '16:00:00',
       cost: body?.cost ?? existing.cost,
     }
     maintenanceRecords = maintenanceRecords.map((record, i) => (i === index ? updated : record))
@@ -1737,6 +1768,8 @@ export const handlers = [
       maintenanceRecordId: linkedMaintenance?.id,
       maintenanceCategory: linkedMaintenance?.category,
       scheduledDate: body.scheduledDate,
+      scheduledStartTime: body.scheduledStartTime,
+      scheduledEndTime: body.scheduledEndTime,
       type: body.type,
       priority: body.priority ?? 'MEDIUM',
       notes: body.notes,
@@ -1811,6 +1844,8 @@ export const handlers = [
       maintenanceRecordId: linkedMaintenance?.id ?? null,
       maintenanceCategory: linkedMaintenance?.category ?? null,
       scheduledDate: body.scheduledDate,
+      scheduledStartTime: body.scheduledStartTime ?? null,
+      scheduledEndTime: body.scheduledEndTime ?? null,
       type: body.type,
       priority: body.priority,
       notes: body.notes ?? null,
