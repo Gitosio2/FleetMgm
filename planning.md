@@ -1078,12 +1078,43 @@ FleetMgm/
 >    failures/errors — sin regresión.
 
 ### Hito 33 — Facturas de proveedor: Lógica e implementación *(nuevo)*
-- [ ] **[RED]** Tests `SupplierInvoiceServiceTest` — crear PENDING, marcar PAID, listar por vehicleId, listar por categoría, @PreAuthorize solo ADMIN/MANAGER/ADMINISTRATIVE
-- [ ] **[RED]** Tests `SupplierInvoiceControllerTest` (`@WebMvcTest`) — 201, 400, 404, 403
-- [ ] **[GREEN]** `SupplierInvoiceRepository`, `SupplierInvoiceLineItemRepository`
-- [ ] **[GREEN]** `SupplierInvoiceService.create()` — crear PENDING
-- [ ] **[GREEN]** `SupplierInvoiceService.markPaid()` — PENDING → PAID, `paymentDate = now()`
-- [ ] **[GREEN]** `@PreAuthorize` — solo ADMIN/MANAGER/ADMINISTRATIVE
+- [x] **[RED→GREEN]** Tests `SupplierInvoiceServiceTest` — crear PENDING (vehicle resuelto opcionalmente, 404 si vehicleId inválido), `update()`/`delete()`/`pay()`/`addLineItem()` solo desde PENDING (409 en cualquier otro caso), `pay()` usa `paymentDate` provisto o cae a `now()`, `addLineItem()` redondea subtotal a 2 decimales y NO toca los totales de la factura, `list()` delega al repositorio con filtros opcionales
+- [x] **[RED→GREEN]** Tests `SupplierInvoiceControllerTest` (`@WebMvcTest`) — 201, 400, 404, 409, `pay` con/sin body (403 no se prueba — gap conocido y aceptado de `@WebMvcTest`/`@MockBean`, no atraviesa el proxy AOP de Security, igual que `InvoiceControllerTest`)
+- [x] **[RED→GREEN]** Tests `SupplierInvoiceRepositoryTest` (`@DataJpaTest` + Testcontainers) — sin filtros devuelve todo, filtro por `vehicleId`, filtro por `category`, ambos combinados, `LEFT JOIN FETCH vehicle` inicializado sin queries extra, soft-deleted excluidos
+- [x] **[GREEN]** `SupplierInvoiceRepository.findAllJoinFetch(vehicleId, category, pageable)` — JPQL parametrizado con el idiom `(:param IS NULL OR ...)` para ambos filtros opcionales (sin concatenación de strings, cumple la regla de SQL injection de `CLAUDE.md`); `SupplierInvoiceLineItemRepository` sin métodos extra (no hay paso de suma de líneas que lo necesite)
+- [x] **[GREEN]** `SupplierInvoiceService.create()` — crea en PENDING, resuelve `vehicleId` opcionalmente (404 `VEHICLE_NOT_FOUND` si no existe)
+- [x] **[GREEN]** `SupplierInvoiceService.pay()` — PENDING → PAID, `paymentDate` provisto o `now()` (mismo patrón ya corregido en `Invoice.pay()` en el Hito 31, aplicado aquí desde el día uno)
+- [x] **[GREEN]** `SupplierInvoiceService.update()`/`delete()`/`addLineItem()` — mismo guard PENDING-only que `pay()`, no listados explícitamente en el checklist original pero parte del contrato ya expuesto en el Hito 32 (ver nota de revisión abajo)
+- [x] **[GREEN]** `@PreAuthorize` — solo ADMIN/MANAGER/ADMINISTRATIVE (ya presente desde el stub del Hito 32, sin cambios)
+
+> **Nota (revisión Hito 33):**
+> 1. **Guard PENDING-only extendido a `update()`/`delete()`/`addLineItem()`:** el checklist original de este hito
+>    solo mencionaba explícitamente `create()`/`markPaid()`, pero el contrato ya expuesto desde el Hito 32
+>    incluye `update()`, `delete()` y `addLineItem()` en el mismo controller. Confirmado con el usuario antes de
+>    implementar: se aplica la misma disciplina de guard de estado ya establecida para `Invoice` en el Hito 31
+>    (donde `update()`/`delete()` sí tenían guard desde el principio, a diferencia de
+>    `MaintenanceService`/`WorkshopScheduleService`, que carecían de él) — `PENDING` es el único estado no
+>    terminal aquí, así que `update()`, `delete()` y `addLineItem()` lanzan `ConflictException` (409) fuera de
+>    ese estado, con códigos propios de este feature (`SUPPLIER_INVOICE_INVALID_STATE_TRANSITION`,
+>    `SUPPLIER_INVOICE_DELETE_NOT_ALLOWED`) en vez de reutilizar los de `Invoice`.
+> 2. **Query de filtro doble opcional, parametrizada:** `findAllJoinFetch(vehicleId, category, pageable)` usa el
+>    idiom estándar de Spring Data JPA `(:param IS NULL OR campo = :param)` para ambos filtros — verificado
+>    contra PostgreSQL real (Testcontainers), no solo compilación: el SQL generado usa `? is null or v.id=?` y
+>    `? is null or si.category=?`, totalmente parametrizado, sin concatenación de strings (regla de SQL
+>    injection de `CLAUDE.md`). `LEFT JOIN FETCH` (no `JOIN FETCH`) porque `vehicle` es nullable en
+>    `SupplierInvoice`, a diferencia del `client` obligatorio de `Invoice`.
+> 3. **Redondeo de dinero aplicado desde el día uno:** `addLineItem()` usa
+>    `quantity.multiply(unitPrice).setScale(2, RoundingMode.HALF_UP)` desde la primera implementación — la
+>    lección del Hito 31 (bug de redondeo detectado y corregido en `Invoice.addLineItem()`) se aplicó aquí sin
+>    necesidad de un fix de seguimiento. Test de regresión con los mismos valores no triviales
+>    (`3 × 10.005 = 30.015 → 30.02`, no el valor crudo de escala 3).
+> 4. **Line items no retroalimentan los totales:** confirmado el diseño ya fijado en el Hito 32 —
+>    `addLineItem()` nunca recalcula `subtotal`/`taxAmount`/`total` de la factura (no existe un paso equivalente
+>    a `issue()` en este feature). Test explícito verifica que los totales de la factura quedan sin cambios
+>    tras agregar una línea.
+> 5. **Tests finales:** `./mvnw test` 280 → 317 (+21 `SupplierInvoiceServiceTest`, +16
+>    `SupplierInvoiceControllerTest`), 0 failures/errors. `./mvnw test -Pfailsafe` 352 (+6
+>    `SupplierInvoiceRepositoryTest`), 0 failures/errors.
 
 ### Hito 34 — PDF y rentabilidad
 - [ ] **[RED]** Tests `PdfExportServiceTest` — PDF generado contiene cabecera, líneas y totales correctos; IVA calculado al 21%
