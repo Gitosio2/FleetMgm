@@ -235,7 +235,7 @@ FleetMgm/
 │           ├── V14__add_workshop_time_range.sql                 ← aplicada, Hito 28
 │           ├── V15__add_job_price.sql                           ← aplicada, Hito 31 (precio del job, para la línea de factura automática)
 │           ├── V16__create_invoice_number_seq.sql               ← aplicada, Hito 31 (secuencia PostgreSQL para INV-2026-00001)
-│           ├── V17__drop_dead_invoice_maintenance_links.sql     ← pendiente (limpieza: MaintenanceRecord.invoice e InvoiceLineItem.linkedMaintenance, nunca usados)
+│           ├── V17__drop_dead_invoice_maintenance_links.sql     ← aplicada (limpieza: MaintenanceRecord.invoice e InvoiceLineItem.linkedMaintenance, nunca usados)
 │           └── V18__seed_demo_data.sql                          ← pendiente, Hito 43 (única migración de datos que falta)
 │
 ├── packages/                                   ← lógica compartida entre web y mobile
@@ -1206,6 +1206,58 @@ FleetMgm/
 >    del fix, y en verde después.
 >    **Tests:** unitarios sin cambio (325, no se tocó `ProfitabilityServiceTest`); suite completa con
 >    Testcontainers (`-Pfailsafe`) 363 → 365 (+2 nuevos en `ProfitabilityRepositoryTest`), todos en verde.
+
+### Adenda — Limpieza de campos muertos: `MaintenanceRecord.invoice` e `InvoiceLineItem.linkedMaintenance` *(nuevo, sin hito fijo — post-Hito 34, previo al Hito 35)*
+> Surgió durante una explicación técnica del reporte de rentabilidad (Hito 34) al usuario: al recorrer
+> `ProfitabilityRepository`, el usuario preguntó si un `MaintenanceRecord` (mantenimiento de taller) podía
+> realmente enlazarse a una factura de **cliente**. No fue detectado por una revisión de código — fue una
+> pregunta de negocio que llevó a rastrear el código y confirmar dos campos sin caso de uso real:
+> 1. **`MaintenanceRecord.invoice`** (FK a `Invoice` de cliente, scaffoldeada en V6/V7) — **campo
+>    totalmente muerto**: `setInvoice(...)` nunca se invoca en ningún camino de código de producción.
+>    Solo era legible (siempre `null`) vía `MaintenanceResponse.invoiceId`.
+> 2. **`InvoiceLineItem.linkedMaintenance`** (FK a `MaintenanceRecord`, alcanzable vía el parámetro opcional
+>    `linkedMaintenanceId` del endpoint manual `POST /api/v1/invoices/{id}/line-items`) — código alcanzable,
+>    pero **sin escenario de negocio real** para esta aplicación: una factura de cliente nunca factura
+>    directamente un trabajo de mantenimiento de taller. Confirmado con el usuario que esto no representa
+>    un caso de uso de la app.
+>
+> **Distinción clave con `SupplierInvoiceLineItem.maintenanceRecord`:** esa relación (factura de
+> **proveedor** → mantenimiento) es la contraparte legítima y **se dejó intacta** — ahí sí hay un caso de
+> negocio real y siempre válido: el taller/proveedor factura a la empresa por un trabajo de mantenimiento
+> (lado del coste). La limpieza de esta adenda es exclusivamente sobre el lado de facturación a clientes.
+>
+> **Migración `V17__drop_dead_invoice_maintenance_links.sql`** (ver árbol de arquitectura y nota de
+> numeración en Hito 24): elimina el constraint `fk_maintenance_invoice` y la columna `invoice_id` de
+> `maintenance_records`, y la columna `linked_maintenance_id` de `invoice_line_items` (su FK era un
+> `REFERENCES` inline sin constraint nombrado propio, así que el `DROP COLUMN` la remueve sin paso adicional).
+> La seed de datos pasa de V17 a **V18**.
+>
+> **Cambios de código:** `MaintenanceRecord` (campo/getter/setter `invoice` fuera), `MaintenanceMapper`
+> (mapping `invoiceId` fuera), `MaintenanceResponse` (campo `invoiceId` fuera), `InvoiceLineItem` (campo/
+> getter/setter `linkedMaintenance` fuera), `InvoiceMapper` (mappings `linkedMaintenanceId`/`linkedMaintenance`
+> fuera), `LineItemRequest`/`LineItemResponse` (campo `linkedMaintenanceId` fuera), `InvoiceService.addLineItem()`
+> (helper `resolveLinkedMaintenance` fuera). **`MaintenanceRepository` se eliminó del constructor de
+> `InvoiceService`** — tras quitar `resolveLinkedMaintenance`, era su único punto de uso en esa clase
+> (verificado: ningún otro método de `InvoiceService` lo usaba), y el proyecto evita dependencias inyectadas
+> sin uso. También se descubrió y corrigió un `@Query` de `MaintenanceRepository.findAllJoinFetch` con
+> `LEFT JOIN FETCH m.invoice` que los tests unitarios (Mockito, sin contexto Spring) no podían detectar —
+> solo lo reveló la suite de integración (`-Pfailsafe`), confirmando por qué ese comando es parte obligatoria
+> de la verificación de este tipo de limpieza.
+>
+> **`ProfitabilityRepositoryTest` — simplificación:** el test `findProfitabilityByVehicle_excludesLineItemsLinkedOnlyViaMaintenance_notJob`
+> (que probaba "una línea enlazada solo vía `linkedMaintenance`, no vía `linkedJob`, no cuenta como ingreso")
+> ya no tiene sentido con el campo eliminado — la regla de negocio que sigue vigente y debe seguir probada es
+> más simple: **una línea de factura con `linkedJob == null` no cuenta como ingreso, punto**. Renombrado a
+> `findProfitabilityByVehicle_excludesLineItem_whenLinkedJobIsNull`, y el helper `persistLineItem(...)` perdió
+> su parámetro `linkedMaintenance` (ya no hay un segundo camino de enlace que construir).
+>
+> **Frontend:** `packages/api/src/types.ts` (`MaintenanceRecord.invoiceId` fuera) y `apps/web/src/mocks/handlers.ts`
+> (tipo y seeds del mock de mantenimiento, mismo campo fuera) — no existe todavía ningún tipo `LineItemRequest`/
+> `LineItemResponse` en el frontend (Hito 35 aún no se implementó), así que no hay nada más que tocar ahí.
+>
+> **Tests:** backend unitario 325 → **324** (-1, se eliminó `addLineItem_throwsNotFound_whenLinkedMaintenanceMissing`,
+> probaba el campo removido); suite completa con Testcontainers (`-Pfailsafe`) 365 → **364**; frontend
+> (`vitest run`) sin cambio, **68/68**; `tsc -b` limpio en `packages/api` y `apps/web`. Todo verde.
 
 ### Hito 35 — Frontend: Billing
 > Requiere: Hitos 30–33 (backend facturación a clientes + facturas de proveedor)

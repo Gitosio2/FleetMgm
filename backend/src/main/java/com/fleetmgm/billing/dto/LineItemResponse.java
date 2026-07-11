@@ -9,6 +9,5 @@ public record LineItemResponse(
         BigDecimal quantity,
         BigDecimal unitPrice,
         BigDecimal subtotal,
-        UUID linkedJobId,
-        UUID linkedMaintenanceId
+        UUID linkedJobId
 ) {}

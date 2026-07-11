@@ -43,7 +43,7 @@ class MaintenanceControllerTest {
 
     private MaintenanceResponse sampleResponse() {
         return new MaintenanceResponse(MAINTENANCE_ID, VEHICLE_ID, "1234ABC", "Toyota", "Corolla", "Oil change", null,
-                null, null, null, null, null, null, null, MaintenanceStatus.SCHEDULED,
+                null, null, null, null, null, null, MaintenanceStatus.SCHEDULED,
                 MaintenanceCategory.PREVENTIVE, Instant.now(), null, null);
     }
 

@@ -203,7 +203,6 @@ export type MaintenanceRecord = {
   workshopExitTime: string | null
   technicianId: string | null
   technicianName: string | null
-  invoiceId: string | null
   status: MaintenanceStatus
   category: MaintenanceCategory
   createdAt: string

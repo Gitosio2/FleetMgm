@@ -24,8 +24,6 @@ import com.fleetmgm.shared.domain.AuditLog;
 import com.fleetmgm.shared.exception.ConflictException;
 import com.fleetmgm.shared.exception.NotFoundException;
 import com.fleetmgm.shared.infrastructure.AuditLogRepository;
-import com.fleetmgm.workshop.domain.MaintenanceRecord;
-import com.fleetmgm.workshop.infrastructure.MaintenanceRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -59,7 +57,6 @@ class InvoiceServiceTest {
     @Mock LineItemRepository lineItemRepository;
     @Mock ClientRepository clientRepository;
     @Mock JobRepository jobRepository;
-    @Mock MaintenanceRepository maintenanceRepository;
     @Mock InvoiceMapper invoiceMapper;
     @Mock InvoiceNumberGenerator invoiceNumberGenerator;
     @Mock AuditLogRepository auditLogRepository;
@@ -75,7 +72,7 @@ class InvoiceServiceTest {
         // engine would silently pass null for defaultTaxRate instead of the configured value. Constructed
         // manually once, matching the pattern already used in MaintenanceServiceTest for its @Value param.
         invoiceService = new InvoiceService(invoiceRepository, lineItemRepository, clientRepository,
-                jobRepository, maintenanceRepository, invoiceMapper, invoiceNumberGenerator,
+                jobRepository, invoiceMapper, invoiceNumberGenerator,
                 auditLogRepository, userRepository, DEFAULT_TAX_RATE);
     }
 
@@ -326,10 +323,10 @@ class InvoiceServiceTest {
         UUID invoiceId = UUID.randomUUID();
         Invoice invoice = new Invoice();
         invoice.setStatus(InvoiceStatus.DRAFT);
-        LineItemRequest request = new LineItemRequest("Parts", new BigDecimal("2"), new BigDecimal("50.00"), null, null);
+        LineItemRequest request = new LineItemRequest("Parts", new BigDecimal("2"), new BigDecimal("50.00"), null);
         InvoiceLineItem entity = new InvoiceLineItem();
         LineItemResponse expected = new LineItemResponse(UUID.randomUUID(), "Parts",
-                new BigDecimal("2"), new BigDecimal("50.00"), new BigDecimal("100.00"), null, null);
+                new BigDecimal("2"), new BigDecimal("50.00"), new BigDecimal("100.00"), null);
 
         when(invoiceRepository.findById(invoiceId)).thenReturn(Optional.of(invoice));
         when(invoiceMapper.toEntity(request)).thenReturn(entity);
@@ -349,10 +346,10 @@ class InvoiceServiceTest {
         Invoice invoice = new Invoice();
         invoice.setStatus(InvoiceStatus.DRAFT);
         // 3 * 10.005 = 30.015 -> HALF_UP to scale 2 = 30.02, not the raw scale-3 value.
-        LineItemRequest request = new LineItemRequest("Parts", new BigDecimal("3"), new BigDecimal("10.005"), null, null);
+        LineItemRequest request = new LineItemRequest("Parts", new BigDecimal("3"), new BigDecimal("10.005"), null);
         InvoiceLineItem entity = new InvoiceLineItem();
         LineItemResponse expected = new LineItemResponse(UUID.randomUUID(), "Parts",
-                new BigDecimal("3"), new BigDecimal("10.005"), new BigDecimal("30.02"), null, null);
+                new BigDecimal("3"), new BigDecimal("10.005"), new BigDecimal("30.02"), null);
 
         when(invoiceRepository.findById(invoiceId)).thenReturn(Optional.of(invoice));
         when(invoiceMapper.toEntity(request)).thenReturn(entity);
@@ -370,7 +367,7 @@ class InvoiceServiceTest {
         UUID invoiceId = UUID.randomUUID();
         Invoice invoice = new Invoice();
         invoice.setStatus(InvoiceStatus.ISSUED);
-        LineItemRequest request = new LineItemRequest("Parts", BigDecimal.ONE, new BigDecimal("50.00"), null, null);
+        LineItemRequest request = new LineItemRequest("Parts", BigDecimal.ONE, new BigDecimal("50.00"), null);
 
         when(invoiceRepository.findById(invoiceId)).thenReturn(Optional.of(invoice));
 
@@ -388,7 +385,7 @@ class InvoiceServiceTest {
         UUID jobId = UUID.randomUUID();
         Invoice invoice = new Invoice();
         invoice.setStatus(InvoiceStatus.DRAFT);
-        LineItemRequest request = new LineItemRequest("Job", BigDecimal.ONE, new BigDecimal("50.00"), jobId, null);
+        LineItemRequest request = new LineItemRequest("Job", BigDecimal.ONE, new BigDecimal("50.00"), jobId);
 
         when(invoiceRepository.findById(invoiceId)).thenReturn(Optional.of(invoice));
         when(jobRepository.findById(jobId)).thenReturn(Optional.empty());
@@ -401,34 +398,16 @@ class InvoiceServiceTest {
     }
 
     @Test
-    void addLineItem_throwsNotFound_whenLinkedMaintenanceMissing() {
-        UUID invoiceId = UUID.randomUUID();
-        UUID maintenanceId = UUID.randomUUID();
-        Invoice invoice = new Invoice();
-        invoice.setStatus(InvoiceStatus.DRAFT);
-        LineItemRequest request = new LineItemRequest("Maintenance", BigDecimal.ONE, new BigDecimal("50.00"), null, maintenanceId);
-
-        when(invoiceRepository.findById(invoiceId)).thenReturn(Optional.of(invoice));
-        when(maintenanceRepository.findById(maintenanceId)).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> invoiceService.addLineItem(invoiceId, request))
-                .isInstanceOf(NotFoundException.class)
-                .satisfies(ex -> assertThat(((NotFoundException) ex).getCode()).isEqualTo("MAINTENANCE_NOT_FOUND"));
-
-        verify(lineItemRepository, never()).save(any());
-    }
-
-    @Test
     void addLineItem_resolvesLinkedJob_whenProvided() {
         UUID invoiceId = UUID.randomUUID();
         UUID jobId = UUID.randomUUID();
         Invoice invoice = new Invoice();
         invoice.setStatus(InvoiceStatus.DRAFT);
         Job job = new Job();
-        LineItemRequest request = new LineItemRequest("Job", BigDecimal.ONE, new BigDecimal("50.00"), jobId, null);
+        LineItemRequest request = new LineItemRequest("Job", BigDecimal.ONE, new BigDecimal("50.00"), jobId);
         InvoiceLineItem entity = new InvoiceLineItem();
         LineItemResponse expected = new LineItemResponse(UUID.randomUUID(), "Job",
-                BigDecimal.ONE, new BigDecimal("50.00"), new BigDecimal("50.00"), jobId, null);
+                BigDecimal.ONE, new BigDecimal("50.00"), new BigDecimal("50.00"), jobId);
 
         when(invoiceRepository.findById(invoiceId)).thenReturn(Optional.of(invoice));
         when(jobRepository.findById(jobId)).thenReturn(Optional.of(job));

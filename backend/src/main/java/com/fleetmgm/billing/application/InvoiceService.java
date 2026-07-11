@@ -23,8 +23,6 @@ import com.fleetmgm.shared.domain.AuditLog;
 import com.fleetmgm.shared.exception.ConflictException;
 import com.fleetmgm.shared.exception.NotFoundException;
 import com.fleetmgm.shared.infrastructure.AuditLogRepository;
-import com.fleetmgm.workshop.domain.MaintenanceRecord;
-import com.fleetmgm.workshop.infrastructure.MaintenanceRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -53,7 +51,6 @@ public class InvoiceService {
     private final LineItemRepository lineItemRepository;
     private final ClientRepository clientRepository;
     private final JobRepository jobRepository;
-    private final MaintenanceRepository maintenanceRepository;
     private final InvoiceMapper invoiceMapper;
     private final InvoiceNumberGenerator invoiceNumberGenerator;
     private final AuditLogRepository auditLogRepository;
@@ -64,7 +61,6 @@ public class InvoiceService {
                            LineItemRepository lineItemRepository,
                            ClientRepository clientRepository,
                            JobRepository jobRepository,
-                           MaintenanceRepository maintenanceRepository,
                            InvoiceMapper invoiceMapper,
                            InvoiceNumberGenerator invoiceNumberGenerator,
                            AuditLogRepository auditLogRepository,
@@ -74,7 +70,6 @@ public class InvoiceService {
         this.lineItemRepository = lineItemRepository;
         this.clientRepository = clientRepository;
         this.jobRepository = jobRepository;
-        this.maintenanceRepository = maintenanceRepository;
         this.invoiceMapper = invoiceMapper;
         this.invoiceNumberGenerator = invoiceNumberGenerator;
         this.auditLogRepository = auditLogRepository;
@@ -193,12 +188,10 @@ public class InvoiceService {
         assertIsDraft(invoice, "INVOICE_INVALID_STATE_TRANSITION",
                 "Invoice " + invoiceId + " cannot receive line items from state " + invoice.getStatus());
         Job linkedJob = resolveLinkedJob(request.linkedJobId());
-        MaintenanceRecord linkedMaintenance = resolveLinkedMaintenance(request.linkedMaintenanceId());
 
         InvoiceLineItem lineItem = invoiceMapper.toEntity(request);
         lineItem.setInvoice(invoice);
         lineItem.setLinkedJob(linkedJob);
-        lineItem.setLinkedMaintenance(linkedMaintenance);
         lineItem.setSubtotal(request.quantity().multiply(request.unitPrice()).setScale(MONEY_SCALE, RoundingMode.HALF_UP));
         return invoiceMapper.toResponse(lineItemRepository.save(lineItem));
     }
@@ -227,14 +220,5 @@ public class InvoiceService {
         }
         return jobRepository.findById(jobId)
                 .orElseThrow(() -> new NotFoundException("JOB_NOT_FOUND", "Job " + jobId + " not found"));
-    }
-
-    private MaintenanceRecord resolveLinkedMaintenance(UUID maintenanceId) {
-        if (maintenanceId == null) {
-            return null;
-        }
-        return maintenanceRepository.findById(maintenanceId)
-                .orElseThrow(() -> new NotFoundException("MAINTENANCE_NOT_FOUND",
-                        "Maintenance " + maintenanceId + " not found"));
     }
 }

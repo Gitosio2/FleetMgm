@@ -23,7 +23,6 @@ public record MaintenanceResponse(
         LocalDate workshopExitDate,
         UUID technicianId,
         String technicianName,
-        UUID invoiceId,
         MaintenanceStatus status,
         MaintenanceCategory category,
         Instant createdAt,

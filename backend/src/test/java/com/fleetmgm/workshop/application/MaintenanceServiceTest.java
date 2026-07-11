@@ -631,7 +631,7 @@ class MaintenanceServiceTest {
 
     private MaintenanceResponse buildResponse(UUID id) {
         return new MaintenanceResponse(id, UUID.randomUUID(), "1234-ABC", null, null, "Oil change", null,
-                null, null, null, null, null, null, null, MaintenanceStatus.SCHEDULED,
+                null, null, null, null, null, null, MaintenanceStatus.SCHEDULED,
                 MaintenanceCategory.PREVENTIVE, null, null, null);
     }
 }

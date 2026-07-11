@@ -80,7 +80,6 @@ const baseMaintenance: MaintenanceRecord = {
   workshopExitTime: null,
   technicianId: null,
   technicianName: null,
-  invoiceId: null,
   status: 'IN_PROGRESS',
   category: 'PREVENTIVE',
   createdAt: '2026-07-01T09:00:00Z',

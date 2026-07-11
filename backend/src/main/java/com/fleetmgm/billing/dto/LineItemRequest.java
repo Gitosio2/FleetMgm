@@ -11,6 +11,5 @@ public record LineItemRequest(
         @NotBlank String description,
         @NotNull @Positive BigDecimal quantity,
         @NotNull @Positive BigDecimal unitPrice,
-        UUID linkedJobId,
-        UUID linkedMaintenanceId
+        UUID linkedJobId
 ) {}
