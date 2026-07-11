@@ -6,6 +6,7 @@ import com.fleetmgm.workshop.domain.WorkshopStatus;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.UUID;
 
 public record ScheduleResponse(
@@ -23,5 +24,7 @@ public record ScheduleResponse(
         SchedulePriority priority,
         WorkshopStatus status,
         String notes,
-        Instant createdAt
+        Instant createdAt,
+        LocalTime scheduledStartTime,
+        LocalTime scheduledEndTime
 ) {}

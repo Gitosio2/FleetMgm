@@ -4,6 +4,7 @@ import com.fleetmgm.auth.infrastructure.UserRepository;
 import com.fleetmgm.shared.PageResponse;
 import com.fleetmgm.shared.domain.AuditAction;
 import com.fleetmgm.shared.domain.AuditLog;
+import com.fleetmgm.shared.exception.BadRequestException;
 import com.fleetmgm.shared.exception.ConflictException;
 import com.fleetmgm.shared.exception.NotFoundException;
 import com.fleetmgm.shared.infrastructure.AuditLogRepository;
@@ -33,6 +34,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.temporal.TemporalAdjusters;
 import java.util.UUID;
 
@@ -90,6 +92,7 @@ public class WorkshopScheduleService {
     @Transactional
     @PreAuthorize(ROLES)
     public ScheduleResponse create(CreateScheduleRequest request) {
+        validateTimeRange(request.scheduledStartTime(), request.scheduledEndTime());
         Vehicle vehicle = vehicleRepository.findById(request.vehicleId())
                 .orElseThrow(() -> new NotFoundException("VEHICLE_NOT_FOUND",
                         "Vehicle " + request.vehicleId() + " not found"));
@@ -113,6 +116,16 @@ public class WorkshopScheduleService {
                         "Worker " + technicianId + " not found"));
     }
 
+    // Explicit decision (Hito 28): no overlap validation of any kind. Two schedules for the same
+    // technician with overlapping time ranges are allowed to coexist — only the internal ordering
+    // of a single request's own start/end pair is checked here.
+    private void validateTimeRange(LocalTime startTime, LocalTime endTime) {
+        if (startTime != null && endTime != null && !endTime.isAfter(startTime)) {
+            throw new BadRequestException("SCHEDULE_INVALID_TIME_RANGE",
+                    "scheduledEndTime must be after scheduledStartTime");
+        }
+    }
+
     private MaintenanceRecord resolveMaintenanceRecord(UUID maintenanceRecordId) {
         if (maintenanceRecordId == null) {
             return null;
@@ -134,6 +147,7 @@ public class WorkshopScheduleService {
     @Transactional
     @PreAuthorize(ROLES)
     public ScheduleResponse update(UUID id, UpdateScheduleRequest request) {
+        validateTimeRange(request.scheduledStartTime(), request.scheduledEndTime());
         WorkshopSchedule schedule = workshopScheduleRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("SCHEDULE_NOT_FOUND",
                         "Workshop schedule " + id + " not found"));

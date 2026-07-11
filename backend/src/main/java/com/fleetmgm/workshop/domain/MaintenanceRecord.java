@@ -12,6 +12,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.UUID;
 
 @Entity
@@ -45,6 +46,12 @@ public class MaintenanceRecord {
 
     @Column(name = "workshop_exit_date")
     private LocalDate workshopExitDate;
+
+    @Column(name = "workshop_entry_time")
+    private LocalTime workshopEntryTime;
+
+    @Column(name = "workshop_exit_time")
+    private LocalTime workshopExitTime;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "technician_id")
@@ -95,6 +102,12 @@ public class MaintenanceRecord {
 
     public LocalDate getWorkshopExitDate() { return workshopExitDate; }
     public void setWorkshopExitDate(LocalDate workshopExitDate) { this.workshopExitDate = workshopExitDate; }
+
+    public LocalTime getWorkshopEntryTime() { return workshopEntryTime; }
+    public void setWorkshopEntryTime(LocalTime workshopEntryTime) { this.workshopEntryTime = workshopEntryTime; }
+
+    public LocalTime getWorkshopExitTime() { return workshopExitTime; }
+    public void setWorkshopExitTime(LocalTime workshopExitTime) { this.workshopExitTime = workshopExitTime; }
 
     public Worker getTechnician() { return technician; }
     public void setTechnician(Worker technician) { this.technician = technician; }

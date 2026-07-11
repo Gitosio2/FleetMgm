@@ -6,6 +6,7 @@ import com.fleetmgm.workshop.domain.MaintenanceStatus;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.UUID;
 
 public record MaintenanceResponse(
@@ -25,5 +26,7 @@ public record MaintenanceResponse(
         UUID invoiceId,
         MaintenanceStatus status,
         MaintenanceCategory category,
-        Instant createdAt
+        Instant createdAt,
+        LocalTime workshopEntryTime,
+        LocalTime workshopExitTime
 ) {}
