@@ -255,3 +255,13 @@ export type CreateScheduleRequest = {
   priority?: SchedulePriority | null
   notes?: string | null
 }
+
+export type UpdateScheduleRequest = {
+  vehicleId: string
+  technicianId?: string | null
+  maintenanceRecordId?: string | null
+  scheduledDate: string
+  type: string
+  priority: SchedulePriority
+  notes?: string | null
+}

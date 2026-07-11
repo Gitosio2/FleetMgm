@@ -1,6 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@fleetmgm/api'
-import type { CreateScheduleRequest, PageResponse, ScheduleRange, WorkshopSchedule } from '@fleetmgm/api'
+import type {
+  CreateScheduleRequest,
+  PageResponse,
+  ScheduleRange,
+  UpdateScheduleRequest,
+  WorkshopSchedule,
+} from '@fleetmgm/api'
 import { invalidateQueryKeys } from './invalidateQueryKeys'
 import { MAINTENANCE_KEY } from './useMaintenance'
 
@@ -26,6 +32,35 @@ export function useCreateWorkshopSchedule() {
       const { data } = await apiClient.post<WorkshopSchedule>('/workshop/schedules', request)
       return data
     },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [WORKSHOP_KEY] }),
+  })
+}
+
+export function useUpdateWorkshopSchedule() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ id, request }: { id: string; request: UpdateScheduleRequest }) => {
+      const { data } = await apiClient.put<WorkshopSchedule>(`/workshop/schedules/${id}`, request)
+      return data
+    },
+    // Unlike useCancelWorkshopSchedule/useCompleteMaintenance, a plain update doesn't publish a
+    // domain event server-side, so there's no cascade to the linked MaintenanceRecord — only
+    // the workshop key needs to be invalidated.
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [WORKSHOP_KEY] }),
+  })
+}
+
+export function useStartWorkshopSchedule() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data } = await apiClient.patch<WorkshopSchedule>(`/workshop/schedules/${id}/start`)
+      return data
+    },
+    // Same rationale as useUpdateWorkshopSchedule: starting a schedule doesn't cascade to the
+    // linked MaintenanceRecord server-side, so only the workshop key needs invalidation.
     onSuccess: () => queryClient.invalidateQueries({ queryKey: [WORKSHOP_KEY] }),
   })
 }

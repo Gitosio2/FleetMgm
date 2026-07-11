@@ -1,5 +1,6 @@
+import { Pencil } from 'lucide-react'
 import type { WorkshopSchedule } from '@fleetmgm/api'
-import { useCancelWorkshopSchedule } from '@fleetmgm/hooks'
+import { useCancelWorkshopSchedule, useStartWorkshopSchedule } from '@fleetmgm/hooks'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { formatVehicleLabel } from '@/lib/vehicle-label'
@@ -8,10 +9,14 @@ import { ScheduleStatusBadge } from './ScheduleStatusBadge'
 
 type ScheduleTableProps = {
   schedules: WorkshopSchedule[]
+  onEdit: (schedule: WorkshopSchedule) => void
 }
 
-export function ScheduleTable({ schedules }: ScheduleTableProps) {
+export function ScheduleTable({ schedules, onEdit }: ScheduleTableProps) {
+  const startSchedule = useStartWorkshopSchedule()
   const cancelSchedule = useCancelWorkshopSchedule()
+
+  const isPending = startSchedule.isPending || cancelSchedule.isPending
 
   return (
     <Table>
@@ -39,15 +44,40 @@ export function ScheduleTable({ schedules }: ScheduleTableProps) {
             </TableCell>
             <TableCell>
               <div className="flex flex-col items-start gap-1">
-                {(schedule.status === 'PENDING' || schedule.status === 'IN_PROGRESS') && (
+                <div className="flex gap-1">
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
-                    disabled={cancelSchedule.isPending}
-                    onClick={() => cancelSchedule.mutate(schedule.id)}
+                    aria-label="Editar entrada"
+                    onClick={() => onEdit(schedule)}
                   >
-                    Cancelar
+                    <Pencil className="size-4" />
                   </Button>
+                  {schedule.status === 'PENDING' && (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      disabled={isPending}
+                      onClick={() => startSchedule.mutate(schedule.id)}
+                    >
+                      Iniciar
+                    </Button>
+                  )}
+                  {(schedule.status === 'PENDING' || schedule.status === 'IN_PROGRESS') && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={isPending}
+                      onClick={() => cancelSchedule.mutate(schedule.id)}
+                    >
+                      Cancelar
+                    </Button>
+                  )}
+                </div>
+                {startSchedule.isError && startSchedule.variables === schedule.id && (
+                  <p role="alert" className="text-sm text-error">
+                    No se pudo completar la acción.
+                  </p>
                 )}
                 {cancelSchedule.isError && cancelSchedule.variables === schedule.id && (
                   <p role="alert" className="text-sm text-error">

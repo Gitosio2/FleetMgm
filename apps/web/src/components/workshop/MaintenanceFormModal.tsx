@@ -1,6 +1,11 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import type { CreateMaintenanceRequest, MaintenanceCategory } from '@fleetmgm/api'
-import { useCreateMaintenance, useVehicles, useWorkers } from '@fleetmgm/hooks'
+import type {
+  CreateMaintenanceRequest,
+  MaintenanceCategory,
+  MaintenanceRecord,
+  UpdateMaintenanceRequest,
+} from '@fleetmgm/api'
+import { useCreateMaintenance, useUpdateMaintenance, useVehicles, useWorkers } from '@fleetmgm/hooks'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -21,6 +26,7 @@ const CATEGORY_LABEL: Record<MaintenanceCategory, string> = {
 type MaintenanceFormModalProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
+  record?: MaintenanceRecord
 }
 
 function todayLocalDateInputValue(): string {
@@ -31,8 +37,10 @@ function todayLocalDateInputValue(): string {
   return `${year}-${month}-${day}`
 }
 
-export function MaintenanceFormModal({ open, onOpenChange }: MaintenanceFormModalProps) {
+export function MaintenanceFormModal({ open, onOpenChange, record }: MaintenanceFormModalProps) {
+  const isEditing = record != null
   const createMaintenance = useCreateMaintenance()
+  const updateMaintenance = useUpdateMaintenance()
 
   const { data: vehiclesPage } = useVehicles(0, 100)
   const { data: workersPage } = useWorkers(0, 100)
@@ -52,16 +60,31 @@ export function MaintenanceFormModal({ open, onOpenChange }: MaintenanceFormModa
     if (!open) {
       return
     }
-    setVehicleId('')
-    setType('')
-    setDescription('')
-    setTechnicianId('')
-    setCategory('PREVENTIVE')
+    setVehicleId(record?.vehicleId ?? '')
+    setType(record?.type ?? '')
+    setDescription(record?.description ?? '')
+    setTechnicianId(record?.technicianId ?? '')
+    setCategory(record?.category ?? 'PREVENTIVE')
     setScheduledDate(todayLocalDateInputValue())
-  }, [open])
+  }, [open, record])
+
+  const isPending = createMaintenance.isPending || updateMaintenance.isPending
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+
+    if (record) {
+      // UpdateMaintenanceRequest has no scheduledDate field — it's only settable at creation time.
+      const request: UpdateMaintenanceRequest = {
+        vehicleId,
+        type,
+        description: toNullableString(description),
+        technicianId: toNullableString(technicianId),
+        category,
+      }
+      updateMaintenance.mutate({ id: record.id, request }, { onSuccess: () => onOpenChange(false) })
+      return
+    }
 
     const request: CreateMaintenanceRequest = {
       vehicleId,
@@ -79,7 +102,7 @@ export function MaintenanceFormModal({ open, onOpenChange }: MaintenanceFormModa
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Nueva orden</DialogTitle>
+          <DialogTitle>{isEditing ? 'Editar orden' : 'Nueva orden'}</DialogTitle>
         </DialogHeader>
 
         <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
@@ -154,26 +177,28 @@ export function MaintenanceFormModal({ open, onOpenChange }: MaintenanceFormModa
             />
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="maintenance-scheduled-date">Fecha</Label>
-            <Input
-              id="maintenance-scheduled-date"
-              type="date"
-              value={scheduledDate}
-              onChange={(e) => setScheduledDate(e.target.value)}
-              required
-            />
-          </div>
+          {!isEditing && (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="maintenance-scheduled-date">Fecha</Label>
+              <Input
+                id="maintenance-scheduled-date"
+                type="date"
+                value={scheduledDate}
+                onChange={(e) => setScheduledDate(e.target.value)}
+                required
+              />
+            </div>
+          )}
 
-          {createMaintenance.isError && (
+          {(createMaintenance.isError || updateMaintenance.isError) && (
             <p role="alert" className="text-sm text-error">
               No se pudo completar la acción.
             </p>
           )}
 
           <DialogFooter>
-            <Button type="submit" disabled={createMaintenance.isPending}>
-              Crear orden
+            <Button type="submit" disabled={isPending}>
+              {isEditing ? 'Guardar cambios' : 'Crear orden'}
             </Button>
           </DialogFooter>
         </form>

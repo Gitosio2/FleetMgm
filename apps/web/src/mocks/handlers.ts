@@ -513,6 +513,14 @@ type MaintenanceRequestBody = {
   scheduledDate: string
 }
 
+type MaintenanceUpdateRequestBody = {
+  vehicleId: string
+  type: string
+  description?: string | null
+  technicianId?: string | null
+  category: MaintenanceCategory
+}
+
 const TECHNICIAN_WORKER_ID = SEED_WORKERS[1]!.id
 
 export const SEED_MAINTENANCE: MaintenanceRecordMock[] = [
@@ -615,6 +623,16 @@ type ScheduleRequestBody = {
   scheduledDate: string
   type: string
   priority?: SchedulePriority | null
+  notes?: string | null
+}
+
+type ScheduleUpdateRequestBody = {
+  vehicleId: string
+  technicianId?: string | null
+  maintenanceRecordId?: string | null
+  scheduledDate: string
+  type: string
+  priority: SchedulePriority
   notes?: string | null
 }
 
@@ -1437,6 +1455,71 @@ export const handlers = [
     return HttpResponse.json(newRecord, { status: 201 })
   }),
 
+  http.put('/api/v1/maintenance/:id', async ({ request, params }) => {
+    const body = (await request.json()) as MaintenanceUpdateRequestBody
+    const index = maintenanceRecords.findIndex((record) => record.id === params.id)
+    const existing = maintenanceRecords[index]
+
+    if (!existing) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'MAINTENANCE_NOT_FOUND',
+          message: `Maintenance ${params.id} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    const vehicle = vehicles.find((v) => v.id === body.vehicleId)
+    if (!vehicle) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'VEHICLE_NOT_FOUND',
+          message: `Vehicle ${body.vehicleId} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    let technician: Worker | undefined
+    if (body.technicianId) {
+      technician = workers.find((w) => w.id === body.technicianId)
+      if (!technician) {
+        return HttpResponse.json(
+          {
+            status: 404,
+            code: 'WORKER_NOT_FOUND',
+            message: `Worker ${body.technicianId} not found`,
+            correlationId: 'test-correlation-id',
+          },
+          { status: 404 },
+        )
+      }
+    }
+
+    // The backend's update() has no status guard (pre-existing gap, out of scope here) — the
+    // mock mirrors that by allowing the merge regardless of the record's current status.
+    const updated: MaintenanceRecordMock = {
+      ...existing,
+      vehicleId: vehicle.id,
+      vehicleLicensePlate: vehicle.licensePlate,
+      vehicleMake: vehicle.make,
+      vehicleModel: vehicle.model,
+      type: body.type,
+      description: body.description ?? null,
+      technicianId: technician?.id ?? null,
+      technicianName: technician?.fullName ?? null,
+      category: body.category,
+    }
+    maintenanceRecords = maintenanceRecords.map((record, i) => (i === index ? updated : record))
+
+    return HttpResponse.json(updated)
+  }),
+
   http.patch('/api/v1/maintenance/:id/start', async ({ request, params }) => {
     const index = maintenanceRecords.findIndex((record) => record.id === params.id)
     const existing = maintenanceRecords[index]
@@ -1662,6 +1745,115 @@ export const handlers = [
 
     const { rangeTags: _rangeTags, ...response } = newSchedule
     return HttpResponse.json(response, { status: 201 })
+  }),
+
+  http.put('/api/v1/workshop/schedules/:id', async ({ request, params }) => {
+    const body = (await request.json()) as ScheduleUpdateRequestBody
+    const index = workshopSchedules.findIndex((schedule) => schedule.id === params.id)
+    const existing = workshopSchedules[index]
+
+    if (!existing) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'SCHEDULE_NOT_FOUND',
+          message: `Schedule ${params.id} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    const vehicle = vehicles.find((v) => v.id === body.vehicleId)
+    if (!vehicle) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'VEHICLE_NOT_FOUND',
+          message: `Vehicle ${body.vehicleId} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    let technician: Worker | undefined
+    if (body.technicianId) {
+      technician = workers.find((w) => w.id === body.technicianId)
+      if (!technician) {
+        return HttpResponse.json(
+          {
+            status: 404,
+            code: 'WORKER_NOT_FOUND',
+            message: `Worker ${body.technicianId} not found`,
+            correlationId: 'test-correlation-id',
+          },
+          { status: 404 },
+        )
+      }
+    }
+
+    const linkedMaintenance = body.maintenanceRecordId
+      ? maintenanceRecords.find((record) => record.id === body.maintenanceRecordId)
+      : undefined
+
+    // Same rationale as the maintenance PUT handler: the backend's update() has no status
+    // guard (pre-existing gap, out of scope here), so the mock allows the merge regardless of
+    // the schedule's current status.
+    const updated: WorkshopScheduleMock = {
+      ...existing,
+      vehicleId: vehicle.id,
+      vehicleLicensePlate: vehicle.licensePlate,
+      vehicleMake: vehicle.make,
+      vehicleModel: vehicle.model,
+      technicianId: technician?.id ?? null,
+      technicianName: technician?.fullName ?? null,
+      maintenanceRecordId: linkedMaintenance?.id ?? null,
+      maintenanceCategory: linkedMaintenance?.category ?? null,
+      scheduledDate: body.scheduledDate,
+      type: body.type,
+      priority: body.priority,
+      notes: body.notes ?? null,
+    }
+    workshopSchedules = workshopSchedules.map((schedule, i) => (i === index ? updated : schedule))
+
+    const { rangeTags: _rangeTags, ...response } = updated
+    return HttpResponse.json(response)
+  }),
+
+  http.patch('/api/v1/workshop/schedules/:id/start', ({ params }) => {
+    const index = workshopSchedules.findIndex((schedule) => schedule.id === params.id)
+    const existing = workshopSchedules[index]
+
+    if (!existing) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'SCHEDULE_NOT_FOUND',
+          message: `Schedule ${params.id} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    if (existing.status !== 'PENDING') {
+      return HttpResponse.json(
+        {
+          status: 409,
+          code: 'SCHEDULE_INVALID_STATE_TRANSITION',
+          message: `Schedule ${params.id} cannot be started from state ${existing.status}`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 409 },
+      )
+    }
+
+    const updated: WorkshopScheduleMock = { ...existing, status: 'IN_PROGRESS' }
+    workshopSchedules = workshopSchedules.map((schedule, i) => (i === index ? updated : schedule))
+
+    const { rangeTags: _rangeTags, ...response } = updated
+    return HttpResponse.json(response)
   }),
 
   http.patch('/api/v1/workshop/schedules/:id/cancel', ({ params }) => {

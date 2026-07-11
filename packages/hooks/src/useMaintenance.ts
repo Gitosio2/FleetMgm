@@ -13,6 +13,7 @@ const maintenanceHooks = createCrudHooks<MaintenanceRecord, CreateMaintenanceReq
 )
 
 export const useMaintenanceRecords = maintenanceHooks.useList
+export const useUpdateMaintenance = maintenanceHooks.useUpdate
 
 export function useCreateMaintenance() {
   const queryClient = useQueryClient()

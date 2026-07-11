@@ -1,3 +1,4 @@
+import { Pencil } from 'lucide-react'
 import type { MaintenanceCategory, MaintenanceRecord } from '@fleetmgm/api'
 import { useCancelMaintenance, useCompleteMaintenance, useStartMaintenance } from '@fleetmgm/hooks'
 import { Button } from '@/components/ui/button'
@@ -12,9 +13,10 @@ const CATEGORY_LABEL: Record<MaintenanceCategory, string> = {
 
 type MaintenanceTableProps = {
   records: MaintenanceRecord[]
+  onEdit: (record: MaintenanceRecord) => void
 }
 
-export function MaintenanceTable({ records }: MaintenanceTableProps) {
+export function MaintenanceTable({ records, onEdit }: MaintenanceTableProps) {
   const startMaintenance = useStartMaintenance()
   const completeMaintenance = useCompleteMaintenance()
   const cancelMaintenance = useCancelMaintenance()
@@ -46,6 +48,14 @@ export function MaintenanceTable({ records }: MaintenanceTableProps) {
             <TableCell>
               <div className="flex flex-col items-start gap-1">
                 <div className="flex gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    aria-label="Editar orden"
+                    onClick={() => onEdit(record)}
+                  >
+                    <Pencil className="size-4" />
+                  </Button>
                   {record.status === 'SCHEDULED' && (
                     <Button
                       variant="default"

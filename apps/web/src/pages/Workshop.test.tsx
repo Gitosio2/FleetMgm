@@ -237,6 +237,77 @@ describe('Workshop', () => {
     await waitFor(() => expect(within(maintenanceRow).getByText('Cancelado')).toBeInTheDocument())
   })
 
+  it('edits a maintenance order via the modal and reflects the change in the table', async () => {
+    loginAs('WORKSHOP_STAFF')
+    const user = userEvent.setup()
+    renderWorkshop()
+
+    const row = (await screen.findByText('Cambio de aceite y filtro')).closest('tr')!
+    await user.click(within(row).getByRole('button', { name: /editar orden/i }))
+
+    expect(await screen.findByRole('heading', { name: 'Editar orden' })).toBeInTheDocument()
+    expect(screen.getByLabelText(/tipo/i)).toHaveValue('Cambio de aceite y filtro')
+    // UpdateMaintenanceRequest has no scheduledDate field — the date input must not render in edit mode.
+    expect(screen.queryByLabelText(/fecha/i)).not.toBeInTheDocument()
+
+    await user.clear(screen.getByLabelText(/tipo/i))
+    await user.type(screen.getByLabelText(/tipo/i), 'Cambio de aceite sintético')
+
+    await user.click(screen.getByRole('button', { name: /guardar cambios/i }))
+
+    await waitFor(() => expect(screen.getByText('Cambio de aceite sintético')).toBeInTheDocument())
+    expect(screen.queryByText('Cambio de aceite y filtro')).not.toBeInTheDocument()
+  })
+
+  it('edits a workshop schedule via the modal and reflects the change in the agenda', async () => {
+    loginAs('ADMIN')
+    const user = userEvent.setup()
+    renderWorkshop()
+
+    const row = (await screen.findByText('Cambio de aceite')).closest('tr')!
+    await user.click(within(row).getByRole('button', { name: /editar entrada/i }))
+
+    expect(await screen.findByRole('heading', { name: 'Editar entrada' })).toBeInTheDocument()
+    expect(screen.getByLabelText(/tipo/i)).toHaveValue('Cambio de aceite')
+    expect(screen.getByLabelText(/fecha/i)).toHaveValue('2026-07-09')
+
+    await user.selectOptions(screen.getByLabelText(/prioridad/i), 'HIGH')
+    await user.click(screen.getByRole('button', { name: /guardar cambios/i }))
+
+    await waitFor(() => {
+      const updatedRow = screen.getByText('Cambio de aceite').closest('tr')!
+      expect(within(updatedRow).getByText('Alta')).toBeInTheDocument()
+    })
+  })
+
+  it('starting a workshop schedule transitions its badge from Pendiente to En curso', async () => {
+    loginAs('ADMIN')
+    const user = userEvent.setup()
+    renderWorkshop()
+
+    const row = (await screen.findByText('Cambio de aceite')).closest('tr')!
+    expect(within(row).getByText('Pendiente')).toBeInTheDocument()
+
+    await user.click(within(row).getByRole('button', { name: /iniciar/i }))
+
+    await waitFor(() => expect(within(row).getByText('En curso')).toBeInTheDocument())
+  })
+
+  it('shows an error message when a double "Iniciar" click on a schedule causes an invalid state transition', async () => {
+    loginAs('ADMIN')
+    const user = userEvent.setup()
+    renderWorkshop()
+
+    const row = (await screen.findByText('Cambio de aceite')).closest('tr')!
+    const button = within(row).getByRole('button', { name: /iniciar/i })
+
+    await Promise.all([user.click(button), user.click(button)])
+
+    await waitFor(() =>
+      expect(within(row).getByRole('alert')).toHaveTextContent(/no se pudo completar la acción/i),
+    )
+  })
+
   it('shows an error message when the schedule agenda query fails', async () => {
     loginAs('ADMIN')
     server.use(

@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import type { CreateScheduleRequest, SchedulePriority } from '@fleetmgm/api'
-import { useCreateWorkshopSchedule, useVehicles, useWorkers } from '@fleetmgm/hooks'
+import type { CreateScheduleRequest, SchedulePriority, UpdateScheduleRequest, WorkshopSchedule } from '@fleetmgm/api'
+import { useCreateWorkshopSchedule, useUpdateWorkshopSchedule, useVehicles, useWorkers } from '@fleetmgm/hooks'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -16,10 +16,13 @@ import { PRIORITY_LABEL, selectClassName, toNullableString } from './form-shared
 type ScheduleFormModalProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
+  schedule?: WorkshopSchedule
 }
 
-export function ScheduleFormModal({ open, onOpenChange }: ScheduleFormModalProps) {
+export function ScheduleFormModal({ open, onOpenChange, schedule }: ScheduleFormModalProps) {
+  const isEditing = schedule != null
   const createSchedule = useCreateWorkshopSchedule()
+  const updateSchedule = useUpdateWorkshopSchedule()
 
   const { data: vehiclesPage } = useVehicles(0, 100)
   const { data: workersPage } = useWorkers(0, 100)
@@ -39,16 +42,32 @@ export function ScheduleFormModal({ open, onOpenChange }: ScheduleFormModalProps
     if (!open) {
       return
     }
-    setVehicleId('')
-    setType('')
-    setScheduledDate('')
-    setPriority('MEDIUM')
-    setTechnicianId('')
-    setNotes('')
-  }, [open])
+    setVehicleId(schedule?.vehicleId ?? '')
+    setType(schedule?.type ?? '')
+    setScheduledDate(schedule?.scheduledDate ?? '')
+    setPriority(schedule?.priority ?? 'MEDIUM')
+    setTechnicianId(schedule?.technicianId ?? '')
+    setNotes(schedule?.notes ?? '')
+  }, [open, schedule])
+
+  const isPending = createSchedule.isPending || updateSchedule.isPending
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+
+    if (schedule) {
+      const request: UpdateScheduleRequest = {
+        vehicleId,
+        type,
+        scheduledDate,
+        priority,
+        technicianId: toNullableString(technicianId),
+        maintenanceRecordId: schedule.maintenanceRecordId,
+        notes: toNullableString(notes),
+      }
+      updateSchedule.mutate({ id: schedule.id, request }, { onSuccess: () => onOpenChange(false) })
+      return
+    }
 
     const request: CreateScheduleRequest = {
       vehicleId,
@@ -66,7 +85,7 @@ export function ScheduleFormModal({ open, onOpenChange }: ScheduleFormModalProps
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Nueva entrada</DialogTitle>
+          <DialogTitle>{isEditing ? 'Editar entrada' : 'Nueva entrada'}</DialogTitle>
         </DialogHeader>
 
         <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
@@ -148,15 +167,15 @@ export function ScheduleFormModal({ open, onOpenChange }: ScheduleFormModalProps
             <Input id="schedule-notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
           </div>
 
-          {createSchedule.isError && (
+          {(createSchedule.isError || updateSchedule.isError) && (
             <p role="alert" className="text-sm text-error">
               No se pudo completar la acción.
             </p>
           )}
 
           <DialogFooter>
-            <Button type="submit" disabled={createSchedule.isPending}>
-              Crear entrada
+            <Button type="submit" disabled={isPending}>
+              {isEditing ? 'Guardar cambios' : 'Crear entrada'}
             </Button>
           </DialogFooter>
         </form>
