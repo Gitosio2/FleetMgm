@@ -1408,6 +1408,16 @@ FleetMgm/
 >    `file`/`pdftotext` fuera de la suite de tests antes de commitear. Contenido 100% ASCII, por lo que
 >    `string.length` de JS es un offset de bytes válido sin necesitar `TextEncoder`. Suite sin cambio de
 >    conteo (76/76) — el fix es en el mock, no agrega cobertura nueva.
+> 10. **Ajuste de UX pedido por el usuario: el botón de guardado debe quedar al final del modal.** El botón
+>     "Guardar cambios"/"Crear factura" estaba dentro del `<form>` principal, antes de la sección "Líneas de
+>     factura" (que se renderiza como hermano después de `</form>`) — visualmente el botón quedaba antes de
+>     las líneas, no al final. Mover el bloque de líneas dentro del `<form>` principal no era viable:
+>     `LineItemList.tsx` renderiza su propio `<form>` para "Agregar línea", y anidar un `<form>` dentro de
+>     otro es HTML5 inválido (comportamiento indefinido entre navegadores). Corregido asociando el botón al
+>     formulario por `id` en vez de por anidación DOM: `<form id="invoice-form">` y
+>     `<Button type="submit" form="invoice-form">` fuera del `<form>`, renderizado después del bloque de
+>     líneas — atributo HTML5 estándar para botones de submit ubicados fuera de su `<form>`. Suite sin cambio
+>     de conteo (76/76 — ningún test dependía de la posición DOM del botón).
 
 ---
 

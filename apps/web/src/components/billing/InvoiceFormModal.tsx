@@ -85,7 +85,7 @@ export function InvoiceFormModal({ open, onOpenChange, invoice }: InvoiceFormMod
           <DialogTitle>{isEditing ? 'Editar factura' : 'Nueva factura'}</DialogTitle>
         </DialogHeader>
 
-        <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+        <form id="invoice-form" className="flex flex-col gap-4" onSubmit={handleSubmit}>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="invoice-client">Cliente</Label>
             <select
@@ -147,12 +147,6 @@ export function InvoiceFormModal({ open, onOpenChange, invoice }: InvoiceFormMod
               No se pudo completar la acción.
             </p>
           )}
-
-          <DialogFooter>
-            <Button type="submit" disabled={isPending || clientId === ''}>
-              {isEditing ? 'Guardar cambios' : 'Crear factura'}
-            </Button>
-          </DialogFooter>
         </form>
 
         {isEditing && invoice.status === 'DRAFT' && (
@@ -161,6 +155,12 @@ export function InvoiceFormModal({ open, onOpenChange, invoice }: InvoiceFormMod
             <LineItemList invoice={invoice} />
           </div>
         )}
+
+        <DialogFooter className="mt-6">
+          <Button type="submit" form="invoice-form" disabled={isPending || clientId === ''}>
+            {isEditing ? 'Guardar cambios' : 'Crear factura'}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )
