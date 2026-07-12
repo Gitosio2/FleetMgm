@@ -13,10 +13,12 @@ const CATEGORY_ICON: Record<VehicleCategory, LucideIcon> = {
 
 function buildDivIcon(vehicleId: string, category: VehicleCategory) {
   const IconComponent = CATEGORY_ICON[category]
-  const iconMarkup = renderToStaticMarkup(<IconComponent color="white" size={16} />)
+  // No `color` prop — lucide-react defaults to stroke="currentColor", which then follows the
+  // wrapping div's `text-on-tertiary` class instead of being hardcoded here.
+  const iconMarkup = renderToStaticMarkup(<IconComponent size={16} />)
 
   return L.divIcon({
-    html: `<div data-testid="vehicle-marker-${vehicleId}" class="flex size-7 items-center justify-center rounded-full bg-primary shadow-md">${iconMarkup}</div>`,
+    html: `<div data-testid="vehicle-marker-${vehicleId}" class="flex size-7 items-center justify-center rounded-full bg-tertiary text-on-tertiary shadow-md">${iconMarkup}</div>`,
     className: '',
     iconSize: [28, 28],
     iconAnchor: [14, 14],
