@@ -1510,8 +1510,15 @@ FleetMgm/
 ### Hito 38 — GPS: Contrato API
 - [x] `Flyway V8` — tabla `gps_positions` con índices en `vehicle_id` y `recorded_at` *(ya aplicada)*
 - [x] `GpsPosition` entity — lat, lng, heading, speed, `source` (MOCK/DEVICE) *(ya scaffoldeada)*
-- [ ] `GpsPositionResponse` (record)
-- [ ] `GpsController` — `GET /api/v1/gps/latest`
+- [x] `GpsPositionResponse` (record) — denormaliza `vehicleId`/`licensePlate` del vehículo (mismo patrón que `ScheduleResponse`), evita que el frontend tenga que resolverlos aparte
+- [x] `GpsController` — `GET /api/v1/gps/latest`
+- [x] `GpsMapper` (MapStruct) — `toResponse`
+- [x] `GpsService` — stub, `findLatest()` lanza `UnsupportedOperationException("Pending Hito 39")`, mismo precedente contrato-hito que `InvoiceService`/`SupplierInvoiceService` (no listado en el checklist original)
+  > **Nota (revisión Hito 38):** sin `@PreAuthorize` en el stub — a diferencia de Billing (bloqueo total de rol),
+  > aquí todos los roles autenticados llaman al mismo endpoint y es DRIVER quien recibe una respuesta filtrada
+  > a su propio vehículo; ese filtrado es lógica de negocio real (depende de datos, no solo del rol) y queda
+  > para el Hito 39, igual que el resto del contrato. Contrato-only: sin tests nuevos (mismo criterio que
+  > Hito 32); `./mvnw test` sigue en verde, sin regresión.
 
 ### Hito 39 — GPS: Lógica e implementación
 - [ ] **[RED]** Tests `GpsRepositoryTest` (`@DataJpaTest` + Testcontainers) — findLatestByVehicleId devuelve la posición más reciente; vehículos INACTIVE no aparecen en findLatestForAllActiveVehicles
