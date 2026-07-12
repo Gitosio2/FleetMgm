@@ -10,6 +10,8 @@ public record GpsPositionResponse(
         UUID id,
         UUID vehicleId,
         String licensePlate,
+        String vehicleMake,
+        String vehicleModel,
         VehicleCategory vehicleCategory,
         Double latitude,
         Double longitude,

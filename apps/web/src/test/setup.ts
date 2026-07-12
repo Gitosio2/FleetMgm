@@ -20,6 +20,10 @@ class ResizeObserverStub {
 
 globalThis.ResizeObserver ??= ResizeObserverStub
 
+// jsdom has no layout engine, so it doesn't implement window.scrollTo — Leaflet calls it
+// when centering the map, which otherwise logs a noisy "Not implemented" jsdom error.
+window.scrollTo = () => {}
+
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
 afterEach(() => server.resetHandlers())
 afterAll(() => server.close())

@@ -262,6 +262,60 @@ export function resetVehiclesMock() {
   vehicles = [...SEED_VEHICLES]
 }
 
+type GpsSourceMock = 'MOCK' | 'DEVICE'
+
+type GpsPositionMock = {
+  id: string
+  vehicleId: string
+  licensePlate: string | null
+  vehicleMake: string | null
+  vehicleModel: string | null
+  vehicleCategory: VehicleCategory
+  latitude: number
+  longitude: number
+  heading: number | null
+  speed: number | null
+  recordedAt: string
+  source: GpsSourceMock
+}
+
+export const SEED_GPS_POSITIONS: GpsPositionMock[] = [
+  {
+    id: 'gps-1',
+    vehicleId: SEED_VEHICLES[0]!.id,
+    licensePlate: SEED_VEHICLES[0]!.licensePlate,
+    vehicleMake: SEED_VEHICLES[0]!.make,
+    vehicleModel: SEED_VEHICLES[0]!.model,
+    vehicleCategory: SEED_VEHICLES[0]!.vehicleCategory,
+    latitude: 40.4168,
+    longitude: -3.7038,
+    heading: 90,
+    speed: 45,
+    recordedAt: '2026-07-12T10:00:00Z',
+    source: 'MOCK',
+  },
+  {
+    id: 'gps-2',
+    vehicleId: SEED_VEHICLES[1]!.id,
+    licensePlate: SEED_VEHICLES[1]!.licensePlate,
+    vehicleMake: SEED_VEHICLES[1]!.make,
+    vehicleModel: SEED_VEHICLES[1]!.model,
+    vehicleCategory: SEED_VEHICLES[1]!.vehicleCategory,
+    latitude: 40.42,
+    longitude: -3.71,
+    heading: 180,
+    speed: 0,
+    recordedAt: '2026-07-12T10:00:00Z',
+    source: 'MOCK',
+  },
+]
+
+let gpsPositions: GpsPositionMock[] = [...SEED_GPS_POSITIONS]
+
+export function resetGpsMock() {
+  gpsPositions = [...SEED_GPS_POSITIONS]
+}
+
 type WorkerRole = 'DRIVER' | 'TECHNICIAN' | 'BOTH'
 
 type Worker = {
@@ -1269,6 +1323,18 @@ export const SEED_AUDIT_LOGS: AuditLogMock[] = [
 ]
 
 export const handlers = [
+  http.get('/api/v1/gps/latest', ({ request }) => {
+    const url = new URL(request.url)
+    const category = url.searchParams.get('category')
+    const vehicleId = url.searchParams.get('vehicleId')
+    const filtered = gpsPositions.filter(
+      (position) =>
+        (!category || position.vehicleCategory === category) && (!vehicleId || position.vehicleId === vehicleId),
+    )
+
+    return HttpResponse.json(filtered)
+  }),
+
   http.get('/api/v1/clients', ({ request }) => {
     const url = new URL(request.url)
     const page = Number(url.searchParams.get('page') ?? 0)

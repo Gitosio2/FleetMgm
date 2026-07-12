@@ -17,16 +17,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { VEHICLE_CATEGORIES, VEHICLE_CATEGORY_LABEL } from '@/lib/vehicle-category-label'
 
-const VEHICLE_CATEGORIES: VehicleCategory[] = ['LIGHT_VEHICLE', 'HEAVY_VEHICLE', 'HEAVY_MACHINERY']
 const USAGE_MEASURES: UsageMeasure[] = ['KILOMETERS', 'HOURS']
 const ACQUISITION_TYPES: AcquisitionType[] = ['PURCHASED', 'LEASING', 'RENTING']
-
-const VEHICLE_CATEGORY_LABEL: Record<VehicleCategory, string> = {
-  LIGHT_VEHICLE: 'Vehículo ligero',
-  HEAVY_VEHICLE: 'Vehículo pesado',
-  HEAVY_MACHINERY: 'Maquinaria pesada',
-}
 
 const USAGE_MEASURE_LABEL: Record<UsageMeasure, string> = {
   KILOMETERS: 'Kilómetros',

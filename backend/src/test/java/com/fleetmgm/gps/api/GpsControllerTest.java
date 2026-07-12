@@ -16,6 +16,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -35,8 +37,8 @@ class GpsControllerTest {
     @Test
     void latest_returns200_withPositions() throws Exception {
         GpsPositionResponse response = new GpsPositionResponse(UUID.randomUUID(), UUID.randomUUID(), "1234ABC",
-                VehicleCategory.LIGHT_VEHICLE, 40.4168, -3.7038, 90.0, 50.0, Instant.now(), GpsSource.MOCK);
-        when(gpsService.findLatest()).thenReturn(List.of(response));
+                "Toyota", "Hilux", VehicleCategory.LIGHT_VEHICLE, 40.4168, -3.7038, 90.0, 50.0, Instant.now(), GpsSource.MOCK);
+        when(gpsService.findLatest(isNull(), isNull())).thenReturn(List.of(response));
 
         mockMvc.perform(get("/api/v1/gps/latest"))
                 .andExpect(status().isOk())
@@ -45,10 +47,27 @@ class GpsControllerTest {
 
     @Test
     void latest_returns200_withEmptyList_whenNoPositionsRecorded() throws Exception {
-        when(gpsService.findLatest()).thenReturn(List.of());
+        when(gpsService.findLatest(isNull(), isNull())).thenReturn(List.of());
 
         mockMvc.perform(get("/api/v1/gps/latest"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isEmpty());
+    }
+
+    @Test
+    void latest_forwardsCategoryQueryParam_toService() throws Exception {
+        when(gpsService.findLatest(eq(VehicleCategory.HEAVY_MACHINERY), isNull())).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/v1/gps/latest").param("category", "HEAVY_MACHINERY"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void latest_forwardsVehicleIdQueryParam_toService() throws Exception {
+        UUID vehicleId = UUID.randomUUID();
+        when(gpsService.findLatest(isNull(), eq(vehicleId))).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/v1/gps/latest").param("vehicleId", vehicleId.toString()))
+                .andExpect(status().isOk());
     }
 }
