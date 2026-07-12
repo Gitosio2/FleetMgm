@@ -3,7 +3,13 @@ import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { useAuthStore } from '@fleetmgm/store'
-import { resetSupplierInvoicesMock, resetVehiclesMock, SEED_SUPPLIER_INVOICES } from '@/mocks/handlers'
+import {
+  resetSupplierInvoicesMock,
+  resetSuppliersMock,
+  resetVehiclesMock,
+  SEED_SUPPLIER_INVOICES,
+  SEED_SUPPLIERS,
+} from '@/mocks/handlers'
 import { SupplierInvoices } from './SupplierInvoices'
 
 function renderSupplierInvoices() {
@@ -30,6 +36,7 @@ function loginAs(role: 'ADMIN') {
 describe('SupplierInvoices', () => {
   beforeEach(() => {
     resetSupplierInvoicesMock()
+    resetSuppliersMock()
     resetVehiclesMock()
     loginAs('ADMIN')
   })
@@ -61,8 +68,10 @@ describe('SupplierInvoices', () => {
 
     await screen.findByText(SEED_SUPPLIER_INVOICES[0]!.supplierName)
 
+    const newSupplier = SEED_SUPPLIERS.find((supplier) => supplier.name === 'Ferretería Central')!
+
     await user.click(screen.getByRole('button', { name: /nueva factura de proveedor/i }))
-    await user.type(screen.getByLabelText(/^proveedor$/i), 'Ferretería Central')
+    await user.selectOptions(screen.getByLabelText(/^proveedor$/i), newSupplier.id)
     await user.selectOptions(screen.getByLabelText(/^categoría$/i), 'OTHER')
     await user.type(screen.getByLabelText(/fecha de factura/i), '2026-07-10')
     await user.type(screen.getByLabelText(/^subtotal$/i), '40')
@@ -87,8 +96,10 @@ describe('SupplierInvoices', () => {
 
     await screen.findByText(SEED_SUPPLIER_INVOICES[0]!.supplierName)
 
+    const newSupplier = SEED_SUPPLIERS.find((supplier) => supplier.name === 'Taller Rápido')!
+
     await user.click(screen.getByRole('button', { name: /nueva factura de proveedor/i }))
-    await user.type(screen.getByLabelText(/^proveedor$/i), 'Taller Rápido')
+    await user.selectOptions(screen.getByLabelText(/^proveedor$/i), newSupplier.id)
     await user.selectOptions(screen.getByLabelText(/^categoría$/i), 'MAINTENANCE')
     await user.selectOptions(screen.getByLabelText(/^vehículo$/i), 'vehicle-1')
     await user.type(screen.getByLabelText(/fecha de factura/i), '2026-07-10')
@@ -113,7 +124,7 @@ describe('SupplierInvoices', () => {
     await user.click(within(row).getByRole('button', { name: /editar/i }))
 
     expect(await screen.findByRole('heading', { name: 'Editar factura de proveedor' })).toBeInTheDocument()
-    expect(screen.getByLabelText(/^proveedor$/i)).toHaveValue(withVehicle.supplierName)
+    expect(screen.getByLabelText(/^proveedor$/i)).toHaveValue(withVehicle.supplierId)
 
     await user.clear(screen.getByLabelText(/^total$/i))
     await user.type(screen.getByLabelText(/^total$/i), '999')

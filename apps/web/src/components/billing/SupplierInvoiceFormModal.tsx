@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import type { CreateSupplierInvoiceRequest, ExpenseCategory, SupplierInvoice } from '@fleetmgm/api'
-import { useCreateSupplierInvoice, useUpdateSupplierInvoice, useVehicles } from '@fleetmgm/hooks'
+import { useCreateSupplierInvoice, useSuppliers, useUpdateSupplierInvoice, useVehicles } from '@fleetmgm/hooks'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -26,8 +26,10 @@ export function SupplierInvoiceFormModal({ open, onOpenChange, supplierInvoice }
   const updateSupplierInvoice = useUpdateSupplierInvoice()
 
   const { data: vehiclesPage } = useVehicles(0, 100)
+  const { data: suppliersPage } = useSuppliers(0, 100)
+  const suppliersList = suppliersPage?.content ?? []
 
-  const [supplierName, setSupplierName] = useState('')
+  const [supplierId, setSupplierId] = useState('')
   const [supplierInvoiceNumber, setSupplierInvoiceNumber] = useState('')
   const [category, setCategory] = useState<ExpenseCategory>('OTHER')
   const [vehicleId, setVehicleId] = useState('')
@@ -42,7 +44,9 @@ export function SupplierInvoiceFormModal({ open, onOpenChange, supplierInvoice }
     if (!open) {
       return
     }
-    setSupplierName(supplierInvoice?.supplierName ?? '')
+    // supplierId is a mandatory FK (no "sin seleccionar" option) — when creating, default to the
+    // first available supplier so the required <select> always starts on a valid selection.
+    setSupplierId(supplierInvoice?.supplierId ?? suppliersPage?.content[0]?.id ?? '')
     setSupplierInvoiceNumber(supplierInvoice?.supplierInvoiceNumber ?? '')
     setCategory(supplierInvoice?.category ?? 'OTHER')
     setVehicleId(supplierInvoice?.vehicleId ?? '')
@@ -52,7 +56,7 @@ export function SupplierInvoiceFormModal({ open, onOpenChange, supplierInvoice }
     setTaxAmount(supplierInvoice ? String(supplierInvoice.taxAmount) : '')
     setTotal(supplierInvoice ? String(supplierInvoice.total) : '')
     setNotes(supplierInvoice?.notes ?? '')
-  }, [open, supplierInvoice])
+  }, [open, supplierInvoice, suppliersPage])
 
   const isPending = createSupplierInvoice.isPending || updateSupplierInvoice.isPending
 
@@ -60,7 +64,7 @@ export function SupplierInvoiceFormModal({ open, onOpenChange, supplierInvoice }
     event.preventDefault()
 
     const request: CreateSupplierInvoiceRequest = {
-      supplierName,
+      supplierId,
       supplierInvoiceNumber: toNullableString(supplierInvoiceNumber),
       category,
       invoiceDate,
@@ -92,13 +96,20 @@ export function SupplierInvoiceFormModal({ open, onOpenChange, supplierInvoice }
         <form id="supplier-invoice-form" className="flex flex-col gap-4" onSubmit={handleSubmit}>
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="supplier-invoice-supplier-name">Proveedor</Label>
-              <Input
-                id="supplier-invoice-supplier-name"
-                value={supplierName}
-                onChange={(e) => setSupplierName(e.target.value)}
+              <Label htmlFor="supplier-invoice-supplier">Proveedor</Label>
+              <select
+                id="supplier-invoice-supplier"
+                className={selectClassName}
+                value={supplierId}
+                onChange={(e) => setSupplierId(e.target.value)}
                 required
-              />
+              >
+                {suppliersList.map((supplier) => (
+                  <option key={supplier.id} value={supplier.id}>
+                    {supplier.name}
+                  </option>
+                ))}
+              </select>
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="supplier-invoice-number">Nº factura proveedor</Label>
