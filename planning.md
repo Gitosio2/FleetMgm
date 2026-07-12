@@ -1510,16 +1510,26 @@ FleetMgm/
 ### Hito 38 — GPS: Contrato API
 - [x] `Flyway V8` — tabla `gps_positions` con índices en `vehicle_id` y `recorded_at` *(ya aplicada)*
 - [x] `GpsPosition` entity — lat, lng, heading, speed, `source` (MOCK/DEVICE) *(ya scaffoldeada)*
-- [ ] `GpsPositionResponse` (record)
-- [ ] `GpsController` — `GET /api/v1/gps/latest`
+- [x] `GpsPositionResponse` (record) — denormaliza `vehicleId`/`licensePlate` del vehículo (mismo patrón que `ScheduleResponse`), evita que el frontend tenga que resolverlos aparte
+- [x] `GpsController` — `GET /api/v1/gps/latest`
+- [x] `GpsMapper` (MapStruct) — `toResponse`
+- [x] `GpsService` — stub, `findLatest()` lanza `UnsupportedOperationException("Pending Hito 39")`, mismo precedente contrato-hito que `InvoiceService`/`SupplierInvoiceService` (no listado en el checklist original)
+  > **Nota (revisión Hito 38):** sin `@PreAuthorize` en el stub — a diferencia de Billing (bloqueo total de rol),
+  > aquí todos los roles autenticados llaman al mismo endpoint y es DRIVER quien recibe una respuesta filtrada
+  > a su propio vehículo; ese filtrado es lógica de negocio real (depende de datos, no solo del rol) y queda
+  > para el Hito 39, igual que el resto del contrato. Contrato-only: sin tests nuevos (mismo criterio que
+  > Hito 32); `./mvnw test` sigue en verde, sin regresión.
 
 ### Hito 39 — GPS: Lógica e implementación
-- [ ] **[RED]** Tests `GpsRepositoryTest` (`@DataJpaTest` + Testcontainers) — findLatestByVehicleId devuelve la posición más reciente; vehículos INACTIVE no aparecen en findLatestForAllActiveVehicles
-- [ ] **[RED]** Tests `GpsMockSchedulerTest` — scheduler genera exactamente una posición por vehículo ACTIVE con coordenadas dentro del rango esperado
-- [ ] **[RED]** Tests `GpsControllerTest` (`@WebMvcTest`) — 200, 403 DRIVER sin acceso global; DRIVER solo ve su posición
-- [ ] **[GREEN]** `GpsRepository` — `findLatestByVehicleId`, `findLatestForAllActiveVehicles` (proyección)
-- [ ] **[GREEN]** `GpsMockScheduler` — `@Scheduled(fixedDelay = 30_000)`, genera posiciones con deriva aleatoria para vehículos ACTIVE
-- [ ] **[GREEN]** `@PreAuthorize` — ADMIN/MANAGER/ADMINISTRATIVE ven todos; DRIVER solo su posición
+- [x] **[RED→GREEN]** Tests `GpsRepositoryTest` (`@DataJpaTest` + Testcontainers) — `findFirstByVehicleIdOrderByRecordedAtDesc` devuelve la posición más reciente (y vacío si no hay ninguna); `findLatestForAllActiveVehicles` excluye vehículos INACTIVE y devuelve solo la última posición por vehículo (no el historial completo)
+- [x] **[RED→GREEN]** Tests `GpsMockSchedulerTest` (JUnit 5 + Mockito, sin contexto Spring) — genera exactamente una posición por vehículo ACTIVE devuelto por el repositorio; sin vehículos ACTIVE no llama a `save()`; coordenadas dentro del spread inicial alrededor de la base (Madrid) cuando el vehículo no tiene posición previa; dentro del rango de deriva respecto a la posición previa cuando sí la tiene
+- [x] **[RED→GREEN]** Tests `GpsServiceTest` (JUnit 5 + Mockito, sin contexto Spring) — ADMIN/MANAGER/ADMINISTRATIVE reciben `findLatestForAllActiveVehicles()` mapeado; DRIVER recibe solo la posición de su vehículo asignado (vacío si no tiene asignación activa o si su vehículo aún no registró ninguna posición)
+- [x] **[GREEN]** Tests `GpsControllerTest` (`@WebMvcTest`) — 200 con posiciones, 200 con lista vacía; el 403 por rol **no** se prueba aquí — mismo gap ya documentado en `SupplierInvoiceControllerTest` (Hito 33): `@AutoConfigureMockMvc(addFilters = false)` + `GpsService` mockeado no atraviesa el proxy AOP de `@PreAuthorize`. Esa lógica de filtrado por rol está cubierta por `GpsServiceTest`.
+- [x] **[GREEN]** `GpsRepository` — `findFirstByVehicleIdOrderByRecordedAtDesc` (`@EntityGraph` sobre `vehicle`, evita N+1); `findLatestForAllActiveVehicles` (subquery correlacionada `MAX(recordedAt)` por vehículo — JPQL no soporta `ROW_NUMBER()/PARTITION BY`, y con el volumen que genera un scheduler mock esto es suficientemente eficiente sin recurrir a `nativeQuery`)
+- [x] **[GREEN]** `VehicleRepository.findAllByStatus(VehicleStatus)` — no existía ningún filtro por estado; añadido para que el scheduler encuentre los vehículos ACTIVE (no confundir con `findAllActiveWithAssignment`, que pese al nombre no filtra por `status` — ver comentario ya existente en el propio repositorio)
+- [x] **[GREEN]** `GpsMockScheduler` — `@Scheduled(fixedDelay = 30_000)` (ya habilitado vía `@EnableScheduling` en `FleetMgmApplication`), genera una posición por vehículo ACTIVE con deriva aleatoria respecto a la última conocida (o un punto base aleatorio si no hay historial) — la deriva evita que el vehículo "teletransporte" en el mapa
+- [x] **[GREEN]** `@PreAuthorize` en `GpsService.findLatest()` — `hasAnyRole('ADMIN', 'MANAGER', 'ADMINISTRATIVE', 'DRIVER')` (WORKSHOP_STAFF fuera de la lista → 403; no necesita tracking en vivo). DRIVER pasa el filtro pero recibe una respuesta acotada a su propio vehículo, resuelta reutilizando `AssignmentRepository.findActiveByDriverEmail` — mismo mecanismo ya usado en `VehicleService` (Hito 8) para "DRIVER solo ve el suyo", sin crear nada nuevo
+  > **Nota (revisión Hito 39):** el checklist original no especificaba cómo resolver "su posición" para DRIVER — se resolvió reutilizando el precedente exacto de `VehicleService.listForCurrentDriver()`/`assignmentRepository.findActiveByDriverEmail(email)` en vez de diseñar un mecanismo nuevo. Suite completa (`./mvnw test -Pfailsafe`): 433 tests, 0 failures/errors — sin regresión.
 
 ### Hito 40 — Frontend: GPS Map
 > Requiere: Hitos 38–39 (backend GPS)
