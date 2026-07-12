@@ -1195,6 +1195,79 @@ export function resetSupplierInvoicesMock() {
   supplierInvoices = [...SEED_SUPPLIER_INVOICES]
 }
 
+type AuditActionMock = 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'LOGOUT' | 'ACCESS_DENIED' | 'ACCOUNT_LOCKED'
+
+type AuditLogMock = {
+  id: string
+  entityType: string
+  entityId: string
+  action: AuditActionMock
+  performedByUserId: string | null
+  performedByEmail: string | null
+  performedAt: string
+  ipAddress: string | null
+  oldValues: string | null
+  newValues: string | null
+  details: string | null
+}
+
+// Read-only feature (no create/update/delete) — a plain const seed is enough, no mutable copy or
+// reset function needed like the other mocks above.
+export const SEED_AUDIT_LOGS: AuditLogMock[] = [
+  {
+    id: 'audit-1',
+    entityType: 'Invoice',
+    entityId: 'invoice-1',
+    action: 'CREATE',
+    performedByUserId: 'user-1',
+    performedByEmail: 'admin@fleetmgm.com',
+    performedAt: '2026-07-10T09:15:00Z',
+    ipAddress: '127.0.0.1',
+    oldValues: null,
+    newValues: '{"status":"DRAFT"}',
+    details: null,
+  },
+  {
+    id: 'audit-2',
+    entityType: 'SupplierInvoice',
+    entityId: 'supplier-invoice-1',
+    action: 'UPDATE',
+    performedByUserId: 'user-2',
+    performedByEmail: 'manager@fleetmgm.com',
+    performedAt: '2026-07-11T14:30:00Z',
+    ipAddress: '127.0.0.1',
+    oldValues: '{"status":"PENDING"}',
+    newValues: '{"status":"PAID"}',
+    details: null,
+  },
+  {
+    id: 'audit-3',
+    entityType: 'User',
+    entityId: 'user-3',
+    action: 'LOGIN',
+    performedByUserId: 'user-3',
+    performedByEmail: 'driver@fleetmgm.com',
+    performedAt: '2026-07-12T08:00:00Z',
+    ipAddress: '203.0.113.10',
+    oldValues: null,
+    newValues: null,
+    details: null,
+  },
+  {
+    id: 'audit-4',
+    entityType: 'User',
+    entityId: 'unknown',
+    action: 'ACCESS_DENIED',
+    performedByUserId: null,
+    performedByEmail: 'driver@fleetmgm.com',
+    performedAt: '2026-07-12T08:05:00Z',
+    ipAddress: '203.0.113.10',
+    oldValues: null,
+    newValues: null,
+    details: 'Attempted to access /api/v1/audit',
+  },
+]
+
 export const handlers = [
   http.get('/api/v1/clients', ({ request }) => {
     const url = new URL(request.url)
@@ -3177,6 +3250,34 @@ export const handlers = [
     supplierInvoices = supplierInvoices.map((invoice, i) => (i === index ? updated : invoice))
 
     return new HttpResponse(null, { status: 204 })
+  }),
+
+  http.get('/api/v1/audit', ({ request }) => {
+    const url = new URL(request.url)
+    const page = Number(url.searchParams.get('page') ?? 0)
+    const size = Number(url.searchParams.get('size') ?? 20)
+    const entityType = url.searchParams.get('entityType')
+    const action = url.searchParams.get('action') as AuditActionMock | null
+    const from = url.searchParams.get('from')
+    const to = url.searchParams.get('to')
+
+    const source = SEED_AUDIT_LOGS.filter(
+      (entry) =>
+        (entityType == null || entry.entityType === entityType) &&
+        (action == null || entry.action === action) &&
+        (from == null || entry.performedAt >= from) &&
+        (to == null || entry.performedAt <= to),
+    )
+    const start = page * size
+    const content = source.slice(start, start + size)
+
+    return HttpResponse.json({
+      content,
+      page,
+      size,
+      totalElements: source.length,
+      totalPages: Math.max(1, Math.ceil(source.length / size)),
+    })
   }),
 
   http.post('/api/v1/auth/login', async ({ request }) => {

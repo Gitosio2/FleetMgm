@@ -1567,11 +1567,14 @@ FleetMgm/
 
 ### Hito 42 — Frontend: AuditLog
 > Requiere: Hito 41 (backend audit viewer)
-- [ ] **[RED]** Handlers MSW — `GET /api/v1/audit` con filtros entityType, action, rango de fechas
-- [ ] **[RED]** Tests `AuditLog.test.tsx` — tabla paginada renderiza; filtros por entityType y action reducen la lista; 403 si rol ADMINISTRATIVE o inferior
-- [ ] **[GREEN]** `packages/hooks/src/useAuditLog.ts` — lista paginada con filtros
-- [ ] **[GREEN]** `apps/web/src/components/audit/` — `AuditLogTable`, `AuditLogFilters`
-- [ ] **[GREEN]** Página `AuditLog` — tabla paginada con filtros (solo ADMIN/MANAGER)
+- [x] **[RED]** Handlers MSW — `GET /api/v1/audit` con filtros entityType, action, rango de fechas (`SEED_AUDIT_LOGS`, sin reset — feature de solo lectura)
+- [x] **[RED]** Tests `AuditLog.test.tsx` — tabla paginada renderiza; filtros por entityType, action y rango de fechas reducen la lista
+  > **Nota:** el 403 de ADMINISTRATIVE/DRIVER no se testea en `AuditLog.test.tsx` — ya está cubierto genéricamente por
+  > `ProtectedRoute.test.tsx` (mismo criterio que `Suppliers`/`Billing`/`SupplierInvoices`, ninguna re-testea el 403
+  > por página). Verificado manualmente en navegador: rol DRIVER en `/audit` → 403.
+- [x] **[GREEN]** `packages/hooks/src/useAuditLog.ts` — lista paginada con filtros entityType/action/from/to
+- [x] **[GREEN]** `apps/web/src/components/audit/` — `AuditLogTable`, `AuditLogFilters`, `audit-log-shared.ts` (labels ES para `AuditAction` y `entityType`)
+- [x] **[GREEN]** Página `AuditLog` + ruta `/audit` en `App.tsx` (`allowedRoles={['ADMIN', 'MANAGER']}`, nav item ya existía en `nav-items.ts`)
 
 ### Hito 43 — Frontend: Dashboard y rentabilidad
 > Requiere: Hito 34 (backend profitability endpoint — incluye costes de mantenimiento y de proveedores)

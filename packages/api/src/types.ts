@@ -401,3 +401,19 @@ export type CreateSupplierInvoiceRequest = {
 }
 
 export type UpdateSupplierInvoiceRequest = CreateSupplierInvoiceRequest
+
+export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'LOGOUT' | 'ACCESS_DENIED' | 'ACCOUNT_LOCKED'
+
+export type AuditLog = {
+  id: string
+  entityType: string
+  entityId: string
+  action: AuditAction
+  performedByUserId: string | null
+  performedByEmail: string | null
+  performedAt: string
+  ipAddress: string | null
+  oldValues: string | null
+  newValues: string | null
+  details: string | null
+}
