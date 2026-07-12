@@ -236,7 +236,8 @@ FleetMgm/
 │           ├── V15__add_job_price.sql                           ← aplicada, Hito 31 (precio del job, para la línea de factura automática)
 │           ├── V16__create_invoice_number_seq.sql               ← aplicada, Hito 31 (secuencia PostgreSQL para INV-2026-00001)
 │           ├── V17__drop_dead_invoice_maintenance_links.sql     ← aplicada (limpieza: MaintenanceRecord.invoice e InvoiceLineItem.linkedMaintenance, nunca usados)
-│           └── V18__seed_demo_data.sql                          ← pendiente, Hito 43 (única migración de datos que falta)
+│           ├── V18__seed_demo_data.sql                          ← pendiente, Hito 45 (única migración de datos que falta)
+│           └── V19__create_suppliers.sql                        ← aplicada, Hito 36 (entidad maestra Supplier + FK supplier_invoices.supplier_id)
 │
 ├── packages/                                   ← lógica compartida entre web y mobile
 │   ├── api/                                    ← @fleetmgm/api
@@ -410,7 +411,7 @@ FleetMgm/
 - [x] `.github/workflows/security.yml` — OWASP scan semanal programado (`schedule: cron`, lunes 06:00 UTC)
 - [x] Maven Wrapper (`mvnw`/`mvnw.cmd` + `.mvn/wrapper/`) añadido — no existía pese a estar documentado en `CLAUDE.md`
 - [x] Verificado localmente: `./mvnw test` (60/60) y `./mvnw dependency-check:check` (`BUILD SUCCESS`) tras subir `spring-boot-starter-parent` 3.3.5 → **3.5.16** (la línea 3.3.x llegó a su último patch con CVEs CVSS ≥ 7 sin resolver en Spring Core/Security/Tomcat) + overrides de `postgresql`, `log4j2`, `jackson-bom`, `tomcat.version`, y bump de `springdoc-openapi-starter-webmvc-ui` a 2.8.17
-- [ ] Anclar `actions/checkout` / `actions/setup-java` a SHA concreto — diferido al Hito 43 (hardening final); por ahora usan tag `@v4`
+- [ ] Anclar `actions/checkout` / `actions/setup-java` a SHA concreto — diferido al Hito 45 (hardening final); por ahora usan tag `@v4`
 
 ---
 
@@ -549,7 +550,7 @@ FleetMgm/
 - [x] **[RED]** Tests `MaintenanceControllerTest` (`@WebMvcTest`) — 200/201/400/404/409 (el 403 por rol no se cubre acá — mismo gap AOP/`@PreAuthorize` heredado de Job/Vehicle: `@MockBean` en `@WebMvcTest` salta el proxy)
 - [x] **[GREEN]** `MaintenanceRepository` — `findAllJoinFetch` (JOIN FETCH vehicle/technician/invoice, sin N+1) + `existsByVehicleIdAndStatus` (para el edge case del listener)
 - [x] **[GREEN]** `VehicleEntersWorkshopEvent` + `MaintenanceCompletedEvent` (records, `workshop.domain`)
-- [x] **[GREEN]** Migración `V11__add_maintenance_deleted_at.sql` (`ALTER TABLE maintenance_records ADD COLUMN deleted_at TIMESTAMPTZ`) + campo `deletedAt` y `@SQLRestriction("deleted_at IS NULL")` en la entidad + `@Mapping(target = "deletedAt", ignore = true)` en `toEntity`/`updateEntity` del mapper *(la seed de datos, originalmente V11, pasó a V12, luego a V13, luego a V14/Hito 41, luego a V15/Hito 43, luego a V17/Hito 43 y ahora a **V18**/Hito 43 — Hito 28 insertó V14 para el rango horario, Hito 31 insertó V15 (precio del job) y V16 (secuencia de numeración de factura), y una limpieza posterior inserta V17 (borra `MaintenanceRecord.invoice`/`InvoiceLineItem.linkedMaintenance`, nunca usados); ver adenda de categoría de mantenimiento, Hito 26, Hito 28, Hito 31 y la limpieza de campos muertos)*
+- [x] **[GREEN]** Migración `V11__add_maintenance_deleted_at.sql` (`ALTER TABLE maintenance_records ADD COLUMN deleted_at TIMESTAMPTZ`) + campo `deletedAt` y `@SQLRestriction("deleted_at IS NULL")` en la entidad + `@Mapping(target = "deletedAt", ignore = true)` en `toEntity`/`updateEntity` del mapper *(la seed de datos, originalmente V11, pasó a V12, luego a V13, luego a V14/Hito 43, luego a V15/Hito 45, luego a V17/Hito 45 y ahora a **V18**/Hito 45 — Hito 28 insertó V14 para el rango horario, Hito 31 insertó V15 (precio del job) y V16 (secuencia de numeración de factura), el Hito 36 insertó V19 (entidad Supplier) sin afectar al número de la seed, y una limpieza posterior inserta V17 (borra `MaintenanceRecord.invoice`/`InvoiceLineItem.linkedMaintenance`, nunca usados); ver adenda de categoría de mantenimiento, Hito 26, Hito 28, Hito 31 y la limpieza de campos muertos)*
 - [x] **[GREEN]** `MaintenanceService.create()` — crear SCHEDULED (sin efecto sobre el vehículo todavía); `list()`/`getById()`/`update()` también cerrados (los stubs restantes del CRUD)
 - [x] **[GREEN]** `MaintenanceService.start()` — SCHEDULED → IN_PROGRESS, publicar `VehicleEntersWorkshopEvent` (el vehículo entra a `MAINTENANCE` acá, no en `create()`)
 - [x] **[GREEN]** `MaintenanceService.complete()` — IN_PROGRESS → COMPLETED, `workshopExitDate = now()`, publicar `MaintenanceCompletedEvent`
@@ -575,7 +576,7 @@ FleetMgm/
 - [x] **[GREEN]** `CreateMaintenanceRequest`/`UpdateMaintenanceRequest`/`MaintenanceResponse` — agregar `category` (opcional en create; si es null, el service aplica `PREVENTIVE`; obligatorio en update — PUT es reemplazo completo)
 - [x] **[GREEN]** `MaintenanceMapper` — `toEntity` ignora `category` (el service resuelve el default, evita que un `null` sobreescriba el default de la entidad); `updateEntity`/`toResponse` mapean directo por nombre
 - [x] **[GREEN]** `MaintenanceService.create()`/`update()` — cablear `category` (default `PREVENTIVE` si viene null en create)
-  > **Nota (revisión adenda):** al escribir esta adenda, `V12` estaba reservado para la seed de datos del Hito 41 (documentado tras el Hito 24). Se corrigieron las 4 referencias desactualizadas (`planning.md` líneas ~232, 535, 543, 705, y la nota de migraciones en `CLAUDE.md`): la seed de datos pasa de V12 a **V13**. Secuencia final: V11 (soft-delete, Hito 24) → V12 (categoría preventivo/correctivo, esta adenda) → V13 (seed data, Hito 41). Suite completa verde con integración: 166 tests (`./mvnw test -Pfailsafe`, Docker).
+  > **Nota (revisión adenda):** al escribir esta adenda, `V12` estaba reservado para la seed de datos del Hito 43 (documentado tras el Hito 24). Se corrigieron las 4 referencias desactualizadas (`planning.md` líneas ~232, 535, 543, 705, y la nota de migraciones en `CLAUDE.md`): la seed de datos pasa de V12 a **V13**. Secuencia final: V11 (soft-delete, Hito 24) → V12 (categoría preventivo/correctivo, esta adenda) → V13 (seed data, Hito 43). Suite completa verde con integración: 166 tests (`./mvnw test -Pfailsafe`, Docker).
 
 ### Hito 25 — Agenda del taller: Contrato API
 - [x] `Flyway V6` — tabla `workshop_schedules` *(ya aplicada, misma migración que maintenance_records)*
@@ -590,7 +591,7 @@ FleetMgm/
 - [x] **[RED]** Tests `ScheduleCompletionListenerTest` (o equivalente) — `MaintenanceCompletedEvent` con `maintenanceRecordId` enlazado a un schedule → `WorkshopSchedule.status` pasa a `COMPLETED`; sin schedule enlazado → no-op
 - [x] **[RED]** Tests `WorkshopScheduleRepositoryTest` (`@DataJpaTest` + Testcontainers) — queries por rango de fecha devuelven solo registros del periodo correcto; excluye soft-deleted
 - [x] **[RED]** Tests `WorkshopControllerTest` (`@WebMvcTest`) — 201, 400, 404, 409; parámetro `range` inválido → 400 (ya cubierto en Hito 25 vía `ScheduleRange.fromValue`, pero el `@WebMvcTest` completo llega acá)
-- [x] **[GREEN]** Migración `V13__add_workshop_schedule_deleted_at.sql` (`ALTER TABLE workshop_schedules ADD COLUMN deleted_at TIMESTAMPTZ`) + `deletedAt` + `@SQLRestriction` en la entidad + ignore en el mapper *(la seed de datos, hasta ahora V13, pasa a **V14**/Hito 41 en este hito — misma corrección de numeración que ya se hizo dos veces; actualizado `planning.md` línea del árbol de arquitectura, Hito 41, y `CLAUDE.md`; pasa a **V15**/Hito 43 al insertarse Hito 28, a **V17**/Hito 43 al insertarse Hito 31, y a **V18**/Hito 43 al insertarse la limpieza de campos muertos, ver notas de esas secciones)*
+- [x] **[GREEN]** Migración `V13__add_workshop_schedule_deleted_at.sql` (`ALTER TABLE workshop_schedules ADD COLUMN deleted_at TIMESTAMPTZ`) + `deletedAt` + `@SQLRestriction` en la entidad + ignore en el mapper *(la seed de datos, hasta ahora V13, pasa a **V14**/Hito 43 en este hito — misma corrección de numeración que ya se hizo dos veces; actualizado `planning.md` línea del árbol de arquitectura, Hito 43, y `CLAUDE.md`; pasa a **V15**/Hito 45 al insertarse Hito 28, a **V17**/Hito 45 al insertarse Hito 31, y a **V18**/Hito 45 al insertarse la limpieza de campos muertos, ver notas de esas secciones)*
 - [x] **[GREEN]** `WorkshopScheduleRepository` — queries por rango de fecha: hoy, semana actual, mes actual
 - [x] **[GREEN]** `WorkshopScheduleService.create()` — crear `PENDING`; default `priority = MEDIUM` si viene null (mismo patrón que `category` en `MaintenanceService`)
 - [x] **[GREEN]** `WorkshopScheduleService.start()` — `PENDING` → `IN_PROGRESS`
@@ -1472,15 +1473,47 @@ FleetMgm/
 >       en la misma página introdujo colisiones de texto ambiguo (mismo patrón de bug ya visto en
 >       la nota 12) — no se debilitó ninguna aserción, solo se acotó su búsqueda.
 
+### Hito 36 — Proveedores: Entidad maestra (Supplier) *(nuevo — sin hito asignado en el plan original)*
+> Requiere: Hito 35 (frontend de facturación)
+- [x] **[GREEN]** Nueva entidad `Supplier` (paquete propio `com.fleetmgm.supplier`, dato maestro cross-cutting como `client` — no anidado bajo `billing`): `name` (obligatorio), `taxId`/NIF (opcional, único cuando está presente vía índice parcial — mismo patrón que `Vehicle.licensePlate`), `email`, `phone`, `address`, soft-delete estándar
+- [x] **[GREEN]** Migración `V19__create_suppliers.sql` — crea `suppliers`; backfill de un `Supplier` por cada `supplier_name` distinto ya usado en `supplier_invoices`; añade `supplier_invoices.supplier_id` (FK NOT NULL) y elimina la columna de texto libre `supplier_name`
+- [x] **[GREEN]** `SupplierInvoice.supplierName: String` reemplazado por `supplier: Supplier` (`@ManyToOne` obligatorio) — cambio de contrato en `SupplierInvoiceResponse`/`Create`/`UpdateSupplierInvoiceRequest` (ahora `supplierId`)
+- [x] **[GREEN]** CRUD completo backend+frontend (`/api/v1/suppliers`, página `/suppliers`, `SupplierTable`/`SupplierFormModal`/`SupplierDeleteButton`)
+- [x] **[GREEN]** Navegación: el ítem "Proveedores" existente (→ `/supplier-invoices`) se renombra a "Gastos de proveedor"; nuevo ítem "Proveedores" (→ `/suppliers`) — mismo patrón que "Clientes" vs "Facturación"
+  > **Nota:** motivado por poder filtrar/reportar gasto por proveedor más adelante (NIF, teléfono, dirección) y evitar
+  > duplicados de nombre por error tipográfico en las facturas de proveedor. Se valoró y descartó con el usuario una
+  > alternativa más ligera (autocompletado de `supplierName` sin entidad nueva) por no cubrir NIF/teléfono ni permitir
+  > reporting real por proveedor. Rama `hito36-supplier-master-entity`, PR #49, mergeada. Suite: backend y frontend
+  > en verde (ver PR para el conteo exacto de tests).
+
+### Hito 37 — Facturas de proveedor: Líneas por vehículo *(nuevo — sin hito asignado en el plan original)*
+> Requiere: Hito 33 (backend facturas de proveedor), Hito 36 (entidad Supplier)
+- [x] **[GREEN]** `SupplierInvoiceLineItem` (ya existía en el esquema desde V7 sin superficie API/UI) expuesto vía `SupplierInvoiceResponse.lineItems`, mismo patrón sin N+1 que ya usa `InvoiceService` (batch fetch en `list()`, fetch único en `getById()`)
+- [x] **[GREEN]** Caso de uso: una factura compartida (p. ej. factura mensual de combustible de varios vehículos) se reparte en una línea por matrícula — cantidad (consumo del mes) + coste total — en vez de fijar la factura entera a un solo vehículo por cabecera
+- [x] **[GREEN]** Vehículo de cabecera y líneas por vehículo mutuamente excluyentes (409 `SUPPLIER_INVOICE_VEHICLE_LINE_ITEMS_CONFLICT`) — coincide con una invariante que `ProfitabilityRepository` ya asumía (`si2.vehicle_id IS NULL`) pero que nada forzaba hasta ahora
+- [x] **[GREEN]** Pagar (`PENDING → PAID`) una factura con reparto por líneas exige `Σ líneas.subtotal == cabecera.subtotal` (409 `SUPPLIER_INVOICE_ALLOCATION_INCOMPLETE` si no cuadra)
+- [x] **[GREEN]** CRUD completo de línea (crear/editar/borrar) restringido a facturas `PENDING`; 404 `SUPPLIER_LINE_ITEM_NOT_FOUND` si la línea no pertenece a la factura del path (defensa IDOR)
+- [x] **[GREEN]** Facturas `PAID` pasan a ser de solo consulta en el frontend (campos deshabilitados, botón "Ver" en vez de "Editar")
+- [x] **[GREEN]** Subtotal/IVA/Total del formulario se autocalculan entre sí (editar Subtotal o IVA recalcula Total; editar Total recalcula Subtotal)
+  > **Nota:** el campo de línea pide **cantidad + coste total**, no cantidad + precio unitario — decisión tomada con
+  > el usuario: en la práctica (anexos de tarjetas de combustible tipo Solred/CEPSA/DKV) se conoce el consumo y el
+  > importe total del mes, no un precio unitario único (varía a diario); el "precio medio" se deriva en servidor
+  > (coste ÷ cantidad) solo a título informativo. Rama `hito37-supplier-invoice-line-items`, PR #50. Suite: backend
+  > 375 tests, frontend 97 tests, ambos en verde; CI en success sobre el commit de merge con `main`.
+
+> **Nota:** los Hitos 36–37 (entidad `Supplier` + líneas de factura de proveedor) no estaban en el plan original;
+> se añadieron tras revisión con el usuario, igual que ocurrió con las facturas de proveedor (Hitos 32–33). GPS y
+> los hitos siguientes se renumeraron +2 (antiguo Hito 36 → nuevo Hito 38, etc.) para hacer sitio.
+
 ---
 
-### Hito 36 — GPS: Contrato API
+### Hito 38 — GPS: Contrato API
 - [x] `Flyway V8` — tabla `gps_positions` con índices en `vehicle_id` y `recorded_at` *(ya aplicada)*
 - [x] `GpsPosition` entity — lat, lng, heading, speed, `source` (MOCK/DEVICE) *(ya scaffoldeada)*
 - [ ] `GpsPositionResponse` (record)
 - [ ] `GpsController` — `GET /api/v1/gps/latest`
 
-### Hito 37 — GPS: Lógica e implementación
+### Hito 39 — GPS: Lógica e implementación
 - [ ] **[RED]** Tests `GpsRepositoryTest` (`@DataJpaTest` + Testcontainers) — findLatestByVehicleId devuelve la posición más reciente; vehículos INACTIVE no aparecen en findLatestForAllActiveVehicles
 - [ ] **[RED]** Tests `GpsMockSchedulerTest` — scheduler genera exactamente una posición por vehículo ACTIVE con coordenadas dentro del rango esperado
 - [ ] **[RED]** Tests `GpsControllerTest` (`@WebMvcTest`) — 200, 403 DRIVER sin acceso global; DRIVER solo ve su posición
@@ -1488,8 +1521,8 @@ FleetMgm/
 - [ ] **[GREEN]** `GpsMockScheduler` — `@Scheduled(fixedDelay = 30_000)`, genera posiciones con deriva aleatoria para vehículos ACTIVE
 - [ ] **[GREEN]** `@PreAuthorize` — ADMIN/MANAGER/ADMINISTRATIVE ven todos; DRIVER solo su posición
 
-### Hito 38 — Frontend: GPS Map
-> Requiere: Hitos 36–37 (backend GPS)
+### Hito 40 — Frontend: GPS Map
+> Requiere: Hitos 38–39 (backend GPS)
 - [ ] **[RED]** Handlers MSW — `GET /api/v1/gps/latest`
 - [ ] **[RED]** Tests `Map.test.tsx` — marcador renderizado por cada vehículo retornado por MSW; popover muestra licensePlate y speed; polling cada 10 s dispara segunda llamada
 - [ ] **[GREEN]** `packages/hooks/src/useGps.ts` — polling cada 10 s, invalida caché automáticamente
@@ -1498,22 +1531,22 @@ FleetMgm/
 
 ---
 
-### Hito 39 — AuditLog viewer
+### Hito 41 — AuditLog viewer
 - [x] `Flyway V8` — tabla `audit_logs` *(ya aplicada, misma migración que gps_positions)*
 - [x] `AuditLog` entity, `AuditLogRepository` *(stub base ya creado — `JpaRepository` sin queries de filtro)*
 - [ ] **[RED]** Tests `AuditControllerTest` (`@WebMvcTest`) — 200 con filtros entityType/action/rango de fechas; 403 ADMINISTRATIVE no tiene acceso
 - [ ] **[GREEN]** `AuditLogRepository` — ampliar con `findAll` paginado y filtros (entityType, action, rango de fechas)
 - [ ] **[GREEN]** `AuditLogResponse` (record) + `AuditLogController` — `GET /api/v1/audit`, solo ADMIN/MANAGER
 
-### Hito 40 — Frontend: AuditLog
-> Requiere: Hito 39 (backend audit viewer)
+### Hito 42 — Frontend: AuditLog
+> Requiere: Hito 41 (backend audit viewer)
 - [ ] **[RED]** Handlers MSW — `GET /api/v1/audit` con filtros entityType, action, rango de fechas
 - [ ] **[RED]** Tests `AuditLog.test.tsx` — tabla paginada renderiza; filtros por entityType y action reducen la lista; 403 si rol ADMINISTRATIVE o inferior
 - [ ] **[GREEN]** `packages/hooks/src/useAuditLog.ts` — lista paginada con filtros
 - [ ] **[GREEN]** `apps/web/src/components/audit/` — `AuditLogTable`, `AuditLogFilters`
 - [ ] **[GREEN]** Página `AuditLog` — tabla paginada con filtros (solo ADMIN/MANAGER)
 
-### Hito 41 — Frontend: Dashboard y rentabilidad
+### Hito 43 — Frontend: Dashboard y rentabilidad
 > Requiere: Hito 34 (backend profitability endpoint — incluye costes de mantenimiento y de proveedores)
 - [ ] **[RED]** Handlers MSW — `GET /api/v1/reports/profitability`
 - [ ] **[RED]** Tests `Dashboard.test.tsx` — gráfico Recharts renderiza barras por vehículo; totales de ingresos/costes/margen son correctos; solo ADMIN/MANAGER ven la sección
@@ -1523,12 +1556,12 @@ FleetMgm/
 
 ---
 
-### Hito 42 — Tests de integración (`@SpringBootTest` + Testcontainers)
+### Hito 44 — Tests de integración (`@SpringBootTest` + Testcontainers)
 - [ ] `AuthFlowIT` — login correcto → JWT → endpoint protegido; 5 intentos fallidos → cuenta bloqueada → 401
 - [ ] `JobLifecycleIT` — crear job → iniciar → completar → verificar `UsageLog` creado y `currentKm` actualizado
 - [ ] `InvoiceFlowIT` — crear DRAFT → añadir línea → emitir → pagar → descargar PDF
 
-### Hito 43 — Demo y hardening final
+### Hito 45 — Demo y hardening final
 - [ ] `docker-compose.yml` — postgres:16 + backend + apps/web (nginx), health checks, `depends_on`
 - [ ] `Flyway V18` — seed datos demo realistas (5 vehículos, 3 conductores, 10 trabajos completados, 3 facturas de cliente, facturas de proveedor de ejemplo)
 - [ ] Revisar headers HTTP en `SecurityConfig`: `X-Content-Type-Options`, `X-Frame-Options`, `HSTS` (prod)
@@ -1558,6 +1591,9 @@ FleetMgm/
 | Orden de hitos: Frontend | Intercalado justo después de cada bloque de backend del que depende, en vez de en bloque al final | Evita llegar a la demo con backend completo pero UI inexistente si el tiempo se acorta |
 | Facturas de proveedor | Hito propio (30–31), separado de Facturación a clientes | Ya estaba scaffoldeada (entidad + Flyway) en el commit inicial sin documentar; afecta el cálculo de rentabilidad (costes) |
 | Spring Boot 3.3 → 3.5.16 | Subido en el Hito 11, al activar el gate de OWASP | 3.3.13 (último patch de la línea) seguía con CVEs CVSS hasta 9.8 en Spring Core/Security/Tomcat sin backport; 3.5.16 las resuelve. Validado con los 60 tests existentes antes y después del salto |
+| Entidad `Supplier` | Hito propio (36), separada del dato libre `supplierName` | Evita duplicados por typo y habilita filtrar/reportar gasto por proveedor (NIF, teléfono); se descartó un autocompletado sin entidad nueva por no cubrir esos casos |
+| Líneas de factura de proveedor | Hito propio (37); campo cantidad + coste total, no cantidad + precio unitario | Los anexos reales de tarjetas de combustible dan consumo e importe total del mes, no un precio unitario único (varía a diario); el precio medio se deriva en servidor solo a título informativo |
+| Orden de hitos: GPS y siguientes | Renumerados +2 (antiguo 36→38, ..., antiguo 43→45) | Hicieron sitio a los Hitos 36–37 (Supplier + líneas de factura de proveedor), añadidos tras el Hito 35 sin estar en el plan original |
 
 ---
 
