@@ -20,6 +20,8 @@ import com.fleetmgm.shared.domain.AuditLog;
 import com.fleetmgm.shared.exception.ConflictException;
 import com.fleetmgm.shared.exception.NotFoundException;
 import com.fleetmgm.shared.infrastructure.AuditLogRepository;
+import com.fleetmgm.supplier.domain.Supplier;
+import com.fleetmgm.supplier.infrastructure.SupplierRepository;
 import com.fleetmgm.vehicle.domain.Vehicle;
 import com.fleetmgm.vehicle.infrastructure.VehicleRepository;
 import com.fleetmgm.workshop.domain.MaintenanceRecord;
@@ -54,6 +56,7 @@ public class SupplierInvoiceService {
     private final SupplierInvoiceLineItemRepository supplierInvoiceLineItemRepository;
     private final VehicleRepository vehicleRepository;
     private final MaintenanceRepository maintenanceRepository;
+    private final SupplierRepository supplierRepository;
     private final SupplierInvoiceMapper supplierInvoiceMapper;
     private final AuditLogRepository auditLogRepository;
     private final UserRepository userRepository;
@@ -62,6 +65,7 @@ public class SupplierInvoiceService {
                                    SupplierInvoiceLineItemRepository supplierInvoiceLineItemRepository,
                                    VehicleRepository vehicleRepository,
                                    MaintenanceRepository maintenanceRepository,
+                                   SupplierRepository supplierRepository,
                                    SupplierInvoiceMapper supplierInvoiceMapper,
                                    AuditLogRepository auditLogRepository,
                                    UserRepository userRepository) {
@@ -69,6 +73,7 @@ public class SupplierInvoiceService {
         this.supplierInvoiceLineItemRepository = supplierInvoiceLineItemRepository;
         this.vehicleRepository = vehicleRepository;
         this.maintenanceRepository = maintenanceRepository;
+        this.supplierRepository = supplierRepository;
         this.supplierInvoiceMapper = supplierInvoiceMapper;
         this.auditLogRepository = auditLogRepository;
         this.userRepository = userRepository;
@@ -93,8 +98,10 @@ public class SupplierInvoiceService {
     @Transactional
     @PreAuthorize(ROLES)
     public SupplierInvoiceResponse create(CreateSupplierInvoiceRequest request) {
+        Supplier supplier = resolveSupplier(request.supplierId());
         Vehicle vehicle = resolveVehicle(request.vehicleId());
         SupplierInvoice invoice = supplierInvoiceMapper.toEntity(request);
+        invoice.setSupplier(supplier);
         invoice.setVehicle(vehicle);
         // A brand-new invoice can't have pre-existing line items (they're only added afterward via
         // addLineItem()), so there's nothing to fetch here - skip the query entirely.
@@ -121,8 +128,10 @@ public class SupplierInvoiceService {
                     "Supplier invoice " + id + " has line items and cannot also have a header vehicle — "
                             + "remove the line items first or leave the header vehicle unset");
         }
+        Supplier supplier = resolveSupplier(request.supplierId());
         Vehicle vehicle = resolveVehicle(request.vehicleId());
         supplierInvoiceMapper.updateEntity(request, invoice);
+        invoice.setSupplier(supplier);
         invoice.setVehicle(vehicle);
         SupplierInvoice saved = supplierInvoiceRepository.save(invoice);
         return toResponseWithLineItems(saved, existingLineItems);
@@ -260,11 +269,11 @@ public class SupplierInvoiceService {
         List<SupplierLineItemResponse> lineItemResponses = lineItems.stream()
                 .map(supplierInvoiceMapper::toResponse)
                 .toList();
-        return new SupplierInvoiceResponse(base.id(), base.supplierName(), base.supplierInvoiceNumber(),
-                base.category(), base.invoiceDate(), base.dueDate(), base.paymentDate(), base.status(),
-                base.subtotal(), base.taxAmount(), base.total(), base.vehicleId(), base.vehicleLicensePlate(),
-                base.vehicleMake(), base.vehicleModel(), base.notes(), base.documentPath(), base.createdAt(),
-                lineItemResponses);
+        return new SupplierInvoiceResponse(base.id(), base.supplierId(), base.supplierName(),
+                base.supplierInvoiceNumber(), base.category(), base.invoiceDate(), base.dueDate(),
+                base.paymentDate(), base.status(), base.subtotal(), base.taxAmount(), base.total(),
+                base.vehicleId(), base.vehicleLicensePlate(), base.vehicleMake(), base.vehicleModel(),
+                base.notes(), base.documentPath(), base.createdAt(), lineItemResponses);
     }
 
     // --- relation resolution helpers ---
@@ -279,6 +288,13 @@ public class SupplierInvoiceService {
         if (invoice.getStatus() != SupplierInvoiceStatus.PENDING) {
             throw new ConflictException(code, message);
         }
+    }
+
+    // Mandatory relation, unlike resolveVehicle/resolveMaintenance below — no null-check bypass,
+    // supplierId is always @NotNull on the request.
+    private Supplier resolveSupplier(UUID supplierId) {
+        return supplierRepository.findById(supplierId)
+                .orElseThrow(() -> new NotFoundException("SUPPLIER_NOT_FOUND", "Supplier " + supplierId + " not found"));
     }
 
     private Vehicle resolveVehicle(UUID vehicleId) {

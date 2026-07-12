@@ -1,5 +1,6 @@
 package com.fleetmgm.billing.domain;
 
+import com.fleetmgm.supplier.domain.Supplier;
 import com.fleetmgm.vehicle.domain.Vehicle;
 import jakarta.persistence.*;
 import org.hibernate.annotations.SQLRestriction;
@@ -22,8 +23,9 @@ public class SupplierInvoice {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(name = "supplier_name", nullable = false, length = 255)
-    private String supplierName;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "supplier_id", nullable = false)
+    private Supplier supplier;
 
     @Column(name = "supplier_invoice_number", length = 100)
     private String supplierInvoiceNumber;
@@ -78,8 +80,8 @@ public class SupplierInvoice {
 
     public UUID getId() { return id; }
 
-    public String getSupplierName() { return supplierName; }
-    public void setSupplierName(String supplierName) { this.supplierName = supplierName; }
+    public Supplier getSupplier() { return supplier; }
+    public void setSupplier(Supplier supplier) { this.supplier = supplier; }
 
     public String getSupplierInvoiceNumber() { return supplierInvoiceNumber; }
     public void setSupplierInvoiceNumber(String supplierInvoiceNumber) { this.supplierInvoiceNumber = supplierInvoiceNumber; }

@@ -13,6 +13,8 @@ public interface SupplierInvoiceMapper {
     // from a separate repository call (single query for getById(), batched for list() to avoid
     // N+1) and attached after this base mapping runs. Declared ignore, per CLAUDE.md MapStruct
     // convention: never rely on MapStruct's silent unmapped-field behaviour.
+    @Mapping(target = "supplierId", source = "supplier.id")
+    @Mapping(target = "supplierName", source = "supplier.name")
     @Mapping(target = "vehicleId", source = "vehicle.id")
     @Mapping(target = "vehicleLicensePlate", source = "vehicle.licensePlate")
     @Mapping(target = "vehicleMake", source = "vehicle.make")
@@ -21,6 +23,7 @@ public interface SupplierInvoiceMapper {
     SupplierInvoiceResponse toResponse(SupplierInvoice invoice);
 
     @Mapping(target = "id", ignore = true)
+    @Mapping(target = "supplier", ignore = true)
     @Mapping(target = "vehicle", ignore = true)
     @Mapping(target = "status", ignore = true)
     @Mapping(target = "paymentDate", ignore = true)
@@ -30,6 +33,7 @@ public interface SupplierInvoiceMapper {
     SupplierInvoice toEntity(CreateSupplierInvoiceRequest request);
 
     @Mapping(target = "id", ignore = true)
+    @Mapping(target = "supplier", ignore = true)
     @Mapping(target = "vehicle", ignore = true)
     @Mapping(target = "status", ignore = true)
     @Mapping(target = "paymentDate", ignore = true)

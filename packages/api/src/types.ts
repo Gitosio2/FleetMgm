@@ -33,6 +33,26 @@ export type CreateClientRequest = {
 
 export type UpdateClientRequest = CreateClientRequest
 
+export type Supplier = {
+  id: string
+  name: string
+  taxId: string | null
+  email: string | null
+  phone: string | null
+  address: string | null
+  createdAt: string
+}
+
+export type CreateSupplierRequest = {
+  name: string
+  taxId?: string | null
+  email?: string
+  phone?: string
+  address?: string
+}
+
+export type UpdateSupplierRequest = CreateSupplierRequest
+
 export type VehicleCategory = 'LIGHT_VEHICLE' | 'HEAVY_VEHICLE' | 'HEAVY_MACHINERY'
 export type UsageMeasure = 'KILOMETERS' | 'HOURS'
 export type VehicleStatus = 'ACTIVE' | 'MAINTENANCE' | 'INACTIVE' | 'DECOMMISSIONED'
@@ -345,6 +365,7 @@ export type SupplierLineItemRequest = {
 
 export type SupplierInvoice = {
   id: string
+  supplierId: string
   supplierName: string
   supplierInvoiceNumber: string | null
   category: ExpenseCategory
@@ -366,7 +387,7 @@ export type SupplierInvoice = {
 }
 
 export type CreateSupplierInvoiceRequest = {
-  supplierName: string
+  supplierId: string
   supplierInvoiceNumber?: string | null
   category: ExpenseCategory
   invoiceDate: string

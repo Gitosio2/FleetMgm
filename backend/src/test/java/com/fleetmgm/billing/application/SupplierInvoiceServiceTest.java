@@ -21,6 +21,8 @@ import com.fleetmgm.shared.domain.AuditLog;
 import com.fleetmgm.shared.exception.ConflictException;
 import com.fleetmgm.shared.exception.NotFoundException;
 import com.fleetmgm.shared.infrastructure.AuditLogRepository;
+import com.fleetmgm.supplier.domain.Supplier;
+import com.fleetmgm.supplier.infrastructure.SupplierRepository;
 import com.fleetmgm.vehicle.domain.Vehicle;
 import com.fleetmgm.vehicle.infrastructure.VehicleRepository;
 import com.fleetmgm.workshop.domain.MaintenanceRecord;
@@ -61,10 +63,13 @@ class SupplierInvoiceServiceTest {
     @Mock SupplierInvoiceLineItemRepository supplierInvoiceLineItemRepository;
     @Mock VehicleRepository vehicleRepository;
     @Mock MaintenanceRepository maintenanceRepository;
+    @Mock SupplierRepository supplierRepository;
     @Mock SupplierInvoiceMapper supplierInvoiceMapper;
     @Mock AuditLogRepository auditLogRepository;
     @Mock UserRepository userRepository;
     @InjectMocks SupplierInvoiceService supplierInvoiceService;
+
+    private static final UUID SUPPLIER_ID = UUID.randomUUID();
 
     @AfterEach
     void clearSecurityContext() {
@@ -77,12 +82,14 @@ class SupplierInvoiceServiceTest {
     void create_persistsPendingInvoice_withResolvedVehicle() {
         UUID vehicleId = UUID.randomUUID();
         CreateSupplierInvoiceRequest request = new CreateSupplierInvoiceRequest(
-                "Acme Parts", "SUP-001", ExpenseCategory.MAINTENANCE, LocalDate.now(), null,
+                SUPPLIER_ID, "SUP-001", ExpenseCategory.MAINTENANCE, LocalDate.now(), null,
                 vehicleId, new BigDecimal("100.00"), new BigDecimal("21.00"), new BigDecimal("121.00"), null, null);
+        Supplier supplier = new Supplier();
         Vehicle vehicle = new Vehicle();
         SupplierInvoice entity = new SupplierInvoice();
         SupplierInvoiceResponse expected = buildResponse(UUID.randomUUID());
 
+        when(supplierRepository.findById(SUPPLIER_ID)).thenReturn(Optional.of(supplier));
         when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(vehicle));
         when(supplierInvoiceMapper.toEntity(request)).thenReturn(entity);
         when(supplierInvoiceRepository.save(entity)).thenReturn(entity);
@@ -94,16 +101,19 @@ class SupplierInvoiceServiceTest {
         ArgumentCaptor<SupplierInvoice> captor = ArgumentCaptor.forClass(SupplierInvoice.class);
         verify(supplierInvoiceRepository).save(captor.capture());
         assertThat(captor.getValue().getVehicle()).isEqualTo(vehicle);
+        assertThat(captor.getValue().getSupplier()).isEqualTo(supplier);
     }
 
     @Test
     void create_allowsNullVehicle_whenNotProvided() {
         CreateSupplierInvoiceRequest request = new CreateSupplierInvoiceRequest(
-                "Acme Parts", null, ExpenseCategory.OTHER, LocalDate.now(), null,
+                SUPPLIER_ID, null, ExpenseCategory.OTHER, LocalDate.now(), null,
                 null, new BigDecimal("50.00"), new BigDecimal("0"), new BigDecimal("50.00"), null, null);
+        Supplier supplier = new Supplier();
         SupplierInvoice entity = new SupplierInvoice();
         SupplierInvoiceResponse expected = buildResponse(UUID.randomUUID());
 
+        when(supplierRepository.findById(SUPPLIER_ID)).thenReturn(Optional.of(supplier));
         when(supplierInvoiceMapper.toEntity(request)).thenReturn(entity);
         when(supplierInvoiceRepository.save(entity)).thenReturn(entity);
         when(supplierInvoiceMapper.toResponse(entity)).thenReturn(expected);
@@ -120,14 +130,30 @@ class SupplierInvoiceServiceTest {
     void create_throwsNotFound_whenVehicleMissing() {
         UUID vehicleId = UUID.randomUUID();
         CreateSupplierInvoiceRequest request = new CreateSupplierInvoiceRequest(
-                "Acme Parts", null, ExpenseCategory.OTHER, LocalDate.now(), null,
+                SUPPLIER_ID, null, ExpenseCategory.OTHER, LocalDate.now(), null,
                 vehicleId, new BigDecimal("50.00"), new BigDecimal("0"), new BigDecimal("50.00"), null, null);
 
+        when(supplierRepository.findById(SUPPLIER_ID)).thenReturn(Optional.of(new Supplier()));
         when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> supplierInvoiceService.create(request))
                 .isInstanceOf(NotFoundException.class)
                 .satisfies(ex -> assertThat(((NotFoundException) ex).getCode()).isEqualTo("VEHICLE_NOT_FOUND"));
+
+        verify(supplierInvoiceRepository, never()).save(any());
+    }
+
+    @Test
+    void create_throwsNotFound_whenSupplierMissing() {
+        CreateSupplierInvoiceRequest request = new CreateSupplierInvoiceRequest(
+                SUPPLIER_ID, null, ExpenseCategory.OTHER, LocalDate.now(), null,
+                null, new BigDecimal("50.00"), new BigDecimal("0"), new BigDecimal("50.00"), null, null);
+
+        when(supplierRepository.findById(SUPPLIER_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> supplierInvoiceService.create(request))
+                .isInstanceOf(NotFoundException.class)
+                .satisfies(ex -> assertThat(((NotFoundException) ex).getCode()).isEqualTo("SUPPLIER_NOT_FOUND"));
 
         verify(supplierInvoiceRepository, never()).save(any());
     }
@@ -197,14 +223,16 @@ class SupplierInvoiceServiceTest {
         UUID id = UUID.randomUUID();
         UUID vehicleId = UUID.randomUUID();
         UpdateSupplierInvoiceRequest request = new UpdateSupplierInvoiceRequest(
-                "Acme Parts", "SUP-002", ExpenseCategory.FUEL, LocalDate.now(), null,
+                SUPPLIER_ID, "SUP-002", ExpenseCategory.FUEL, LocalDate.now(), null,
                 vehicleId, new BigDecimal("100.00"), new BigDecimal("21.00"), new BigDecimal("121.00"), null, null);
         SupplierInvoice invoice = new SupplierInvoice();
         invoice.setStatus(SupplierInvoiceStatus.PENDING);
+        Supplier supplier = new Supplier();
         Vehicle vehicle = new Vehicle();
         SupplierInvoiceResponse expected = buildResponse(id);
 
         when(supplierInvoiceRepository.findById(id)).thenReturn(Optional.of(invoice));
+        when(supplierRepository.findById(SUPPLIER_ID)).thenReturn(Optional.of(supplier));
         when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(vehicle));
         when(supplierInvoiceRepository.save(invoice)).thenReturn(invoice);
         when(supplierInvoiceMapper.toResponse(invoice)).thenReturn(expected);
@@ -213,6 +241,7 @@ class SupplierInvoiceServiceTest {
 
         assertThat(result).isEqualTo(expected);
         assertThat(invoice.getVehicle()).isEqualTo(vehicle);
+        assertThat(invoice.getSupplier()).isEqualTo(supplier);
         verify(supplierInvoiceMapper).updateEntity(request, invoice);
     }
 
@@ -220,7 +249,7 @@ class SupplierInvoiceServiceTest {
     void update_throwsConflict_whenNotPending() {
         UUID id = UUID.randomUUID();
         UpdateSupplierInvoiceRequest request = new UpdateSupplierInvoiceRequest(
-                "Acme Parts", null, ExpenseCategory.FUEL, LocalDate.now(), null,
+                SUPPLIER_ID, null, ExpenseCategory.FUEL, LocalDate.now(), null,
                 null, new BigDecimal("100.00"), new BigDecimal("21.00"), new BigDecimal("121.00"), null, null);
         SupplierInvoice invoice = new SupplierInvoice();
         invoice.setStatus(SupplierInvoiceStatus.PAID);
@@ -240,7 +269,7 @@ class SupplierInvoiceServiceTest {
         UUID id = UUID.randomUUID();
         UUID vehicleId = UUID.randomUUID();
         UpdateSupplierInvoiceRequest request = new UpdateSupplierInvoiceRequest(
-                "Acme Parts", "SUP-002", ExpenseCategory.FUEL, LocalDate.now(), null,
+                SUPPLIER_ID, "SUP-002", ExpenseCategory.FUEL, LocalDate.now(), null,
                 vehicleId, new BigDecimal("100.00"), new BigDecimal("21.00"), new BigDecimal("121.00"), null, null);
         SupplierInvoice invoice = new SupplierInvoice();
         invoice.setStatus(SupplierInvoiceStatus.PENDING);
@@ -256,21 +285,24 @@ class SupplierInvoiceServiceTest {
 
         verify(supplierInvoiceRepository, never()).save(any());
         verify(vehicleRepository, never()).findById(any());
+        verify(supplierRepository, never()).findById(any());
     }
 
     @Test
     void update_allowsClearingHeaderVehicle_whenLineItemsExist() {
         UUID id = UUID.randomUUID();
         UpdateSupplierInvoiceRequest request = new UpdateSupplierInvoiceRequest(
-                "Acme Parts", "SUP-002", ExpenseCategory.FUEL, LocalDate.now(), null,
+                SUPPLIER_ID, "SUP-002", ExpenseCategory.FUEL, LocalDate.now(), null,
                 null, new BigDecimal("100.00"), new BigDecimal("21.00"), new BigDecimal("121.00"), null, null);
         SupplierInvoice invoice = new SupplierInvoice();
         invoice.setStatus(SupplierInvoiceStatus.PENDING);
+        Supplier supplier = new Supplier();
         SupplierInvoiceLineItem existingLine = new SupplierInvoiceLineItem();
         SupplierInvoiceResponse expected = buildResponse(id);
 
         when(supplierInvoiceRepository.findById(id)).thenReturn(Optional.of(invoice));
         when(supplierInvoiceLineItemRepository.findAllByInvoiceId(id)).thenReturn(List.of(existingLine));
+        when(supplierRepository.findById(SUPPLIER_ID)).thenReturn(Optional.of(supplier));
         when(supplierInvoiceRepository.save(invoice)).thenReturn(invoice);
         when(supplierInvoiceMapper.toResponse(invoice)).thenReturn(expected);
         when(supplierInvoiceMapper.toResponse(existingLine)).thenReturn(new SupplierLineItemResponse(
@@ -279,7 +311,28 @@ class SupplierInvoiceServiceTest {
         supplierInvoiceService.update(id, request);
 
         assertThat(invoice.getVehicle()).isNull();
+        assertThat(invoice.getSupplier()).isEqualTo(supplier);
         verify(supplierInvoiceRepository).save(invoice);
+    }
+
+    @Test
+    void update_throwsNotFound_whenSupplierMissing() {
+        UUID id = UUID.randomUUID();
+        UpdateSupplierInvoiceRequest request = new UpdateSupplierInvoiceRequest(
+                SUPPLIER_ID, null, ExpenseCategory.FUEL, LocalDate.now(), null,
+                null, new BigDecimal("100.00"), new BigDecimal("21.00"), new BigDecimal("121.00"), null, null);
+        SupplierInvoice invoice = new SupplierInvoice();
+        invoice.setStatus(SupplierInvoiceStatus.PENDING);
+
+        when(supplierInvoiceRepository.findById(id)).thenReturn(Optional.of(invoice));
+        when(supplierInvoiceLineItemRepository.findAllByInvoiceId(id)).thenReturn(List.of());
+        when(supplierRepository.findById(SUPPLIER_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> supplierInvoiceService.update(id, request))
+                .isInstanceOf(NotFoundException.class)
+                .satisfies(ex -> assertThat(((NotFoundException) ex).getCode()).isEqualTo("SUPPLIER_NOT_FOUND"));
+
+        verify(supplierInvoiceRepository, never()).save(any());
     }
 
     // --- delete ---
@@ -883,7 +936,7 @@ class SupplierInvoiceServiceTest {
     }
 
     private SupplierInvoiceResponse buildResponse(UUID id) {
-        return new SupplierInvoiceResponse(id, "Acme Parts", "SUP-001", ExpenseCategory.MAINTENANCE,
+        return new SupplierInvoiceResponse(id, SUPPLIER_ID, "Acme Parts", "SUP-001", ExpenseCategory.MAINTENANCE,
                 LocalDate.now(), null, null, SupplierInvoiceStatus.PENDING,
                 new BigDecimal("100.00"), new BigDecimal("21.00"), new BigDecimal("121.00"),
                 null, null, null, null, null, null, Instant.now(), List.of());

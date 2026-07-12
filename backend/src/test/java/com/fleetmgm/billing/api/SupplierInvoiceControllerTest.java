@@ -41,9 +41,10 @@ class SupplierInvoiceControllerTest {
     @Autowired MockMvc mockMvc;
 
     private static final UUID INVOICE_ID = UUID.randomUUID();
+    private static final UUID SUPPLIER_ID = UUID.randomUUID();
 
     private SupplierInvoiceResponse sampleResponse() {
-        return new SupplierInvoiceResponse(INVOICE_ID, "Acme Parts", "SUP-001", ExpenseCategory.MAINTENANCE,
+        return new SupplierInvoiceResponse(INVOICE_ID, SUPPLIER_ID, "Acme Parts", "SUP-001", ExpenseCategory.MAINTENANCE,
                 LocalDate.now(), null, null, SupplierInvoiceStatus.PENDING,
                 new BigDecimal("100.00"), new BigDecimal("21.00"), new BigDecimal("121.00"),
                 null, null, null, null, null, null, Instant.now(), List.of());
@@ -70,14 +71,14 @@ class SupplierInvoiceControllerTest {
 
         mockMvc.perform(post("/api/v1/supplier-invoices")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"supplierName\":\"Acme Parts\",\"category\":\"MAINTENANCE\","
+                        .content("{\"supplierId\":\"" + SUPPLIER_ID + "\",\"category\":\"MAINTENANCE\","
                                 + "\"invoiceDate\":\"2026-07-01\",\"subtotal\":100.00,\"taxAmount\":21.00,\"total\":121.00}"))
                 .andExpect(status().isCreated())
                 .andExpect(header().string("Location", org.hamcrest.Matchers.containsString("/api/v1/supplier-invoices/")));
     }
 
     @Test
-    void create_returns400_whenSupplierNameMissing() throws Exception {
+    void create_returns400_whenSupplierIdMissing() throws Exception {
         mockMvc.perform(post("/api/v1/supplier-invoices")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"category\":\"MAINTENANCE\",\"invoiceDate\":\"2026-07-01\","
@@ -116,7 +117,7 @@ class SupplierInvoiceControllerTest {
 
         mockMvc.perform(put("/api/v1/supplier-invoices/{id}", INVOICE_ID)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"supplierName\":\"Acme Parts\",\"category\":\"MAINTENANCE\","
+                        .content("{\"supplierId\":\"" + SUPPLIER_ID + "\",\"category\":\"MAINTENANCE\","
                                 + "\"invoiceDate\":\"2026-07-01\",\"subtotal\":100.00,\"taxAmount\":21.00,\"total\":121.00}"))
                 .andExpect(status().isOk());
     }
@@ -128,7 +129,7 @@ class SupplierInvoiceControllerTest {
 
         mockMvc.perform(put("/api/v1/supplier-invoices/{id}", INVOICE_ID)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"supplierName\":\"Acme Parts\",\"category\":\"MAINTENANCE\","
+                        .content("{\"supplierId\":\"" + SUPPLIER_ID + "\",\"category\":\"MAINTENANCE\","
                                 + "\"invoiceDate\":\"2026-07-01\",\"subtotal\":100.00,\"taxAmount\":21.00,\"total\":121.00}"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("SUPPLIER_INVOICE_INVALID_STATE_TRANSITION"));

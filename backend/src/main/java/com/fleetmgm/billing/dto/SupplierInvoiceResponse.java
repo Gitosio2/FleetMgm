@@ -11,6 +11,7 @@ import java.util.UUID;
 
 public record SupplierInvoiceResponse(
         UUID id,
+        UUID supplierId,
         String supplierName,
         String supplierInvoiceNumber,
         ExpenseCategory category,

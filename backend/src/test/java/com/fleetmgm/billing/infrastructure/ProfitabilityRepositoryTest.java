@@ -11,6 +11,7 @@ import com.fleetmgm.config.AuditorAwareImpl;
 import com.fleetmgm.config.JpaAuditingConfig;
 import com.fleetmgm.job.domain.Job;
 import com.fleetmgm.job.domain.JobStatus;
+import com.fleetmgm.supplier.domain.Supplier;
 import com.fleetmgm.vehicle.domain.UsageMeasure;
 import com.fleetmgm.vehicle.domain.Vehicle;
 import com.fleetmgm.vehicle.domain.VehicleCategory;
@@ -227,8 +228,12 @@ class ProfitabilityRepositoryTest {
     }
 
     private SupplierInvoice persistSupplierInvoice(Vehicle vehicle, BigDecimal total) {
+        Supplier supplier = new Supplier();
+        supplier.setName("Test Supplier");
+        entityManager.persistAndFlush(supplier);
+
         SupplierInvoice invoice = new SupplierInvoice();
-        invoice.setSupplierName("Test Supplier");
+        invoice.setSupplier(supplier);
         invoice.setCategory(ExpenseCategory.MAINTENANCE);
         invoice.setInvoiceDate(LocalDate.now());
         invoice.setVehicle(vehicle);

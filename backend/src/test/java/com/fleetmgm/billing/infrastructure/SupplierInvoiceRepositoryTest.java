@@ -4,6 +4,7 @@ import com.fleetmgm.billing.domain.ExpenseCategory;
 import com.fleetmgm.billing.domain.SupplierInvoice;
 import com.fleetmgm.config.AuditorAwareImpl;
 import com.fleetmgm.config.JpaAuditingConfig;
+import com.fleetmgm.supplier.domain.Supplier;
 import com.fleetmgm.vehicle.domain.UsageMeasure;
 import com.fleetmgm.vehicle.domain.Vehicle;
 import com.fleetmgm.vehicle.domain.VehicleCategory;
@@ -55,9 +56,10 @@ class SupplierInvoiceRepositoryTest {
 
     @Test
     void findAllJoinFetch_returnsAll_whenNoFiltersProvided() {
+        Supplier supplier = persistSupplier();
         Vehicle vehicle = persistVehicle("1111AAA");
-        persistInvoice(vehicle, ExpenseCategory.MAINTENANCE);
-        persistInvoice(vehicle, ExpenseCategory.FUEL);
+        persistInvoice(supplier, vehicle, ExpenseCategory.MAINTENANCE);
+        persistInvoice(supplier, vehicle, ExpenseCategory.FUEL);
         entityManager.getEntityManager().clear();
 
         Page<SupplierInvoice> result = supplierInvoiceRepository.findAllJoinFetch(null, null, PageRequest.of(0, 20));
@@ -67,10 +69,11 @@ class SupplierInvoiceRepositoryTest {
 
     @Test
     void findAllJoinFetch_narrowsByVehicleId_whenProvided() {
+        Supplier supplier = persistSupplier();
         Vehicle vehicleA = persistVehicle("2222BBB");
         Vehicle vehicleB = persistVehicle("3333CCC");
-        SupplierInvoice invoiceA = persistInvoice(vehicleA, ExpenseCategory.MAINTENANCE);
-        persistInvoice(vehicleB, ExpenseCategory.MAINTENANCE);
+        SupplierInvoice invoiceA = persistInvoice(supplier, vehicleA, ExpenseCategory.MAINTENANCE);
+        persistInvoice(supplier, vehicleB, ExpenseCategory.MAINTENANCE);
         entityManager.getEntityManager().clear();
 
         Page<SupplierInvoice> result = supplierInvoiceRepository
@@ -82,9 +85,10 @@ class SupplierInvoiceRepositoryTest {
 
     @Test
     void findAllJoinFetch_narrowsByCategory_whenProvided() {
+        Supplier supplier = persistSupplier();
         Vehicle vehicle = persistVehicle("4444DDD");
-        SupplierInvoice fuelInvoice = persistInvoice(vehicle, ExpenseCategory.FUEL);
-        persistInvoice(vehicle, ExpenseCategory.MAINTENANCE);
+        SupplierInvoice fuelInvoice = persistInvoice(supplier, vehicle, ExpenseCategory.FUEL);
+        persistInvoice(supplier, vehicle, ExpenseCategory.MAINTENANCE);
         entityManager.getEntityManager().clear();
 
         Page<SupplierInvoice> result = supplierInvoiceRepository
@@ -96,11 +100,12 @@ class SupplierInvoiceRepositoryTest {
 
     @Test
     void findAllJoinFetch_combinesBothFilters_whenBothProvided() {
+        Supplier supplier = persistSupplier();
         Vehicle vehicleA = persistVehicle("5555EEE");
         Vehicle vehicleB = persistVehicle("6666FFF");
-        SupplierInvoice match = persistInvoice(vehicleA, ExpenseCategory.FUEL);
-        persistInvoice(vehicleA, ExpenseCategory.MAINTENANCE);
-        persistInvoice(vehicleB, ExpenseCategory.FUEL);
+        SupplierInvoice match = persistInvoice(supplier, vehicleA, ExpenseCategory.FUEL);
+        persistInvoice(supplier, vehicleA, ExpenseCategory.MAINTENANCE);
+        persistInvoice(supplier, vehicleB, ExpenseCategory.FUEL);
         entityManager.getEntityManager().clear();
 
         Page<SupplierInvoice> result = supplierInvoiceRepository
@@ -111,21 +116,24 @@ class SupplierInvoiceRepositoryTest {
     }
 
     @Test
-    void findAllJoinFetch_initializesVehicle_withoutFurtherQueries() {
+    void findAllJoinFetch_initializesVehicleAndSupplier_withoutFurtherQueries() {
+        Supplier supplier = persistSupplier();
         Vehicle vehicle = persistVehicle("7777GGG");
-        persistInvoice(vehicle, ExpenseCategory.MAINTENANCE);
+        persistInvoice(supplier, vehicle, ExpenseCategory.MAINTENANCE);
         entityManager.getEntityManager().clear();
 
         Page<SupplierInvoice> result = supplierInvoiceRepository.findAllJoinFetch(null, null, PageRequest.of(0, 20));
 
         SupplierInvoice fetched = result.getContent().get(0);
         assertThat(Hibernate.isInitialized(fetched.getVehicle())).isTrue();
+        assertThat(Hibernate.isInitialized(fetched.getSupplier())).isTrue();
     }
 
     @Test
     void findAllJoinFetch_excludesSoftDeleted() {
+        Supplier supplier = persistSupplier();
         Vehicle vehicle = persistVehicle("8888HHH");
-        SupplierInvoice invoice = persistInvoice(vehicle, ExpenseCategory.MAINTENANCE);
+        SupplierInvoice invoice = persistInvoice(supplier, vehicle, ExpenseCategory.MAINTENANCE);
         invoice.setDeletedAt(Instant.now());
         entityManager.persistAndFlush(invoice);
         entityManager.getEntityManager().clear();
@@ -133,6 +141,12 @@ class SupplierInvoiceRepositoryTest {
         Page<SupplierInvoice> result = supplierInvoiceRepository.findAllJoinFetch(null, null, PageRequest.of(0, 20));
 
         assertThat(result.getContent()).isEmpty();
+    }
+
+    private Supplier persistSupplier() {
+        Supplier supplier = new Supplier();
+        supplier.setName("Test Supplier");
+        return entityManager.persistAndFlush(supplier);
     }
 
     private Vehicle persistVehicle(String licensePlate) {
@@ -146,9 +160,9 @@ class SupplierInvoiceRepositoryTest {
         return entityManager.persistAndFlush(vehicle);
     }
 
-    private SupplierInvoice persistInvoice(Vehicle vehicle, ExpenseCategory category) {
+    private SupplierInvoice persistInvoice(Supplier supplier, Vehicle vehicle, ExpenseCategory category) {
         SupplierInvoice invoice = new SupplierInvoice();
-        invoice.setSupplierName("Test Supplier");
+        invoice.setSupplier(supplier);
         invoice.setCategory(category);
         invoice.setInvoiceDate(LocalDate.now());
         invoice.setVehicle(vehicle);

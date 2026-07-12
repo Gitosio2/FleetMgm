@@ -1,6 +1,7 @@
 import {
   Building2,
   ClipboardList,
+  Contact2,
   LayoutDashboard,
   MapPin,
   Receipt,
@@ -41,7 +42,8 @@ export const NAV_ITEMS: NavItem[] = [
     allowedRoles: [...MANAGEMENT_ROLES, 'WORKSHOP_STAFF'],
   },
   { label: 'Facturación', to: '/billing', icon: Receipt, allowedRoles: MANAGEMENT_ROLES },
-  { label: 'Proveedores', to: '/supplier-invoices', icon: Store, allowedRoles: MANAGEMENT_ROLES },
+  { label: 'Proveedores', to: '/suppliers', icon: Contact2, allowedRoles: MANAGEMENT_ROLES },
+  { label: 'Gastos de proveedor', to: '/supplier-invoices', icon: Store, allowedRoles: MANAGEMENT_ROLES },
   { label: 'Mapa GPS', to: '/gps', icon: MapPin, allowedRoles: MANAGEMENT_ROLES },
   { label: 'Informes', to: '/reports', icon: TrendingUp, allowedRoles: MANAGEMENT_ROLES },
   { label: 'Registro de auditoría', to: '/audit', icon: ShieldCheck, allowedRoles: ['ADMIN', 'MANAGER'] },
