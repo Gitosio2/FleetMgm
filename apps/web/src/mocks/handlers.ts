@@ -268,6 +268,8 @@ type GpsPositionMock = {
   id: string
   vehicleId: string
   licensePlate: string | null
+  vehicleMake: string | null
+  vehicleModel: string | null
   vehicleCategory: VehicleCategory
   latitude: number
   longitude: number
@@ -282,6 +284,8 @@ export const SEED_GPS_POSITIONS: GpsPositionMock[] = [
     id: 'gps-1',
     vehicleId: SEED_VEHICLES[0]!.id,
     licensePlate: SEED_VEHICLES[0]!.licensePlate,
+    vehicleMake: SEED_VEHICLES[0]!.make,
+    vehicleModel: SEED_VEHICLES[0]!.model,
     vehicleCategory: SEED_VEHICLES[0]!.vehicleCategory,
     latitude: 40.4168,
     longitude: -3.7038,
@@ -294,6 +298,8 @@ export const SEED_GPS_POSITIONS: GpsPositionMock[] = [
     id: 'gps-2',
     vehicleId: SEED_VEHICLES[1]!.id,
     licensePlate: SEED_VEHICLES[1]!.licensePlate,
+    vehicleMake: SEED_VEHICLES[1]!.make,
+    vehicleModel: SEED_VEHICLES[1]!.model,
     vehicleCategory: SEED_VEHICLES[1]!.vehicleCategory,
     latitude: 40.42,
     longitude: -3.71,

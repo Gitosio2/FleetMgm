@@ -60,6 +60,20 @@ describe('Map', () => {
     expect(await screen.findByText(`${firstPosition.speed} km/h`)).toBeInTheDocument()
   })
 
+  it('shows "make model" in the popover for a vehicle without a license plate', async () => {
+    loginAsAdmin()
+    const user = userEvent.setup()
+    renderMap()
+
+    const machineryPosition = SEED_GPS_POSITIONS.find((position) => position.licensePlate === null)!
+    const marker = await screen.findByTestId(`vehicle-marker-${machineryPosition.vehicleId}`)
+    await user.click(marker)
+
+    expect(
+      await screen.findByText(`${machineryPosition.vehicleMake} ${machineryPosition.vehicleModel}`),
+    ).toBeInTheDocument()
+  })
+
   it('polls /api/v1/gps/latest every 10 seconds', async () => {
     let requestCount = 0
     server.events.on('request:start', ({ request }) => {
