@@ -1,6 +1,7 @@
 package com.fleetmgm.gps.dto;
 
 import com.fleetmgm.gps.domain.GpsSource;
+import com.fleetmgm.vehicle.domain.VehicleCategory;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -9,6 +10,7 @@ public record GpsPositionResponse(
         UUID id,
         UUID vehicleId,
         String licensePlate,
+        VehicleCategory vehicleCategory,
         Double latitude,
         Double longitude,
         Double heading,

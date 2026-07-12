@@ -1531,6 +1531,12 @@ FleetMgm/
 - [x] **[GREEN]** `@PreAuthorize` en `GpsService.findLatest()` — `hasAnyRole('ADMIN', 'MANAGER', 'ADMINISTRATIVE', 'DRIVER')` (WORKSHOP_STAFF fuera de la lista → 403; no necesita tracking en vivo). DRIVER pasa el filtro pero recibe una respuesta acotada a su propio vehículo, resuelta reutilizando `AssignmentRepository.findActiveByDriverEmail` — mismo mecanismo ya usado en `VehicleService` (Hito 8) para "DRIVER solo ve el suyo", sin crear nada nuevo
   > **Nota (revisión Hito 39):** el checklist original no especificaba cómo resolver "su posición" para DRIVER — se resolvió reutilizando el precedente exacto de `VehicleService.listForCurrentDriver()`/`assignmentRepository.findActiveByDriverEmail(email)` en vez de diseñar un mecanismo nuevo. Suite completa (`./mvnw test -Pfailsafe`): 433 tests, 0 failures/errors — sin regresión.
 
+> **Addendum (planificando Hito 40):** `GpsPositionResponse` ganó el campo `vehicleCategory` (denormalizado desde
+> `vehicle.vehicleCategory`, mismo patrón que `licensePlate`) — decisión con el usuario para poder pintar un icono
+> de marcador distinto por categoría (`LIGHT_VEHICLE`/`HEAVY_VEHICLE`/`HEAVY_MACHINERY`) en el mapa del Hito 40 sin
+> que el frontend tenga que cruzar `vehicleId` contra `useVehicles()` por su cuenta. Cambio de contrato menor sobre
+> el Hito 38 ya mergeado — `GpsMapper`/tests actualizados, `./mvnw test -Pfailsafe`: 433 tests, 0 failures/errors.
+
 ### Hito 40 — Frontend: GPS Map
 > Requiere: Hitos 38–39 (backend GPS)
 - [ ] **[RED]** Handlers MSW — `GET /api/v1/gps/latest`

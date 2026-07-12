@@ -9,5 +9,6 @@ public interface GpsMapper {
 
     @Mapping(target = "vehicleId", source = "vehicle.id")
     @Mapping(target = "licensePlate", source = "vehicle.licensePlate")
+    @Mapping(target = "vehicleCategory", source = "vehicle.vehicleCategory")
     GpsPositionResponse toResponse(GpsPosition gpsPosition);
 }
