@@ -56,6 +56,33 @@ export function SupplierInvoiceFormModal({ open, onOpenChange, supplierInvoice }
   }, [open, supplierInvoice])
 
   const isPending = createSupplierInvoice.isPending || updateSupplierInvoice.isPending
+
+  // Subtotal is the "source" amount (what the supplier states pre-tax) — editing it or the tax
+  // recomputes Total. Editing Total directly does the inverse: it recomputes Subtotal, holding the
+  // tax amount fixed, so Subtotal + IVA === Total always holds after either edit path.
+  function recomputeTotal(nextSubtotal: string, nextTaxAmount: string) {
+    if (nextSubtotal === '' || nextTaxAmount === '') {
+      return
+    }
+    const sub = Number(nextSubtotal)
+    const tax = Number(nextTaxAmount)
+    if (Number.isNaN(sub) || Number.isNaN(tax)) {
+      return
+    }
+    setTotal((sub + tax).toFixed(2))
+  }
+
+  function recomputeSubtotal(nextTotal: string, currentTaxAmount: string) {
+    if (nextTotal === '' || currentTaxAmount === '') {
+      return
+    }
+    const tot = Number(nextTotal)
+    const tax = Number(currentTaxAmount)
+    if (Number.isNaN(tot) || Number.isNaN(tax)) {
+      return
+    }
+    setSubtotal((tot - tax).toFixed(2))
+  }
   // Header vehicle and per-vehicle line items are mutually exclusive (see ProfitabilityRepository's
   // si2.vehicle_id IS NULL condition, which already assumes this invariant). Once the invoice has
   // line items, the header vehicle select is locked — the backend would reject it anyway (409
@@ -189,7 +216,10 @@ export function SupplierInvoiceFormModal({ open, onOpenChange, supplierInvoice }
                 min="0"
                 step="0.01"
                 value={subtotal}
-                onChange={(e) => setSubtotal(e.target.value)}
+                onChange={(e) => {
+                  setSubtotal(e.target.value)
+                  recomputeTotal(e.target.value, taxAmount)
+                }}
                 required
               />
             </div>
@@ -201,7 +231,10 @@ export function SupplierInvoiceFormModal({ open, onOpenChange, supplierInvoice }
                 min="0"
                 step="0.01"
                 value={taxAmount}
-                onChange={(e) => setTaxAmount(e.target.value)}
+                onChange={(e) => {
+                  setTaxAmount(e.target.value)
+                  recomputeTotal(subtotal, e.target.value)
+                }}
                 required
               />
             </div>
@@ -213,7 +246,10 @@ export function SupplierInvoiceFormModal({ open, onOpenChange, supplierInvoice }
                 min="0"
                 step="0.01"
                 value={total}
-                onChange={(e) => setTotal(e.target.value)}
+                onChange={(e) => {
+                  setTotal(e.target.value)
+                  recomputeSubtotal(e.target.value, taxAmount)
+                }}
                 required
               />
             </div>

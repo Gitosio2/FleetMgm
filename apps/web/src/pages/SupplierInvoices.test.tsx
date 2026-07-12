@@ -67,7 +67,8 @@ describe('SupplierInvoices', () => {
     await user.type(screen.getByLabelText(/fecha de factura/i), '2026-07-10')
     await user.type(screen.getByLabelText(/^subtotal$/i), '40')
     await user.type(screen.getByLabelText(/^iva$/i), '8.4')
-    await user.type(screen.getByLabelText(/^total$/i), '48.4')
+    // Total auto-calculates from Subtotal + IVA — verify it before submitting instead of retyping it.
+    expect(screen.getByLabelText(/^total$/i)).toHaveValue(48.4)
     await user.click(screen.getByRole('button', { name: /crear factura/i }))
 
     await waitFor(() => {
@@ -94,7 +95,7 @@ describe('SupplierInvoices', () => {
     await user.type(screen.getByLabelText(/fecha de factura/i), '2026-07-10')
     await user.type(screen.getByLabelText(/^subtotal$/i), '100')
     await user.type(screen.getByLabelText(/^iva$/i), '21')
-    await user.type(screen.getByLabelText(/^total$/i), '121')
+    expect(screen.getByLabelText(/^total$/i)).toHaveValue(121)
     await user.click(screen.getByRole('button', { name: /crear factura/i }))
 
     await waitFor(() => {
