@@ -99,7 +99,7 @@ class GpsServiceTest {
     }
 
     private static GpsPositionResponse sampleResponse(UUID vehicleId, VehicleCategory category) {
-        return new GpsPositionResponse(UUID.randomUUID(), vehicleId, "1234ABC", category,
+        return new GpsPositionResponse(UUID.randomUUID(), vehicleId, "1234ABC", "Toyota", "Hilux", category,
                 40.0, -3.0, 90.0, 50.0, Instant.now(), com.fleetmgm.gps.domain.GpsSource.MOCK);
     }
 }

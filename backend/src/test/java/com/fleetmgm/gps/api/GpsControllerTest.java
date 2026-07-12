@@ -37,7 +37,7 @@ class GpsControllerTest {
     @Test
     void latest_returns200_withPositions() throws Exception {
         GpsPositionResponse response = new GpsPositionResponse(UUID.randomUUID(), UUID.randomUUID(), "1234ABC",
-                VehicleCategory.LIGHT_VEHICLE, 40.4168, -3.7038, 90.0, 50.0, Instant.now(), GpsSource.MOCK);
+                "Toyota", "Hilux", VehicleCategory.LIGHT_VEHICLE, 40.4168, -3.7038, 90.0, 50.0, Instant.now(), GpsSource.MOCK);
         when(gpsService.findLatest(isNull(), isNull())).thenReturn(List.of(response));
 
         mockMvc.perform(get("/api/v1/gps/latest"))
