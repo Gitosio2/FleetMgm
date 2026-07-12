@@ -75,6 +75,80 @@ export function resetClientsMock() {
   clients = [...SEED_CLIENTS]
 }
 
+type Supplier = {
+  id: string
+  name: string
+  taxId: string | null
+  email: string | null
+  phone: string | null
+  address: string | null
+  createdAt: string
+}
+
+type SupplierRequestBody = {
+  name: string
+  taxId?: string | null
+  email?: string | null
+  phone?: string | null
+  address?: string | null
+}
+
+export const SEED_SUPPLIERS: Supplier[] = [
+  {
+    id: 'supplier-1',
+    name: 'Taller Mecánico Norte',
+    taxId: 'B11122233',
+    email: 'contacto@tallernorte.test',
+    phone: '+34600100200',
+    address: 'Polígono Norte 10',
+    createdAt: '2026-01-10T09:00:00Z',
+  },
+  {
+    id: 'supplier-2',
+    name: 'Estación de Servicio Sur',
+    taxId: null,
+    email: null,
+    phone: null,
+    address: null,
+    createdAt: '2026-02-15T09:00:00Z',
+  },
+  {
+    id: 'supplier-3',
+    name: 'Aseguradora Segurcar',
+    taxId: 'B44455566',
+    email: 'polizas@segurcar.test',
+    phone: '+34600300400',
+    address: 'Av. del Seguro 5',
+    createdAt: '2026-03-01T09:00:00Z',
+  },
+  // Unused by any SEED_SUPPLIER_INVOICES row — kept available for tests that create a new
+  // supplier invoice, so the new row's supplier name doesn't collide with an existing one.
+  {
+    id: 'supplier-4',
+    name: 'Ferretería Central',
+    taxId: null,
+    email: null,
+    phone: null,
+    address: null,
+    createdAt: '2026-03-05T09:00:00Z',
+  },
+  {
+    id: 'supplier-5',
+    name: 'Taller Rápido',
+    taxId: null,
+    email: null,
+    phone: null,
+    address: null,
+    createdAt: '2026-03-06T09:00:00Z',
+  },
+]
+
+let suppliers: Supplier[] = [...SEED_SUPPLIERS]
+
+export function resetSuppliersMock() {
+  suppliers = [...SEED_SUPPLIERS]
+}
+
 type VehicleCategory = 'LIGHT_VEHICLE' | 'HEAVY_VEHICLE' | 'HEAVY_MACHINERY'
 type UsageMeasure = 'KILOMETERS' | 'HOURS'
 type VehicleStatus = 'ACTIVE' | 'MAINTENANCE' | 'INACTIVE' | 'DECOMMISSIONED'
@@ -928,6 +1002,7 @@ type SupplierInvoiceStatus = 'PENDING' | 'PAID'
 
 type SupplierInvoiceMock = {
   id: string
+  supplierId: string
   supplierName: string
   supplierInvoiceNumber: string | null
   category: ExpenseCategory
@@ -948,7 +1023,7 @@ type SupplierInvoiceMock = {
 }
 
 type SupplierInvoiceRequestBody = {
-  supplierName: string
+  supplierId: string
   supplierInvoiceNumber?: string | null
   category: ExpenseCategory
   invoiceDate: string
@@ -964,7 +1039,8 @@ type SupplierInvoiceRequestBody = {
 export const SEED_SUPPLIER_INVOICES: SupplierInvoiceMock[] = [
   {
     id: 'supplier-invoice-1',
-    supplierName: 'Taller Mecánico Norte',
+    supplierId: SEED_SUPPLIERS[0]!.id,
+    supplierName: SEED_SUPPLIERS[0]!.name,
     supplierInvoiceNumber: 'F-2026-0456',
     category: 'MAINTENANCE',
     invoiceDate: '2026-07-01',
@@ -984,7 +1060,8 @@ export const SEED_SUPPLIER_INVOICES: SupplierInvoiceMock[] = [
   },
   {
     id: 'supplier-invoice-2',
-    supplierName: 'Estación de Servicio Sur',
+    supplierId: SEED_SUPPLIERS[1]!.id,
+    supplierName: SEED_SUPPLIERS[1]!.name,
     supplierInvoiceNumber: null,
     category: 'FUEL',
     invoiceDate: '2026-07-05',
@@ -1004,7 +1081,8 @@ export const SEED_SUPPLIER_INVOICES: SupplierInvoiceMock[] = [
   },
   {
     id: 'supplier-invoice-3',
-    supplierName: 'Aseguradora Segurcar',
+    supplierId: SEED_SUPPLIERS[2]!.id,
+    supplierName: SEED_SUPPLIERS[2]!.name,
     supplierInvoiceNumber: 'POL-2026-778',
     category: 'INSURANCE',
     invoiceDate: '2026-06-01',
@@ -1096,6 +1174,92 @@ export const handlers = [
 
   http.delete('/api/v1/clients/:id', ({ params }) => {
     clients = clients.filter((client) => client.id !== params.id)
+    return new HttpResponse(null, { status: 204 })
+  }),
+
+  http.get('/api/v1/suppliers', ({ request }) => {
+    const url = new URL(request.url)
+    const page = Number(url.searchParams.get('page') ?? 0)
+    const size = Number(url.searchParams.get('size') ?? 20)
+    const start = page * size
+    const content = suppliers.slice(start, start + size)
+
+    return HttpResponse.json({
+      content,
+      page,
+      size,
+      totalElements: suppliers.length,
+      totalPages: Math.max(1, Math.ceil(suppliers.length / size)),
+    })
+  }),
+
+  http.post('/api/v1/suppliers', async ({ request }) => {
+    const body = (await request.json()) as SupplierRequestBody
+
+    const newSupplier: Supplier = {
+      id: `supplier-${suppliers.length + 1}`,
+      name: body.name,
+      taxId: body.taxId ?? null,
+      email: body.email ?? null,
+      phone: body.phone ?? null,
+      address: body.address ?? null,
+      createdAt: new Date().toISOString(),
+    }
+    suppliers = [...suppliers, newSupplier]
+
+    return HttpResponse.json(newSupplier, { status: 201 })
+  }),
+
+  http.get('/api/v1/suppliers/:id', ({ params }) => {
+    const supplier = suppliers.find((s) => s.id === params.id)
+
+    if (!supplier) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'SUPPLIER_NOT_FOUND',
+          message: `Supplier ${params.id} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    return HttpResponse.json(supplier)
+  }),
+
+  http.put('/api/v1/suppliers/:id', async ({ request, params }) => {
+    const body = (await request.json()) as SupplierRequestBody
+    const index = suppliers.findIndex((supplier) => supplier.id === params.id)
+    const existing = suppliers[index]
+
+    if (!existing) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'SUPPLIER_NOT_FOUND',
+          message: `Supplier ${params.id} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    const updated: Supplier = {
+      ...existing,
+      name: body.name,
+      taxId: body.taxId ?? null,
+      email: body.email ?? null,
+      phone: body.phone ?? null,
+      address: body.address ?? null,
+    }
+    suppliers = suppliers.map((supplier, i) => (i === index ? updated : supplier))
+
+    return HttpResponse.json(updated)
+  }),
+
+  http.delete('/api/v1/suppliers/:id', ({ params }) => {
+    suppliers = suppliers.filter((supplier) => supplier.id !== params.id)
     return new HttpResponse(null, { status: 204 })
   }),
 
@@ -2551,6 +2715,19 @@ export const handlers = [
   http.post('/api/v1/supplier-invoices', async ({ request }) => {
     const body = (await request.json()) as SupplierInvoiceRequestBody
 
+    const supplier = suppliers.find((s) => s.id === body.supplierId)
+    if (!supplier) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'SUPPLIER_NOT_FOUND',
+          message: `Supplier ${body.supplierId} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
     let vehicle: Vehicle | undefined
     if (body.vehicleId) {
       vehicle = vehicles.find((v) => v.id === body.vehicleId)
@@ -2569,7 +2746,8 @@ export const handlers = [
 
     const newInvoice: SupplierInvoiceMock = {
       id: `supplier-invoice-${supplierInvoices.length + 1}`,
-      supplierName: body.supplierName,
+      supplierId: supplier.id,
+      supplierName: supplier.name,
       supplierInvoiceNumber: body.supplierInvoiceNumber ?? null,
       category: body.category,
       invoiceDate: body.invoiceDate,
@@ -2639,6 +2817,19 @@ export const handlers = [
       )
     }
 
+    const supplier = suppliers.find((s) => s.id === body.supplierId)
+    if (!supplier) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'SUPPLIER_NOT_FOUND',
+          message: `Supplier ${body.supplierId} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
     let vehicle: Vehicle | undefined
     if (body.vehicleId) {
       vehicle = vehicles.find((v) => v.id === body.vehicleId)
@@ -2657,7 +2848,8 @@ export const handlers = [
 
     const updated: SupplierInvoiceMock = {
       ...existing,
-      supplierName: body.supplierName,
+      supplierId: supplier.id,
+      supplierName: supplier.name,
       supplierInvoiceNumber: body.supplierInvoiceNumber ?? null,
       category: body.category,
       invoiceDate: body.invoiceDate,
