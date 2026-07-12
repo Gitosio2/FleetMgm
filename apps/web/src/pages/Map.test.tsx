@@ -1,9 +1,9 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAuthStore } from '@fleetmgm/store'
-import { resetGpsMock, SEED_GPS_POSITIONS } from '@/mocks/handlers'
+import { resetGpsMock, resetVehiclesMock, SEED_GPS_POSITIONS } from '@/mocks/handlers'
 import { server } from '@/mocks/server'
 import { Map } from './Map'
 
@@ -31,6 +31,7 @@ function loginAsAdmin() {
 describe('Map', () => {
   beforeEach(() => {
     resetGpsMock()
+    resetVehiclesMock()
     useAuthStore.getState().logout()
   })
 
@@ -56,11 +57,12 @@ describe('Map', () => {
     const marker = await screen.findByTestId(`vehicle-marker-${firstPosition.vehicleId}`)
     await user.click(marker)
 
-    expect(await screen.findByText(firstPosition.licensePlate!)).toBeInTheDocument()
-    expect(
-      await screen.findByText(`${firstPosition.vehicleMake} ${firstPosition.vehicleModel}`),
-    ).toBeInTheDocument()
-    expect(await screen.findByText(`${firstPosition.speed} km/h`)).toBeInTheDocument()
+    // Scoped to the popover — the vehicle filter <select> can render the same license plate
+    // text as one of its <option> labels, which would otherwise make screen.findByText ambiguous.
+    const popover = within(await screen.findByTestId('vehicle-popover'))
+    expect(popover.getByText(firstPosition.licensePlate!)).toBeInTheDocument()
+    expect(popover.getByText(`${firstPosition.vehicleMake} ${firstPosition.vehicleModel}`)).toBeInTheDocument()
+    expect(popover.getByText(`${firstPosition.speed} km/h`)).toBeInTheDocument()
   })
 
   it('shows "make model" in the popover for a vehicle without a license plate', async () => {
@@ -72,9 +74,47 @@ describe('Map', () => {
     const marker = await screen.findByTestId(`vehicle-marker-${machineryPosition.vehicleId}`)
     await user.click(marker)
 
+    const popover = within(await screen.findByTestId('vehicle-popover'))
     expect(
-      await screen.findByText(`${machineryPosition.vehicleMake} ${machineryPosition.vehicleModel}`),
+      popover.getByText(`${machineryPosition.vehicleMake} ${machineryPosition.vehicleModel}`),
     ).toBeInTheDocument()
+  })
+
+  it('filters markers by vehicle category', async () => {
+    loginAsAdmin()
+    const user = userEvent.setup()
+    renderMap()
+
+    const lightVehiclePosition = SEED_GPS_POSITIONS[0]!
+    const machineryPosition = SEED_GPS_POSITIONS[1]!
+    await screen.findByTestId(`vehicle-marker-${lightVehiclePosition.vehicleId}`)
+
+    const categorySelect = screen.getByLabelText(/filtrar por tipo de vehículo/i)
+    await user.selectOptions(categorySelect, 'HEAVY_MACHINERY')
+
+    expect(await screen.findByTestId(`vehicle-marker-${machineryPosition.vehicleId}`)).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.queryByTestId(`vehicle-marker-${lightVehiclePosition.vehicleId}`)).not.toBeInTheDocument()
+    })
+  })
+
+  it('filters markers by a specific vehicle', async () => {
+    loginAsAdmin()
+    const user = userEvent.setup()
+    renderMap()
+
+    const targetPosition = SEED_GPS_POSITIONS[0]!
+    const otherPosition = SEED_GPS_POSITIONS[1]!
+    await screen.findByTestId(`vehicle-marker-${otherPosition.vehicleId}`)
+
+    const vehicleSelect = screen.getByLabelText(/filtrar por vehículo/i)
+    await waitFor(() => expect(within(vehicleSelect).getAllByRole('option').length).toBeGreaterThan(1))
+    await user.selectOptions(vehicleSelect, targetPosition.vehicleId)
+
+    expect(await screen.findByTestId(`vehicle-marker-${targetPosition.vehicleId}`)).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.queryByTestId(`vehicle-marker-${otherPosition.vehicleId}`)).not.toBeInTheDocument()
+    })
   })
 
   it('polls /api/v1/gps/latest every 10 seconds', async () => {

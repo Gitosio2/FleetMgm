@@ -1549,6 +1549,27 @@ FleetMgm/
   > empezar el frontend. `react-leaflet@5.0.0` + `leaflet@1.9.4` + `@types/leaflet@1.9.21` instalados (versiones
   > verificadas contra el registro de npm — `react-leaflet` 5.x requiere React 19 como peer dependency, que ya
   > cumple el proyecto). Suite: `npm run test` en `apps/web` — 100 tests, 0 failures; `tsc -b` limpio.
+- [x] **[GREEN]** Selects de filtro (tipo de vehículo + vehículo concreto) en la parte superior de la página `Map`,
+  consumiendo el filtrado añadido en el backend (PR #57, `GET /api/v1/gps/latest?category=&vehicleId=`)
+  > **Nota (revisión Hito 40, selects de filtro):** `useGps(category?, vehicleId?)` pasa ambos como query params
+  > (patrón calcado de `useSupplierInvoices(vehicleId?, category?, ...)`); el select de vehículo se puebla con
+  > `useVehicles(0, 100)` + `formatVehicleLabel()`, independiente del filtro de categoría (mismo diseño AND-combinado
+  > e independiente que ya decidió el backend). `VEHICLE_CATEGORY_LABEL`/`VEHICLE_CATEGORIES` se extrajeron de
+  > `VehicleFormModal.tsx` a `apps/web/src/lib/vehicle-category-label.ts` para no duplicar el mapping ahora que
+  > la página `Map` también lo necesita.
+  >
+  > **Bug real encontrado al añadir el segundo select:** `VehicleMarker` reconstruía el `L.divIcon()` en cada
+  > render sin memoizar. Con un solo `useGps()` en la página esto pasaba desapercibido, pero al añadir el select
+  > de vehículo (`useVehicles()`, una segunda query asíncrona) aparece un re-render adicional cuando esa query
+  > resuelve — y una nueva instancia de icono hace que react-leaflet llame a `setIcon()`, que en Leaflet destruye
+  > y recrea el nodo DOM del marcador en vez de reutilizarlo. Sin memoizar, esto también habría ocurrido en
+  > producción en cada poll de 10s (`refetchInterval`), recreando innecesariamente todos los marcadores del mapa
+  > aunque su posición no hubiera cambiado. Arreglado con `useMemo(() => buildDivIcon(...), [vehicleId, category])`
+  > en `VehicleMarker.tsx`. Efecto colateral en los tests: el `<option>` del select de vehículo puede mostrar el
+  > mismo texto de matrícula que el popover del marcador — se añadió `data-testid="vehicle-popover"` para acotar
+  > las aserciones de contenido del popover con `within(...)` y evitar coincidencias ambiguas de texto.
+  >
+  > Suite: `npm run test` en `apps/web` — 103 tests, 0 failures; `tsc -b` limpio.
 
 ---
 

@@ -1250,8 +1250,16 @@ export function resetSupplierInvoicesMock() {
 }
 
 export const handlers = [
-  http.get('/api/v1/gps/latest', () => {
-    return HttpResponse.json(gpsPositions)
+  http.get('/api/v1/gps/latest', ({ request }) => {
+    const url = new URL(request.url)
+    const category = url.searchParams.get('category')
+    const vehicleId = url.searchParams.get('vehicleId')
+    const filtered = gpsPositions.filter(
+      (position) =>
+        (!category || position.vehicleCategory === category) && (!vehicleId || position.vehicleId === vehicleId),
+    )
+
+    return HttpResponse.json(filtered)
   }),
 
   http.get('/api/v1/clients', ({ request }) => {
