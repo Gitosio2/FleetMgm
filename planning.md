@@ -1556,9 +1556,14 @@ FleetMgm/
 ### Hito 41 — AuditLog viewer
 - [x] `Flyway V8` — tabla `audit_logs` *(ya aplicada, misma migración que gps_positions)*
 - [x] `AuditLog` entity, `AuditLogRepository` *(stub base ya creado — `JpaRepository` sin queries de filtro)*
-- [ ] **[RED]** Tests `AuditControllerTest` (`@WebMvcTest`) — 200 con filtros entityType/action/rango de fechas; 403 ADMINISTRATIVE no tiene acceso
-- [ ] **[GREEN]** `AuditLogRepository` — ampliar con `findAll` paginado y filtros (entityType, action, rango de fechas)
-- [ ] **[GREEN]** `AuditLogResponse` (record) + `AuditLogController` — `GET /api/v1/audit`, solo ADMIN/MANAGER
+- [x] **[RED]** Tests `AuditLogControllerTest` (`@WebMvcTest`) — 200 sin filtros, 200 filtrado por entityType/action/rango de fechas, 400 si `action` es inválido
+  > **Nota:** el 403 de ADMINISTRATIVE no se testea en el controller — `@AutoConfigureMockMvc(addFilters = false)` +
+  > servicio mockeado no ejecuta el proxy AOP de `@PreAuthorize` (mismo gap documentado en `GpsControllerTest`/
+  > `SupplierInvoiceControllerTest`; ningún test del repo verifica hoy un `@PreAuthorize` por esa vía). Se mantiene
+  > la anotación en `AuditLogService.list()` sin test dedicado, consistente con el resto de features.
+- [x] **[GREEN]** `AuditLogRepository` — `findAllFiltered` con filtros opcionales (entityType, action, rango de fechas) vía idiom `(:param IS NULL OR ...)`, mismo patrón que `SupplierInvoiceRepository`
+- [x] **[GREEN]** `AuditLogResponse` (record) + `AuditLogMapper` + `AuditLogController` — `GET /api/v1/audit`, `AuditLogService` con `@PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")`
+- [x] **[GREEN]** `GlobalExceptionHandler` — nuevo handler para `MethodArgumentTypeMismatchException` (400), gap descubierto al testear `action` inválido
 
 ### Hito 42 — Frontend: AuditLog
 > Requiere: Hito 41 (backend audit viewer)
