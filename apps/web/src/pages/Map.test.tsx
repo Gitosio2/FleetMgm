@@ -47,7 +47,7 @@ describe('Map', () => {
     }
   })
 
-  it('shows license plate and speed in the popover when a marker is clicked', async () => {
+  it('shows license plate, make/model, and speed in the popover when a marker is clicked', async () => {
     loginAsAdmin()
     const user = userEvent.setup()
     renderMap()
@@ -57,6 +57,9 @@ describe('Map', () => {
     await user.click(marker)
 
     expect(await screen.findByText(firstPosition.licensePlate!)).toBeInTheDocument()
+    expect(
+      await screen.findByText(`${firstPosition.vehicleMake} ${firstPosition.vehicleModel}`),
+    ).toBeInTheDocument()
     expect(await screen.findByText(`${firstPosition.speed} km/h`)).toBeInTheDocument()
   })
 

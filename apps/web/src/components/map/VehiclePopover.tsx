@@ -12,11 +12,15 @@ export function VehiclePopover({ position }: VehiclePopoverProps) {
     vehicleMake: position.vehicleMake,
     vehicleModel: position.vehicleModel,
   })
+  const vehicleMakeModel = [position.vehicleMake, position.vehicleModel].filter(Boolean).join(' ')
+  // Only shown alongside the plate — for plateless vehicles, vehicleLabel already IS make/model.
+  const showMakeModel = position.licensePlate != null && vehicleMakeModel.length > 0
 
   return (
     <Popup>
       <div className="flex flex-col gap-1 text-sm">
         <span className="font-semibold">{vehicleLabel}</span>
+        {showMakeModel && <span className="text-on-surface-variant">{vehicleMakeModel}</span>}
         <span>{position.speed ?? 0} km/h</span>
       </div>
     </Popup>
