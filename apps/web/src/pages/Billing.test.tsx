@@ -245,4 +245,5 @@ describe('Billing', () => {
 
     clickSpy.mockRestore()
   })
+
 })

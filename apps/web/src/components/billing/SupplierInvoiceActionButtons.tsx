@@ -1,0 +1,53 @@
+import { isAxiosError } from 'axios'
+import type { ApiError, SupplierInvoice } from '@fleetmgm/api'
+import { usePaySupplierInvoice } from '@fleetmgm/hooks'
+import { Button } from '@/components/ui/button'
+
+const SUPPLIER_INVOICE_ERROR_MESSAGES: Record<string, string> = {
+  SUPPLIER_INVOICE_INVALID_STATE_TRANSITION: 'Esta factura ya no admite esta acción.',
+}
+
+const DEFAULT_SUPPLIER_INVOICE_ERROR_MESSAGE = 'No se pudo completar la acción.'
+
+function resolveSupplierInvoiceErrorMessage(error: unknown): string {
+  if (isAxiosError<ApiError>(error) && error.response?.data.code) {
+    return SUPPLIER_INVOICE_ERROR_MESSAGES[error.response.data.code] ?? DEFAULT_SUPPLIER_INVOICE_ERROR_MESSAGE
+  }
+  return DEFAULT_SUPPLIER_INVOICE_ERROR_MESSAGE
+}
+
+type SupplierInvoiceActionButtonsProps = {
+  invoice: SupplierInvoice
+  onEdit: (invoice: SupplierInvoice) => void
+}
+
+export function SupplierInvoiceActionButtons({ invoice, onEdit }: SupplierInvoiceActionButtonsProps) {
+  const payInvoice = usePaySupplierInvoice()
+
+  const isPending = payInvoice.isPending
+
+  return (
+    <div className="flex flex-col items-start gap-1">
+      <div className="flex items-center gap-1">
+        <Button variant="ghost" size="sm" onClick={() => onEdit(invoice)}>
+          Editar
+        </Button>
+        {invoice.status === 'PENDING' && (
+          <Button
+            variant="default"
+            size="sm"
+            disabled={isPending}
+            onClick={() => payInvoice.mutate({ id: invoice.id })}
+          >
+            Marcar pagada
+          </Button>
+        )}
+      </div>
+      {payInvoice.isError && (
+        <p role="alert" className="text-sm text-error">
+          {resolveSupplierInvoiceErrorMessage(payInvoice.error)}
+        </p>
+      )}
+    </div>
+  )
+}

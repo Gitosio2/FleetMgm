@@ -923,6 +923,113 @@ export function resetInvoicesMock() {
 
 let lineItemSequence = SEED_INVOICES.reduce((count, invoice) => count + invoice.lineItems.length, 0)
 
+type ExpenseCategory = 'MAINTENANCE' | 'FUEL' | 'INSURANCE' | 'LEASING_RENTING' | 'TOLL' | 'OTHER'
+type SupplierInvoiceStatus = 'PENDING' | 'PAID'
+
+type SupplierInvoiceMock = {
+  id: string
+  supplierName: string
+  supplierInvoiceNumber: string | null
+  category: ExpenseCategory
+  invoiceDate: string
+  dueDate: string | null
+  paymentDate: string | null
+  status: SupplierInvoiceStatus
+  subtotal: number
+  taxAmount: number
+  total: number
+  vehicleId: string | null
+  vehicleLicensePlate: string | null
+  vehicleMake: string | null
+  vehicleModel: string | null
+  notes: string | null
+  documentPath: string | null
+  createdAt: string
+}
+
+type SupplierInvoiceRequestBody = {
+  supplierName: string
+  supplierInvoiceNumber?: string | null
+  category: ExpenseCategory
+  invoiceDate: string
+  dueDate?: string | null
+  vehicleId?: string | null
+  subtotal: number
+  taxAmount: number
+  total: number
+  notes?: string | null
+  documentPath?: string | null
+}
+
+export const SEED_SUPPLIER_INVOICES: SupplierInvoiceMock[] = [
+  {
+    id: 'supplier-invoice-1',
+    supplierName: 'Taller Mecánico Norte',
+    supplierInvoiceNumber: 'F-2026-0456',
+    category: 'MAINTENANCE',
+    invoiceDate: '2026-07-01',
+    dueDate: '2026-07-31',
+    paymentDate: null,
+    status: 'PENDING',
+    subtotal: 100,
+    taxAmount: 21,
+    total: 121,
+    vehicleId: SEED_VEHICLES[0]!.id,
+    vehicleLicensePlate: SEED_VEHICLES[0]!.licensePlate,
+    vehicleMake: SEED_VEHICLES[0]!.make,
+    vehicleModel: SEED_VEHICLES[0]!.model,
+    notes: null,
+    documentPath: null,
+    createdAt: '2026-07-01T09:00:00Z',
+  },
+  {
+    id: 'supplier-invoice-2',
+    supplierName: 'Estación de Servicio Sur',
+    supplierInvoiceNumber: null,
+    category: 'FUEL',
+    invoiceDate: '2026-07-05',
+    dueDate: '2026-08-05',
+    paymentDate: null,
+    status: 'PENDING',
+    subtotal: 50,
+    taxAmount: 10.5,
+    total: 60.5,
+    vehicleId: null,
+    vehicleLicensePlate: null,
+    vehicleMake: null,
+    vehicleModel: null,
+    notes: null,
+    documentPath: null,
+    createdAt: '2026-07-05T09:00:00Z',
+  },
+  {
+    id: 'supplier-invoice-3',
+    supplierName: 'Aseguradora Segurcar',
+    supplierInvoiceNumber: 'POL-2026-778',
+    category: 'INSURANCE',
+    invoiceDate: '2026-06-01',
+    dueDate: '2026-06-30',
+    paymentDate: '2026-06-25',
+    status: 'PAID',
+    subtotal: 200,
+    taxAmount: 42,
+    total: 242,
+    vehicleId: SEED_VEHICLES[1]!.id,
+    vehicleLicensePlate: SEED_VEHICLES[1]!.licensePlate,
+    vehicleMake: SEED_VEHICLES[1]!.make,
+    vehicleModel: SEED_VEHICLES[1]!.model,
+    notes: 'Pagada por transferencia',
+    documentPath: null,
+    createdAt: '2026-06-01T09:00:00Z',
+  },
+]
+
+let supplierInvoices: SupplierInvoiceMock[] = [...SEED_SUPPLIER_INVOICES]
+
+export function resetSupplierInvoicesMock() {
+  supplierInvoices = [...SEED_SUPPLIER_INVOICES]
+}
+
 export const handlers = [
   http.get('/api/v1/clients', ({ request }) => {
     const url = new URL(request.url)
@@ -2415,6 +2522,199 @@ export const handlers = [
         'Content-Disposition': `attachment; filename="${existing.invoiceNumber}.pdf"`,
       },
     })
+  }),
+
+  http.get('/api/v1/supplier-invoices', ({ request }) => {
+    const url = new URL(request.url)
+    const page = Number(url.searchParams.get('page') ?? 0)
+    const size = Number(url.searchParams.get('size') ?? 20)
+    const vehicleId = url.searchParams.get('vehicleId')
+    const category = url.searchParams.get('category') as ExpenseCategory | null
+
+    const source = supplierInvoices.filter(
+      (invoice) =>
+        (vehicleId == null || invoice.vehicleId === vehicleId) &&
+        (category == null || invoice.category === category),
+    )
+    const start = page * size
+    const content = source.slice(start, start + size)
+
+    return HttpResponse.json({
+      content,
+      page,
+      size,
+      totalElements: source.length,
+      totalPages: Math.max(1, Math.ceil(source.length / size)),
+    })
+  }),
+
+  http.post('/api/v1/supplier-invoices', async ({ request }) => {
+    const body = (await request.json()) as SupplierInvoiceRequestBody
+
+    let vehicle: Vehicle | undefined
+    if (body.vehicleId) {
+      vehicle = vehicles.find((v) => v.id === body.vehicleId)
+      if (!vehicle) {
+        return HttpResponse.json(
+          {
+            status: 404,
+            code: 'VEHICLE_NOT_FOUND',
+            message: `Vehicle ${body.vehicleId} not found`,
+            correlationId: 'test-correlation-id',
+          },
+          { status: 404 },
+        )
+      }
+    }
+
+    const newInvoice: SupplierInvoiceMock = {
+      id: `supplier-invoice-${supplierInvoices.length + 1}`,
+      supplierName: body.supplierName,
+      supplierInvoiceNumber: body.supplierInvoiceNumber ?? null,
+      category: body.category,
+      invoiceDate: body.invoiceDate,
+      dueDate: body.dueDate ?? null,
+      paymentDate: null,
+      status: 'PENDING',
+      subtotal: body.subtotal,
+      taxAmount: body.taxAmount,
+      total: body.total,
+      vehicleId: vehicle?.id ?? null,
+      vehicleLicensePlate: vehicle?.licensePlate ?? null,
+      vehicleMake: vehicle?.make ?? null,
+      vehicleModel: vehicle?.model ?? null,
+      notes: body.notes ?? null,
+      documentPath: body.documentPath ?? null,
+      createdAt: new Date().toISOString(),
+    }
+    supplierInvoices = [...supplierInvoices, newInvoice]
+
+    return HttpResponse.json(newInvoice, { status: 201 })
+  }),
+
+  http.get('/api/v1/supplier-invoices/:id', ({ params }) => {
+    const invoice = supplierInvoices.find((i) => i.id === params.id)
+
+    if (!invoice) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'SUPPLIER_INVOICE_NOT_FOUND',
+          message: `Supplier invoice ${params.id} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    return HttpResponse.json(invoice)
+  }),
+
+  http.put('/api/v1/supplier-invoices/:id', async ({ request, params }) => {
+    const body = (await request.json()) as SupplierInvoiceRequestBody
+    const index = supplierInvoices.findIndex((invoice) => invoice.id === params.id)
+    const existing = supplierInvoices[index]
+
+    if (!existing) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'SUPPLIER_INVOICE_NOT_FOUND',
+          message: `Supplier invoice ${params.id} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    if (existing.status !== 'PENDING') {
+      return HttpResponse.json(
+        {
+          status: 409,
+          code: 'SUPPLIER_INVOICE_INVALID_STATE_TRANSITION',
+          message: `Supplier invoice ${params.id} cannot be updated from state ${existing.status}`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 409 },
+      )
+    }
+
+    let vehicle: Vehicle | undefined
+    if (body.vehicleId) {
+      vehicle = vehicles.find((v) => v.id === body.vehicleId)
+      if (!vehicle) {
+        return HttpResponse.json(
+          {
+            status: 404,
+            code: 'VEHICLE_NOT_FOUND',
+            message: `Vehicle ${body.vehicleId} not found`,
+            correlationId: 'test-correlation-id',
+          },
+          { status: 404 },
+        )
+      }
+    }
+
+    const updated: SupplierInvoiceMock = {
+      ...existing,
+      supplierName: body.supplierName,
+      supplierInvoiceNumber: body.supplierInvoiceNumber ?? null,
+      category: body.category,
+      invoiceDate: body.invoiceDate,
+      dueDate: body.dueDate ?? null,
+      vehicleId: vehicle?.id ?? null,
+      vehicleLicensePlate: vehicle?.licensePlate ?? null,
+      vehicleMake: vehicle?.make ?? null,
+      vehicleModel: vehicle?.model ?? null,
+      subtotal: body.subtotal,
+      taxAmount: body.taxAmount,
+      total: body.total,
+      notes: body.notes ?? null,
+      documentPath: body.documentPath ?? null,
+    }
+    supplierInvoices = supplierInvoices.map((invoice, i) => (i === index ? updated : invoice))
+
+    return HttpResponse.json(updated)
+  }),
+
+  http.patch('/api/v1/supplier-invoices/:id/pay', async ({ request, params }) => {
+    const index = supplierInvoices.findIndex((invoice) => invoice.id === params.id)
+    const existing = supplierInvoices[index]
+
+    if (!existing) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'SUPPLIER_INVOICE_NOT_FOUND',
+          message: `Supplier invoice ${params.id} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    if (existing.status !== 'PENDING') {
+      return HttpResponse.json(
+        {
+          status: 409,
+          code: 'SUPPLIER_INVOICE_INVALID_STATE_TRANSITION',
+          message: `Supplier invoice ${params.id} cannot be paid from state ${existing.status}`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 409 },
+      )
+    }
+
+    const body = (await request.json().catch(() => null)) as PayInvoiceRequestBody | null
+
+    const updated: SupplierInvoiceMock = {
+      ...existing,
+      status: 'PAID',
+      paymentDate: body?.paymentDate ?? new Date().toISOString().slice(0, 10),
+    }
+    supplierInvoices = supplierInvoices.map((invoice, i) => (i === index ? updated : invoice))
+
+    return HttpResponse.json(updated)
   }),
 
   http.post('/api/v1/auth/login', async ({ request }) => {
