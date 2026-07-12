@@ -30,7 +30,8 @@ public class AuditLogController {
             @RequestParam(required = false) AuditAction action,
             @RequestParam(required = false) Instant from,
             @RequestParam(required = false) Instant to,
+            @RequestParam(required = false) String performedByEmail,
             @PageableDefault(size = 20, sort = "performedAt") Pageable pageable) {
-        return ResponseEntity.ok(auditLogService.list(entityType, action, from, to, pageable));
+        return ResponseEntity.ok(auditLogService.list(entityType, action, from, to, performedByEmail, pageable));
     }
 }

@@ -15,6 +15,8 @@ type AuditLogFiltersProps = {
   onFromChange: (value: string) => void
   to: string
   onToChange: (value: string) => void
+  performedByEmail: string
+  onPerformedByEmailChange: (value: string) => void
 }
 
 export function AuditLogFilters({
@@ -26,9 +28,19 @@ export function AuditLogFilters({
   onFromChange,
   to,
   onToChange,
+  performedByEmail,
+  onPerformedByEmailChange,
 }: AuditLogFiltersProps) {
   return (
     <div className="flex flex-wrap items-center gap-3">
+      <input
+        aria-label="Filtrar por usuario"
+        type="text"
+        placeholder="Buscar por usuario…"
+        className={inputClassName}
+        value={performedByEmail}
+        onChange={(e) => onPerformedByEmailChange(e.target.value)}
+      />
       <select
         aria-label="Filtrar por tipo de entidad"
         className={selectClassName}

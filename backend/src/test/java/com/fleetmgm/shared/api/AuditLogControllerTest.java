@@ -48,7 +48,7 @@ class AuditLogControllerTest {
     @Test
     void list_returns200_withoutFilters() throws Exception {
         PageResponse<AuditLogResponse> page = new PageResponse<>(List.of(sampleResponse()), 0, 20, 1, 1);
-        when(auditLogService.list(isNull(), isNull(), isNull(), isNull(), any(Pageable.class)))
+        when(auditLogService.list(isNull(), isNull(), isNull(), isNull(), isNull(), any(Pageable.class)))
                 .thenReturn(page);
 
         mockMvc.perform(get("/api/v1/audit"))
@@ -60,7 +60,7 @@ class AuditLogControllerTest {
     @Test
     void list_returns200_filteredByEntityType() throws Exception {
         PageResponse<AuditLogResponse> page = new PageResponse<>(List.of(sampleResponse()), 0, 20, 1, 1);
-        when(auditLogService.list(eq("VEHICLE"), isNull(), isNull(), isNull(), any(Pageable.class)))
+        when(auditLogService.list(eq("VEHICLE"), isNull(), isNull(), isNull(), isNull(), any(Pageable.class)))
                 .thenReturn(page);
 
         mockMvc.perform(get("/api/v1/audit").param("entityType", "VEHICLE"))
@@ -71,7 +71,7 @@ class AuditLogControllerTest {
     @Test
     void list_returns200_filteredByAction() throws Exception {
         PageResponse<AuditLogResponse> page = new PageResponse<>(List.of(sampleResponse()), 0, 20, 1, 1);
-        when(auditLogService.list(isNull(), eq(AuditAction.UPDATE), isNull(), isNull(), any(Pageable.class)))
+        when(auditLogService.list(isNull(), eq(AuditAction.UPDATE), isNull(), isNull(), isNull(), any(Pageable.class)))
                 .thenReturn(page);
 
         mockMvc.perform(get("/api/v1/audit").param("action", "UPDATE"))
@@ -84,7 +84,7 @@ class AuditLogControllerTest {
         Instant from = Instant.parse("2026-07-01T00:00:00Z");
         Instant to = Instant.parse("2026-07-12T23:59:59Z");
         PageResponse<AuditLogResponse> page = new PageResponse<>(List.of(sampleResponse()), 0, 20, 1, 1);
-        when(auditLogService.list(isNull(), isNull(), eq(from), eq(to), any(Pageable.class)))
+        when(auditLogService.list(isNull(), isNull(), eq(from), eq(to), isNull(), any(Pageable.class)))
                 .thenReturn(page);
 
         mockMvc.perform(get("/api/v1/audit")
@@ -92,6 +92,17 @@ class AuditLogControllerTest {
                         .param("to", to.toString()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    @Test
+    void list_returns200_filteredByPerformedByEmail() throws Exception {
+        PageResponse<AuditLogResponse> page = new PageResponse<>(List.of(sampleResponse()), 0, 20, 1, 1);
+        when(auditLogService.list(isNull(), isNull(), isNull(), isNull(), eq("admin"), any(Pageable.class)))
+                .thenReturn(page);
+
+        mockMvc.perform(get("/api/v1/audit").param("performedByEmail", "admin"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].performedByEmail").value("admin@example.com"));
     }
 
     @Test

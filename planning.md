@@ -1637,6 +1637,9 @@ FleetMgm/
 - [x] **[GREEN]** `packages/hooks/src/useAuditLog.ts` — lista paginada con filtros entityType/action/from/to
 - [x] **[GREEN]** `apps/web/src/components/audit/` — `AuditLogTable`, `AuditLogFilters`, `audit-log-shared.ts` (labels ES para `AuditAction` y `entityType`)
 - [x] **[GREEN]** Página `AuditLog` + ruta `/audit` en `App.tsx` (`allowedRoles={['ADMIN', 'MANAGER']}`, nav item ya existía en `nav-items.ts`)
+- [x] **[GREEN — addendum]** Filtro por usuario (`performedByEmail`, substring case-insensitive) en backend
+  (`AuditLogRepository`/`Service`/`Controller`) y frontend (`useAuditLog`, `AuditLogFilters`, input "Filtrar por
+  usuario"), a petición explícita tras el cierre de Hito 41/42
 
 ### Hito 43 — Frontend: Dashboard y rentabilidad
 > Requiere: Hito 34 (backend profitability endpoint — incluye costes de mantenimiento y de proveedores)
