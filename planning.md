@@ -1539,11 +1539,16 @@ FleetMgm/
 
 ### Hito 40 — Frontend: GPS Map
 > Requiere: Hitos 38–39 (backend GPS)
-- [ ] **[RED]** Handlers MSW — `GET /api/v1/gps/latest`
-- [ ] **[RED]** Tests `Map.test.tsx` — marcador renderizado por cada vehículo retornado por MSW; popover muestra licensePlate y speed; polling cada 10 s dispara segunda llamada
-- [ ] **[GREEN]** `packages/hooks/src/useGps.ts` — polling cada 10 s, invalida caché automáticamente
-- [ ] **[GREEN]** `apps/web/src/components/map/` — `FleetMap` (Leaflet + react-leaflet), `VehicleMarker`, `VehiclePopover`
-- [ ] **[GREEN]** Página `Map` — mapa Leaflet con marcadores de vehículos activos
+- [x] **[RED]** Handlers MSW — `GET /api/v1/gps/latest` (`SEED_GPS_POSITIONS`/`resetGpsMock` en `handlers.ts`, mismo patrón que `SEED_VEHICLES`/`resetVehiclesMock`)
+- [x] **[RED→GREEN]** Tests `Map.test.tsx` — marcador renderizado por cada posición devuelta por MSW (vía `data-testid="vehicle-marker-{vehicleId}"` inyectado en el `divIcon`, ya que Leaflet crea ese nodo por fuera del árbol de React); popover muestra matrícula y velocidad al hacer click; `server.events.on('request:start', ...)` + `vi.useFakeTimers({ shouldAdvanceTime: true })` + `vi.advanceTimersByTimeAsync(10_000)` confirman una segunda llamada tras 10s
+- [x] **[GREEN]** `packages/hooks/src/useGps.ts` — `useQuery` con `refetchInterval: 10_000` (solo lectura, sin invalidación manual — no encaja en `createCrudHooks`, pensado para mutaciones)
+- [x] **[GREEN]** `apps/web/src/components/map/` — `FleetMap` (`MapContainer`+`TileLayer` de OpenStreetMap, centrado en las mismas coordenadas base que `GpsMockScheduler` en el backend), `VehicleMarker` (icono por `vehicleCategory` vía `L.divIcon()` + `renderToStaticMarkup` de un icono `lucide-react` — `Car`/`Truck`/`Tractor`), `VehiclePopover` (matrícula + velocidad)
+- [x] **[GREEN]** Página `Map` — ruta `/gps` reemplaza el `NotImplemented` placeholder; nav item y ruta restringidos a `MANAGEMENT_ROLES` (ver nota de reversión de DRIVER en el Hito 39)
+  > **Nota (revisión Hito 40):** el checklist original no anticipaba icono por categoría — se añadió por decisión
+  > del usuario, lo que exigió un addendum al Hito 38 (`GpsPositionResponse.vehicleCategory`, PR #53) antes de
+  > empezar el frontend. `react-leaflet@5.0.0` + `leaflet@1.9.4` + `@types/leaflet@1.9.21` instalados (versiones
+  > verificadas contra el registro de npm — `react-leaflet` 5.x requiere React 19 como peer dependency, que ya
+  > cumple el proyecto). Suite: `npm run test` en `apps/web` — 100 tests, 0 failures; `tsc -b` limpio.
 
 ---
 
