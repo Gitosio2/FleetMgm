@@ -56,6 +56,10 @@ export function SupplierInvoiceFormModal({ open, onOpenChange, supplierInvoice }
   }, [open, supplierInvoice])
 
   const isPending = createSupplierInvoice.isPending || updateSupplierInvoice.isPending
+  // A PAID invoice is immutable — the backend already rejects update()/addLineItem() with 409
+  // SUPPLIER_INVOICE_INVALID_STATE_TRANSITION for it; this surfaces that constraint as a read-only
+  // view instead of letting the user fill out the form only to have the save fail.
+  const isReadOnly = supplierInvoice?.status === 'PAID'
 
   // Subtotal is the "source" amount (what the supplier states pre-tax) — editing it or the tax
   // recomputes Total. Editing Total directly does the inverse: it recomputes Subtotal, holding the
@@ -92,6 +96,10 @@ export function SupplierInvoiceFormModal({ open, onOpenChange, supplierInvoice }
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
+    if (isReadOnly) {
+      return
+    }
+
     const request: CreateSupplierInvoiceRequest = {
       supplierName,
       supplierInvoiceNumber: toNullableString(supplierInvoiceNumber),
@@ -119,7 +127,13 @@ export function SupplierInvoiceFormModal({ open, onOpenChange, supplierInvoice }
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{isEditing ? 'Editar factura de proveedor' : 'Nueva factura de proveedor'}</DialogTitle>
+          <DialogTitle>
+            {isReadOnly
+              ? 'Factura de proveedor'
+              : isEditing
+                ? 'Editar factura de proveedor'
+                : 'Nueva factura de proveedor'}
+          </DialogTitle>
         </DialogHeader>
 
         <form id="supplier-invoice-form" className="flex flex-col gap-4" onSubmit={handleSubmit}>
@@ -130,6 +144,7 @@ export function SupplierInvoiceFormModal({ open, onOpenChange, supplierInvoice }
                 id="supplier-invoice-supplier-name"
                 value={supplierName}
                 onChange={(e) => setSupplierName(e.target.value)}
+                disabled={isReadOnly}
                 required
               />
             </div>
@@ -139,6 +154,7 @@ export function SupplierInvoiceFormModal({ open, onOpenChange, supplierInvoice }
                 id="supplier-invoice-number"
                 value={supplierInvoiceNumber}
                 onChange={(e) => setSupplierInvoiceNumber(e.target.value)}
+                disabled={isReadOnly}
               />
             </div>
           </div>
@@ -151,6 +167,7 @@ export function SupplierInvoiceFormModal({ open, onOpenChange, supplierInvoice }
                 className={selectClassName}
                 value={category}
                 onChange={(e) => setCategory(e.target.value as ExpenseCategory)}
+                disabled={isReadOnly}
                 required
               >
                 {(Object.keys(EXPENSE_CATEGORY_LABEL) as ExpenseCategory[]).map((value) => (
@@ -167,7 +184,7 @@ export function SupplierInvoiceFormModal({ open, onOpenChange, supplierInvoice }
                 className={selectClassName}
                 value={vehicleId}
                 onChange={(e) => setVehicleId(e.target.value)}
-                disabled={hasLineItems}
+                disabled={isReadOnly || hasLineItems}
               >
                 <option value="">Sin vehículo asociado</option>
                 {(vehiclesPage?.content ?? []).map((vehicle) => (
@@ -177,7 +194,7 @@ export function SupplierInvoiceFormModal({ open, onOpenChange, supplierInvoice }
                   </option>
                 ))}
               </select>
-              {hasLineItems && (
+              {!isReadOnly && hasLineItems && (
                 <p className="text-xs text-on-surface-variant">
                   Esta factura ya tiene vehículos asignados por línea.
                 </p>
@@ -193,6 +210,7 @@ export function SupplierInvoiceFormModal({ open, onOpenChange, supplierInvoice }
                 type="date"
                 value={invoiceDate}
                 onChange={(e) => setInvoiceDate(e.target.value)}
+                disabled={isReadOnly}
                 required
               />
             </div>
@@ -203,6 +221,7 @@ export function SupplierInvoiceFormModal({ open, onOpenChange, supplierInvoice }
                 type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
+                disabled={isReadOnly}
               />
             </div>
           </div>
@@ -220,6 +239,7 @@ export function SupplierInvoiceFormModal({ open, onOpenChange, supplierInvoice }
                   setSubtotal(e.target.value)
                   recomputeTotal(e.target.value, taxAmount)
                 }}
+                disabled={isReadOnly}
                 required
               />
             </div>
@@ -235,6 +255,7 @@ export function SupplierInvoiceFormModal({ open, onOpenChange, supplierInvoice }
                   setTaxAmount(e.target.value)
                   recomputeTotal(subtotal, e.target.value)
                 }}
+                disabled={isReadOnly}
                 required
               />
             </div>
@@ -250,6 +271,7 @@ export function SupplierInvoiceFormModal({ open, onOpenChange, supplierInvoice }
                   setTotal(e.target.value)
                   recomputeSubtotal(e.target.value, taxAmount)
                 }}
+                disabled={isReadOnly}
                 required
               />
             </div>
@@ -257,7 +279,12 @@ export function SupplierInvoiceFormModal({ open, onOpenChange, supplierInvoice }
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="supplier-invoice-notes">Notas</Label>
-            <Input id="supplier-invoice-notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
+            <Input
+              id="supplier-invoice-notes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              disabled={isReadOnly}
+            />
           </div>
 
           {(createSupplierInvoice.isError || updateSupplierInvoice.isError) && (
@@ -275,9 +302,15 @@ export function SupplierInvoiceFormModal({ open, onOpenChange, supplierInvoice }
         )}
 
         <DialogFooter className="mt-6">
-          <Button type="submit" form="supplier-invoice-form" disabled={isPending}>
-            {isEditing ? 'Guardar cambios' : 'Crear factura'}
-          </Button>
+          {isReadOnly ? (
+            <Button type="button" onClick={() => onOpenChange(false)}>
+              Cerrar
+            </Button>
+          ) : (
+            <Button type="submit" form="supplier-invoice-form" disabled={isPending}>
+              {isEditing ? 'Guardar cambios' : 'Crear factura'}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

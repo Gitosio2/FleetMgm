@@ -149,6 +149,25 @@ describe('SupplierInvoices', () => {
     expect(within(row).queryByRole('button', { name: /marcar pagada/i })).not.toBeInTheDocument()
   })
 
+  it('opens a PAID supplier invoice as a read-only view', async () => {
+    const user = userEvent.setup()
+    renderSupplierInvoices()
+
+    const paid = SEED_SUPPLIER_INVOICES[2]!
+    const row = (await screen.findByText(paid.supplierName)).closest('tr')!
+    expect(within(row).getByRole('button', { name: /^ver$/i })).toBeInTheDocument()
+
+    await user.click(within(row).getByRole('button', { name: /^ver$/i }))
+
+    expect(await screen.findByRole('heading', { name: 'Factura de proveedor' })).toBeInTheDocument()
+    expect(screen.getByLabelText(/^proveedor$/i)).toBeDisabled()
+    expect(screen.getByLabelText(/^subtotal$/i)).toBeDisabled()
+    expect(screen.queryByRole('button', { name: /guardar cambios/i })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /^cerrar$/i }))
+    expect(screen.queryByRole('heading', { name: 'Factura de proveedor' })).not.toBeInTheDocument()
+  })
+
   it('adds a line item to a PENDING supplier invoice without a header vehicle, updating the allocation indicator', async () => {
     const user = userEvent.setup()
     renderSupplierInvoices()
