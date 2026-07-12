@@ -4,6 +4,7 @@ import com.fleetmgm.billing.domain.SupplierInvoiceLineItem;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface SupplierInvoiceLineItemRepository extends JpaRepository<SupplierInvoiceLineItem, UUID> {
@@ -19,4 +20,9 @@ public interface SupplierInvoiceLineItemRepository extends JpaRepository<Supplie
     // per-invoice findAllByInvoiceId() call inside the page-mapping loop would introduce
     // (CLAUDE.md JPA rule).
     List<SupplierInvoiceLineItem> findAllByInvoiceIdIn(List<UUID> invoiceIds);
+
+    // Ownership-safe lookup for updateLineItem()/deleteLineItem() — scopes the id lookup to the
+    // invoice id also present in the URL, so a caller cannot mutate a line item that exists but
+    // belongs to a different invoice (OWASP B / IDOR defense per CLAUDE.md).
+    Optional<SupplierInvoiceLineItem> findByIdAndInvoiceId(UUID id, UUID invoiceId);
 }

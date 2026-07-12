@@ -653,6 +653,149 @@ class SupplierInvoiceServiceTest {
         verify(supplierInvoiceRepository, never()).save(invoice);
     }
 
+    // --- updateLineItem ---
+
+    @Test
+    void updateLineItem_updatesFieldsAndRecomputesSubtotal_whenPending() {
+        UUID invoiceId = UUID.randomUUID();
+        UUID lineItemId = UUID.randomUUID();
+        SupplierInvoice invoice = new SupplierInvoice();
+        invoice.setStatus(SupplierInvoiceStatus.PENDING);
+        SupplierInvoiceLineItem lineItem = new SupplierInvoiceLineItem();
+        SupplierLineItemRequest request = new SupplierLineItemRequest("Updated Parts", new BigDecimal("3"), new BigDecimal("20.00"), null, null);
+        SupplierLineItemResponse expected = new SupplierLineItemResponse(lineItemId, "Updated Parts",
+                new BigDecimal("3"), new BigDecimal("20.00"), new BigDecimal("60.00"), null, null);
+
+        when(supplierInvoiceRepository.findById(invoiceId)).thenReturn(Optional.of(invoice));
+        when(supplierInvoiceLineItemRepository.findByIdAndInvoiceId(lineItemId, invoiceId)).thenReturn(Optional.of(lineItem));
+        when(supplierInvoiceLineItemRepository.save(lineItem)).thenReturn(lineItem);
+        when(supplierInvoiceMapper.toResponse(lineItem)).thenReturn(expected);
+
+        SupplierLineItemResponse result = supplierInvoiceService.updateLineItem(invoiceId, lineItemId, request);
+
+        assertThat(result).isEqualTo(expected);
+        assertThat(lineItem.getDescription()).isEqualTo("Updated Parts");
+        assertThat(lineItem.getQuantity()).isEqualByComparingTo("3");
+        assertThat(lineItem.getUnitPrice()).isEqualByComparingTo("20.00");
+        assertThat(lineItem.getSubtotal()).isEqualByComparingTo("60.00");
+    }
+
+    @Test
+    void updateLineItem_resolvesLinkedVehicleAndMaintenance_whenProvided() {
+        UUID invoiceId = UUID.randomUUID();
+        UUID lineItemId = UUID.randomUUID();
+        UUID vehicleId = UUID.randomUUID();
+        UUID maintenanceId = UUID.randomUUID();
+        SupplierInvoice invoice = new SupplierInvoice();
+        invoice.setStatus(SupplierInvoiceStatus.PENDING);
+        SupplierInvoiceLineItem lineItem = new SupplierInvoiceLineItem();
+        Vehicle vehicle = new Vehicle();
+        MaintenanceRecord maintenance = new MaintenanceRecord();
+        SupplierLineItemRequest request = new SupplierLineItemRequest("Job", BigDecimal.ONE, new BigDecimal("50.00"), vehicleId, maintenanceId);
+        SupplierLineItemResponse expected = new SupplierLineItemResponse(lineItemId, "Job",
+                BigDecimal.ONE, new BigDecimal("50.00"), new BigDecimal("50.00"), vehicleId, maintenanceId);
+
+        when(supplierInvoiceRepository.findById(invoiceId)).thenReturn(Optional.of(invoice));
+        when(supplierInvoiceLineItemRepository.findByIdAndInvoiceId(lineItemId, invoiceId)).thenReturn(Optional.of(lineItem));
+        when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(vehicle));
+        when(maintenanceRepository.findById(maintenanceId)).thenReturn(Optional.of(maintenance));
+        when(supplierInvoiceLineItemRepository.save(lineItem)).thenReturn(lineItem);
+        when(supplierInvoiceMapper.toResponse(lineItem)).thenReturn(expected);
+
+        supplierInvoiceService.updateLineItem(invoiceId, lineItemId, request);
+
+        assertThat(lineItem.getVehicle()).isEqualTo(vehicle);
+        assertThat(lineItem.getMaintenanceRecord()).isEqualTo(maintenance);
+    }
+
+    @Test
+    void updateLineItem_throwsConflict_whenInvoiceNotPending() {
+        UUID invoiceId = UUID.randomUUID();
+        UUID lineItemId = UUID.randomUUID();
+        SupplierInvoice invoice = new SupplierInvoice();
+        invoice.setStatus(SupplierInvoiceStatus.PAID);
+        SupplierLineItemRequest request = new SupplierLineItemRequest("Parts", BigDecimal.ONE, new BigDecimal("50.00"), null, null);
+
+        when(supplierInvoiceRepository.findById(invoiceId)).thenReturn(Optional.of(invoice));
+
+        assertThatThrownBy(() -> supplierInvoiceService.updateLineItem(invoiceId, lineItemId, request))
+                .isInstanceOf(ConflictException.class)
+                .satisfies(ex -> assertThat(((ConflictException) ex).getCode())
+                        .isEqualTo("SUPPLIER_INVOICE_INVALID_STATE_TRANSITION"));
+
+        verify(supplierInvoiceLineItemRepository, never()).save(any());
+    }
+
+    @Test
+    void updateLineItem_throwsNotFound_whenLineItemDoesNotBelongToInvoice() {
+        UUID invoiceId = UUID.randomUUID();
+        UUID lineItemId = UUID.randomUUID();
+        SupplierInvoice invoice = new SupplierInvoice();
+        invoice.setStatus(SupplierInvoiceStatus.PENDING);
+        SupplierLineItemRequest request = new SupplierLineItemRequest("Parts", BigDecimal.ONE, new BigDecimal("50.00"), null, null);
+
+        when(supplierInvoiceRepository.findById(invoiceId)).thenReturn(Optional.of(invoice));
+        when(supplierInvoiceLineItemRepository.findByIdAndInvoiceId(lineItemId, invoiceId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> supplierInvoiceService.updateLineItem(invoiceId, lineItemId, request))
+                .isInstanceOf(NotFoundException.class)
+                .satisfies(ex -> assertThat(((NotFoundException) ex).getCode()).isEqualTo("SUPPLIER_LINE_ITEM_NOT_FOUND"));
+
+        verify(supplierInvoiceLineItemRepository, never()).save(any());
+    }
+
+    // --- deleteLineItem ---
+
+    @Test
+    void deleteLineItem_removesLineItem_whenPending() {
+        UUID invoiceId = UUID.randomUUID();
+        UUID lineItemId = UUID.randomUUID();
+        SupplierInvoice invoice = new SupplierInvoice();
+        invoice.setStatus(SupplierInvoiceStatus.PENDING);
+        SupplierInvoiceLineItem lineItem = new SupplierInvoiceLineItem();
+
+        when(supplierInvoiceRepository.findById(invoiceId)).thenReturn(Optional.of(invoice));
+        when(supplierInvoiceLineItemRepository.findByIdAndInvoiceId(lineItemId, invoiceId)).thenReturn(Optional.of(lineItem));
+
+        supplierInvoiceService.deleteLineItem(invoiceId, lineItemId);
+
+        verify(supplierInvoiceLineItemRepository).delete(lineItem);
+    }
+
+    @Test
+    void deleteLineItem_throwsConflict_whenInvoiceNotPending() {
+        UUID invoiceId = UUID.randomUUID();
+        UUID lineItemId = UUID.randomUUID();
+        SupplierInvoice invoice = new SupplierInvoice();
+        invoice.setStatus(SupplierInvoiceStatus.PAID);
+
+        when(supplierInvoiceRepository.findById(invoiceId)).thenReturn(Optional.of(invoice));
+
+        assertThatThrownBy(() -> supplierInvoiceService.deleteLineItem(invoiceId, lineItemId))
+                .isInstanceOf(ConflictException.class)
+                .satisfies(ex -> assertThat(((ConflictException) ex).getCode())
+                        .isEqualTo("SUPPLIER_INVOICE_INVALID_STATE_TRANSITION"));
+
+        verify(supplierInvoiceLineItemRepository, never()).delete(any());
+    }
+
+    @Test
+    void deleteLineItem_throwsNotFound_whenLineItemDoesNotBelongToInvoice() {
+        UUID invoiceId = UUID.randomUUID();
+        UUID lineItemId = UUID.randomUUID();
+        SupplierInvoice invoice = new SupplierInvoice();
+        invoice.setStatus(SupplierInvoiceStatus.PENDING);
+
+        when(supplierInvoiceRepository.findById(invoiceId)).thenReturn(Optional.of(invoice));
+        when(supplierInvoiceLineItemRepository.findByIdAndInvoiceId(lineItemId, invoiceId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> supplierInvoiceService.deleteLineItem(invoiceId, lineItemId))
+                .isInstanceOf(NotFoundException.class)
+                .satisfies(ex -> assertThat(((NotFoundException) ex).getCode()).isEqualTo("SUPPLIER_LINE_ITEM_NOT_FOUND"));
+
+        verify(supplierInvoiceLineItemRepository, never()).delete(any());
+    }
+
     // --- list ---
 
     @Test

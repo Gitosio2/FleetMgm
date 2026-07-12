@@ -211,6 +211,71 @@ describe('SupplierInvoices', () => {
     expect(screen.getByText(alreadySplit.lineItems[1]!.description)).toBeInTheDocument()
   })
 
+  it('shows edit/delete controls for line items on a PENDING supplier invoice split by vehicle', async () => {
+    const user = userEvent.setup()
+    renderSupplierInvoices()
+
+    const alreadySplit = SEED_SUPPLIER_INVOICES[3]!
+    const row = (await screen.findByText(alreadySplit.supplierName)).closest('tr')!
+    await user.click(within(row).getByRole('button', { name: /editar/i }))
+
+    expect(await screen.findByRole('heading', { name: 'Editar factura de proveedor' })).toBeInTheDocument()
+
+    const lineItemRow = screen.getByText(alreadySplit.lineItems[0]!.description).closest('tr')!
+    expect(within(lineItemRow).getByRole('button', { name: /editar línea/i })).toBeInTheDocument()
+    expect(within(lineItemRow).getByRole('button', { name: /eliminar línea/i })).toBeInTheDocument()
+  })
+
+  it('edits a line item on a PENDING supplier invoice split by vehicle, updating the allocation indicator', async () => {
+    const user = userEvent.setup()
+    renderSupplierInvoices()
+
+    const alreadySplit = SEED_SUPPLIER_INVOICES[3]!
+    const row = (await screen.findByText(alreadySplit.supplierName)).closest('tr')!
+    await user.click(within(row).getByRole('button', { name: /editar/i }))
+
+    expect(await screen.findByRole('heading', { name: 'Editar factura de proveedor' })).toBeInTheDocument()
+
+    const lineItemRow = screen.getByText(alreadySplit.lineItems[0]!.description).closest('tr')!
+    await user.click(within(lineItemRow).getByRole('button', { name: /editar línea/i }))
+
+    await user.clear(screen.getByLabelText(/cantidad a editar/i))
+    await user.type(screen.getByLabelText(/cantidad a editar/i), '30')
+    await user.click(screen.getByRole('button', { name: /^guardar$/i }))
+
+    await waitFor(() => {
+      const updatedRow = screen.getByText(alreadySplit.lineItems[0]!.description).closest('tr')!
+      expect(within(updatedRow).getByText('30')).toBeInTheDocument()
+    })
+    // Line 1 recomputes to 30 * 1.5 = 45.00; line 2 stays at 30.00 -> 75.00 total allocated.
+    expect(screen.getByTestId('line-item-allocation-summary')).toHaveTextContent(
+      `Asignado: 75.00 € / ${alreadySplit.subtotal.toFixed(2)} €`,
+    )
+  })
+
+  it('deletes a line item from a PENDING supplier invoice after confirming, updating the allocation indicator', async () => {
+    const user = userEvent.setup()
+    renderSupplierInvoices()
+
+    const alreadySplit = SEED_SUPPLIER_INVOICES[3]!
+    const row = (await screen.findByText(alreadySplit.supplierName)).closest('tr')!
+    await user.click(within(row).getByRole('button', { name: /editar/i }))
+
+    expect(await screen.findByRole('heading', { name: 'Editar factura de proveedor' })).toBeInTheDocument()
+
+    const lineItemRow = screen.getByText(alreadySplit.lineItems[1]!.description).closest('tr')!
+    await user.click(within(lineItemRow).getByRole('button', { name: /eliminar línea/i }))
+    await user.click(await screen.findByRole('button', { name: /^eliminar$/i }))
+
+    await waitFor(() => {
+      expect(screen.queryByText(alreadySplit.lineItems[1]!.description)).not.toBeInTheDocument()
+    })
+    // Only line 1 remains, subtotal 60.00, out of a 90.00 invoice subtotal.
+    expect(screen.getByTestId('line-item-allocation-summary')).toHaveTextContent(
+      `Asignado: 60.00 € / ${alreadySplit.subtotal.toFixed(2)} €`,
+    )
+  })
+
   it('narrows the supplier invoice list with the category filter', async () => {
     const user = userEvent.setup()
     renderSupplierInvoices()

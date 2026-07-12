@@ -79,4 +79,17 @@ public class SupplierInvoiceController {
         SupplierLineItemResponse response = supplierInvoiceService.addLineItem(id, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
+
+    @PutMapping("/{invoiceId}/line-items/{lineItemId}")
+    public ResponseEntity<SupplierLineItemResponse> updateLineItem(
+            @PathVariable UUID invoiceId, @PathVariable UUID lineItemId,
+            @Valid @RequestBody SupplierLineItemRequest request) {
+        return ResponseEntity.ok(supplierInvoiceService.updateLineItem(invoiceId, lineItemId, request));
+    }
+
+    @DeleteMapping("/{invoiceId}/line-items/{lineItemId}")
+    public ResponseEntity<Void> deleteLineItem(@PathVariable UUID invoiceId, @PathVariable UUID lineItemId) {
+        supplierInvoiceService.deleteLineItem(invoiceId, lineItemId);
+        return ResponseEntity.noContent().build();
+    }
 }

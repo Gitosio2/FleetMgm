@@ -74,3 +74,37 @@ export function useAddSupplierLineItem() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: [SUPPLIER_INVOICE_KEY] }),
   })
 }
+
+export function useUpdateSupplierLineItem() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({
+      id,
+      lineItemId,
+      request,
+    }: {
+      id: string
+      lineItemId: string
+      request: SupplierLineItemRequest
+    }) => {
+      const { data } = await apiClient.put<SupplierLineItemResponse>(
+        `/supplier-invoices/${id}/line-items/${lineItemId}`,
+        request,
+      )
+      return data
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [SUPPLIER_INVOICE_KEY] }),
+  })
+}
+
+export function useDeleteSupplierLineItem() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ id, lineItemId }: { id: string; lineItemId: string }) => {
+      await apiClient.delete(`/supplier-invoices/${id}/line-items/${lineItemId}`)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [SUPPLIER_INVOICE_KEY] }),
+  })
+}

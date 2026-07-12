@@ -2873,6 +2873,108 @@ export const handlers = [
     return HttpResponse.json(newLineItem, { status: 201 })
   }),
 
+  http.put('/api/v1/supplier-invoices/:id/line-items/:lineItemId', async ({ request, params }) => {
+    const index = supplierInvoices.findIndex((invoice) => invoice.id === params.id)
+    const existing = supplierInvoices[index]
+
+    if (!existing) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'SUPPLIER_INVOICE_NOT_FOUND',
+          message: `Supplier invoice ${params.id} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    if (existing.status !== 'PENDING') {
+      return HttpResponse.json(
+        {
+          status: 409,
+          code: 'SUPPLIER_INVOICE_INVALID_STATE_TRANSITION',
+          message: `Supplier invoice ${params.id} line items cannot be modified from state ${existing.status}`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 409 },
+      )
+    }
+
+    const lineItemIndex = existing.lineItems.findIndex((lineItem) => lineItem.id === params.lineItemId)
+    if (lineItemIndex === -1) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'SUPPLIER_LINE_ITEM_NOT_FOUND',
+          message: `Line item ${params.lineItemId} not found on invoice ${params.id}`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    const body = (await request.json()) as SupplierLineItemRequestBody
+    const updatedLineItem = buildSupplierLineItemMock(params.lineItemId as string, body)
+    const updated: SupplierInvoiceMock = {
+      ...existing,
+      lineItems: existing.lineItems.map((lineItem, i) => (i === lineItemIndex ? updatedLineItem : lineItem)),
+    }
+    supplierInvoices = supplierInvoices.map((invoice, i) => (i === index ? updated : invoice))
+
+    return HttpResponse.json(updatedLineItem)
+  }),
+
+  http.delete('/api/v1/supplier-invoices/:id/line-items/:lineItemId', ({ params }) => {
+    const index = supplierInvoices.findIndex((invoice) => invoice.id === params.id)
+    const existing = supplierInvoices[index]
+
+    if (!existing) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'SUPPLIER_INVOICE_NOT_FOUND',
+          message: `Supplier invoice ${params.id} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    if (existing.status !== 'PENDING') {
+      return HttpResponse.json(
+        {
+          status: 409,
+          code: 'SUPPLIER_INVOICE_INVALID_STATE_TRANSITION',
+          message: `Supplier invoice ${params.id} line items cannot be modified from state ${existing.status}`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 409 },
+      )
+    }
+
+    const lineItemExists = existing.lineItems.some((lineItem) => lineItem.id === params.lineItemId)
+    if (!lineItemExists) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'SUPPLIER_LINE_ITEM_NOT_FOUND',
+          message: `Line item ${params.lineItemId} not found on invoice ${params.id}`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    const updated: SupplierInvoiceMock = {
+      ...existing,
+      lineItems: existing.lineItems.filter((lineItem) => lineItem.id !== params.lineItemId),
+    }
+    supplierInvoices = supplierInvoices.map((invoice, i) => (i === index ? updated : invoice))
+
+    return new HttpResponse(null, { status: 204 })
+  }),
+
   http.post('/api/v1/auth/login', async ({ request }) => {
     const body = (await request.json()) as LoginRequestBody
 

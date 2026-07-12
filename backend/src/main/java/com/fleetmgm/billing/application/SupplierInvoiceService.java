@@ -211,6 +211,41 @@ public class SupplierInvoiceService {
         return supplierInvoiceMapper.toResponse(supplierInvoiceLineItemRepository.save(lineItem));
     }
 
+    @Transactional
+    @PreAuthorize(ROLES)
+    public SupplierLineItemResponse updateLineItem(UUID invoiceId, UUID lineItemId, SupplierLineItemRequest request) {
+        SupplierInvoice invoice = findInvoiceOrThrow(invoiceId);
+        assertIsPending(invoice, "SUPPLIER_INVOICE_INVALID_STATE_TRANSITION",
+                "Supplier invoice " + invoiceId + " line items cannot be modified from state " + invoice.getStatus());
+        SupplierInvoiceLineItem lineItem = findLineItemOrThrow(invoiceId, lineItemId);
+        Vehicle linkedVehicle = resolveVehicle(request.vehicleId());
+        MaintenanceRecord linkedMaintenance = resolveMaintenance(request.maintenanceRecordId());
+
+        lineItem.setDescription(request.description());
+        lineItem.setQuantity(request.quantity());
+        lineItem.setUnitPrice(request.unitPrice());
+        lineItem.setVehicle(linkedVehicle);
+        lineItem.setMaintenanceRecord(linkedMaintenance);
+        lineItem.setSubtotal(request.quantity().multiply(request.unitPrice()).setScale(MONEY_SCALE, RoundingMode.HALF_UP));
+        return supplierInvoiceMapper.toResponse(supplierInvoiceLineItemRepository.save(lineItem));
+    }
+
+    @Transactional
+    @PreAuthorize(ROLES)
+    public void deleteLineItem(UUID invoiceId, UUID lineItemId) {
+        SupplierInvoice invoice = findInvoiceOrThrow(invoiceId);
+        assertIsPending(invoice, "SUPPLIER_INVOICE_INVALID_STATE_TRANSITION",
+                "Supplier invoice " + invoiceId + " line items cannot be modified from state " + invoice.getStatus());
+        SupplierInvoiceLineItem lineItem = findLineItemOrThrow(invoiceId, lineItemId);
+        supplierInvoiceLineItemRepository.delete(lineItem);
+    }
+
+    private SupplierInvoiceLineItem findLineItemOrThrow(UUID invoiceId, UUID lineItemId) {
+        return supplierInvoiceLineItemRepository.findByIdAndInvoiceId(lineItemId, invoiceId)
+                .orElseThrow(() -> new NotFoundException("SUPPLIER_LINE_ITEM_NOT_FOUND",
+                        "Line item " + lineItemId + " not found on invoice " + invoiceId));
+    }
+
     // MapStruct can't express "attach a batched/pre-fetched collection" via @Mapping, so the base
     // response is mapped normally (lineItems left unmapped, see SupplierInvoiceMapper) and the
     // line items — resolved by the caller via whichever query strategy fits (single lookup for
