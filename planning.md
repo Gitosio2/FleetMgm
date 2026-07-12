@@ -1537,6 +1537,15 @@ FleetMgm/
 > que el frontend tenga que cruzar `vehicleId` contra `useVehicles()` por su cuenta. Cambio de contrato menor sobre
 > el Hito 38 ya mergeado — `GpsMapper`/tests actualizados, `./mvnw test -Pfailsafe`: 433 tests, 0 failures/errors.
 
+> **Addendum 2 (planificando Hito 40):** `GpsPositionResponse` gana también `vehicleMake`/`vehicleModel`
+> (denormalizados desde `vehicle.make`/`vehicle.model`) — igual que `Job`/`WorkshopSchedule`/`MaintenanceRecord`,
+> maquinaria pesada (`licensePlate == null`) necesita un fallback "marca modelo" en el popover del mapa, y el
+> frontend ya tiene `formatVehicleLabel()` para eso (`apps/web/src/lib/vehicle-label.ts`) — solo faltaban los
+> campos en el DTO. No se renombró `licensePlate` a `vehicleLicensePlate` (aunque rompe la simetría de nombres con
+> el resto de DTOs que denormalizan datos de vehículo) para no encadenar un tercer cambio de contrato disruptivo
+> sobre este mismo record; el frontend adapta la forma en la llamada a `formatVehicleLabel()`. `./mvnw test
+> -Pfailsafe`: 433 tests, 0 failures/errors.
+
 ### Hito 40 — Frontend: GPS Map
 > Requiere: Hitos 38–39 (backend GPS)
 - [ ] **[RED]** Handlers MSW — `GET /api/v1/gps/latest`
