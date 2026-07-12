@@ -1537,6 +1537,15 @@ FleetMgm/
   > vuelve a depender solo de `GpsRepository`/`GpsMapper` (se retira la dependencia de `AssignmentRepository`).
   > Suite completa (`./mvnw test -Pfailsafe`): 431 tests, 0 failures/errors — sin regresión.
 
+> **Addendum 3 (planificando Hito 40):** `GET /api/v1/gps/latest` gana dos `@RequestParam` opcionales —
+> `category` (`VehicleCategory`) y `vehicleId` (`UUID`) — para los selects de filtro que pide el frontend. Filtrado
+> deliberadamente en `GpsService` (post-mapeo, sobre el `List<GpsPositionResponse>` ya construido) y no en
+> `GpsRepository`/JPQL: la flota de este proyecto es pequeña (escala de tesis, `findLatestForAllActiveVehicles()`
+> ya trae "la última posición por vehículo activo" en una sola query), así que añadir condiciones dinámicas a esa
+> JPQL no aporta nada frente a un `.filter()` en Java, y evita el idiom `(:param IS NULL OR ...)` para un caso que
+> no lo necesita. Los dos filtros son combinables (AND) e independientes entre sí. `./mvnw test -Pfailsafe`: 436
+> tests, 0 failures/errors.
+
 > **Addendum (planificando Hito 40):** `GpsPositionResponse` ganó el campo `vehicleCategory` (denormalizado desde
 > `vehicle.vehicleCategory`, mismo patrón que `licensePlate`) — decisión con el usuario para poder pintar un icono
 > de marcador distinto por categoría (`LIGHT_VEHICLE`/`HEAVY_VEHICLE`/`HEAVY_MACHINERY`) en el mapa del Hito 40 sin
