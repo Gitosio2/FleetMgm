@@ -1,6 +1,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import L from 'leaflet'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAuthStore } from '@fleetmgm/store'
 import { resetGpsMock, resetVehiclesMock, SEED_GPS_POSITIONS } from '@/mocks/handlers'
@@ -114,6 +115,33 @@ describe('Map', () => {
     expect(await screen.findByTestId(`vehicle-marker-${targetPosition.vehicleId}`)).toBeInTheDocument()
     await waitFor(() => {
       expect(screen.queryByTestId(`vehicle-marker-${otherPosition.vehicleId}`)).not.toBeInTheDocument()
+    })
+  })
+
+  it('flies to the vehicle when the vehicle filter is applied, and back to the country view when cleared', async () => {
+    loginAsAdmin()
+    const user = userEvent.setup()
+    const flyToSpy = vi.spyOn(L.Map.prototype, 'flyTo')
+    renderMap()
+
+    const targetPosition = SEED_GPS_POSITIONS[0]!
+    await screen.findByTestId(`vehicle-marker-${targetPosition.vehicleId}`)
+
+    const vehicleSelect = screen.getByLabelText(/filtrar por vehículo/i)
+    await waitFor(() => expect(within(vehicleSelect).getAllByRole('option').length).toBeGreaterThan(1))
+    await user.selectOptions(vehicleSelect, targetPosition.vehicleId)
+
+    await waitFor(() => {
+      expect(flyToSpy).toHaveBeenCalledWith(
+        [targetPosition.latitude, targetPosition.longitude],
+        expect.any(Number),
+      )
+    })
+
+    await user.selectOptions(vehicleSelect, '')
+
+    await waitFor(() => {
+      expect(flyToSpy).toHaveBeenCalledWith([40.0, -3.7], 6)
     })
   })
 

@@ -1570,6 +1570,18 @@ FleetMgm/
   > las aserciones de contenido del popover con `within(...)` y evitar coincidencias ambiguas de texto.
   >
   > Suite: `npm run test` en `apps/web` — 103 tests, 0 failures; `tsc -b` limpio.
+- [x] **[GREEN]** Iconos de marcador más grandes (28px → 40px), vista inicial centrada en toda España
+  (`[40.0, -3.7]`, zoom 6) en vez de un acercamiento a Madrid, y `MapViewController` — al filtrar por un vehículo
+  concreto el mapa hace `flyTo` hasta su posición (zoom 14); al quitar el filtro, vuelve a la vista de España.
+  > **Nota (revisión Hito 40, control de vista):** los props `center`/`zoom` de `<MapContainer>` solo se aplican
+  > al montar — react-leaflet no reacciona a cambios posteriores. Mover la vista después requiere la instancia
+  > imperativa de Leaflet vía `useMap()`, así que `MapViewController` es un componente hijo sin UI propia que
+  > vive dentro de `<MapContainer>` y llama a `map.flyTo(...)` desde un `useEffect`. Se re-centra solo cuando
+  > **cambia** el vehículo filtrado (guardado en un `useRef`), no en cada poll de 10s — si se re-centrara en cada
+  > refresco, el usuario no podría alejarse del vehículo para mirar el resto del mapa sin que le "recentraran" a
+  > los 10 segundos. Test: `vi.spyOn(L.Map.prototype, 'flyTo')` confirma la llamada con las coordenadas del
+  > vehículo al filtrar, y con el centro de España al limpiar el filtro. Suite: `npm run test` en `apps/web` —
+  > 104 tests, 0 failures; `tsc -b` limpio.
 
 ---
 
