@@ -11,6 +11,7 @@ import { Workshop } from '@/pages/Workshop'
 import { Billing } from '@/pages/Billing'
 import { Suppliers } from '@/pages/Suppliers'
 import { SupplierInvoices } from '@/pages/SupplierInvoices'
+import { AuditLog } from '@/pages/AuditLog'
 import { Map } from '@/pages/Map'
 import { NotImplemented } from '@/pages/NotImplemented'
 import { NAV_ITEMS, MANAGEMENT_ROLES } from '@/components/layout/nav-items'
@@ -93,6 +94,14 @@ function App() {
           }
         />
         <Route
+          path="/audit"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}>
+              <AuditLog />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/gps"
           element={
             <ProtectedRoute allowedRoles={MANAGEMENT_ROLES}>
@@ -111,6 +120,7 @@ function App() {
             item.to !== '/billing' &&
             item.to !== '/supplier-invoices' &&
             item.to !== '/suppliers' &&
+            item.to !== '/audit' &&
             item.to !== '/gps',
         ).map((item) => (
           <Route key={item.to} path={item.to} element={<NotImplemented />} />
