@@ -13,6 +13,7 @@ export function AuditLog() {
   const [action, setAction] = useState<AuditAction | ''>('')
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
+  const [performedByEmail, setPerformedByEmail] = useState('')
 
   const { data, isLoading, isError } = useAuditLog(
     {
@@ -20,6 +21,7 @@ export function AuditLog() {
       action: action === '' ? undefined : action,
       from: from === '' ? undefined : `${from}T00:00:00Z`,
       to: to === '' ? undefined : `${to}T23:59:59Z`,
+      performedByEmail: performedByEmail === '' ? undefined : performedByEmail,
     },
     page,
     PAGE_SIZE,
@@ -48,6 +50,8 @@ export function AuditLog() {
         onFromChange={resetPageAnd(setFrom)}
         to={to}
         onToChange={resetPageAnd(setTo)}
+        performedByEmail={performedByEmail}
+        onPerformedByEmailChange={resetPageAnd(setPerformedByEmail)}
       />
 
       {isLoading ? (

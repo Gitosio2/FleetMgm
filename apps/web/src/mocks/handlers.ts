@@ -3326,13 +3326,16 @@ export const handlers = [
     const action = url.searchParams.get('action') as AuditActionMock | null
     const from = url.searchParams.get('from')
     const to = url.searchParams.get('to')
+    const performedByEmail = url.searchParams.get('performedByEmail')
 
     const source = SEED_AUDIT_LOGS.filter(
       (entry) =>
         (entityType == null || entry.entityType === entityType) &&
         (action == null || entry.action === action) &&
         (from == null || entry.performedAt >= from) &&
-        (to == null || entry.performedAt <= to),
+        (to == null || entry.performedAt <= to) &&
+        (performedByEmail == null ||
+          (entry.performedByEmail ?? '').toLowerCase().includes(performedByEmail.toLowerCase())),
     )
     const start = page * size
     const content = source.slice(start, start + size)

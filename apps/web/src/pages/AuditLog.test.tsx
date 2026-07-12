@@ -98,4 +98,19 @@ describe('AuditLog', () => {
       expect(screen.queryByText(first!.performedByEmail!)).not.toBeInTheDocument()
     })
   })
+
+  it('narrows the list with the user filter', async () => {
+    const user = userEvent.setup()
+    renderAuditLog()
+
+    const [first, second] = SEED_AUDIT_LOGS
+    await screen.findByText(first!.performedByEmail!)
+
+    await user.type(screen.getByLabelText(/filtrar por usuario/i), 'manager')
+
+    await waitFor(() => {
+      expect(screen.getByText(second!.performedByEmail!)).toBeInTheDocument()
+    })
+    expect(screen.queryByText(first!.performedByEmail!)).not.toBeInTheDocument()
+  })
 })

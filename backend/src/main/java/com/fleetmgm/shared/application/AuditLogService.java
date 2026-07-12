@@ -33,8 +33,9 @@ public class AuditLogService {
     @Transactional(readOnly = true)
     @PreAuthorize(ROLES)
     public PageResponse<AuditLogResponse> list(String entityType, AuditAction action, Instant from, Instant to,
-                                                Pageable pageable) {
-        Page<AuditLog> page = auditLogRepository.findAllFiltered(entityType, action, from, to, pageable);
+                                                String performedByEmail, Pageable pageable) {
+        Page<AuditLog> page = auditLogRepository.findAllFiltered(entityType, action, from, to, performedByEmail,
+                pageable);
         return PageResponse.from(page.map(auditLogMapper::toResponse));
     }
 }
