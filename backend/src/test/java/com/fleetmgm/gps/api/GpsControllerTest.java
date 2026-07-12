@@ -4,6 +4,7 @@ import com.fleetmgm.auth.infrastructure.JwtAuthenticationFilter;
 import com.fleetmgm.gps.application.GpsService;
 import com.fleetmgm.gps.domain.GpsSource;
 import com.fleetmgm.gps.dto.GpsPositionResponse;
+import com.fleetmgm.vehicle.domain.VehicleCategory;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -34,7 +35,7 @@ class GpsControllerTest {
     @Test
     void latest_returns200_withPositions() throws Exception {
         GpsPositionResponse response = new GpsPositionResponse(UUID.randomUUID(), UUID.randomUUID(), "1234ABC",
-                40.4168, -3.7038, 90.0, 50.0, Instant.now(), GpsSource.MOCK);
+                VehicleCategory.LIGHT_VEHICLE, 40.4168, -3.7038, 90.0, 50.0, Instant.now(), GpsSource.MOCK);
         when(gpsService.findLatest()).thenReturn(List.of(response));
 
         mockMvc.perform(get("/api/v1/gps/latest"))

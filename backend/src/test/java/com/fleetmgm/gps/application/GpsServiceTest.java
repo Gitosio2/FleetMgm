@@ -126,6 +126,7 @@ class GpsServiceTest {
 
     private static GpsPositionResponse sampleResponse() {
         return new GpsPositionResponse(UUID.randomUUID(), UUID.randomUUID(), "1234ABC",
+                com.fleetmgm.vehicle.domain.VehicleCategory.LIGHT_VEHICLE,
                 40.0, -3.0, 90.0, 50.0, Instant.now(), com.fleetmgm.gps.domain.GpsSource.MOCK);
     }
 }
