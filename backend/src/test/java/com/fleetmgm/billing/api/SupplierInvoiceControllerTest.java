@@ -46,7 +46,7 @@ class SupplierInvoiceControllerTest {
         return new SupplierInvoiceResponse(INVOICE_ID, "Acme Parts", "SUP-001", ExpenseCategory.MAINTENANCE,
                 LocalDate.now(), null, null, SupplierInvoiceStatus.PENDING,
                 new BigDecimal("100.00"), new BigDecimal("21.00"), new BigDecimal("121.00"),
-                null, null, null, null, null, null, Instant.now());
+                null, null, null, null, null, null, Instant.now(), List.of());
     }
 
     // --- GET /api/v1/supplier-invoices ---
@@ -229,5 +229,29 @@ class SupplierInvoiceControllerTest {
                         .content("{\"description\":\"Parts\",\"quantity\":2,\"unitPrice\":50.00}"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("SUPPLIER_INVOICE_INVALID_STATE_TRANSITION"));
+    }
+
+    @Test
+    void addLineItem_returns409_whenHeaderVehicleAlreadySet() throws Exception {
+        when(supplierInvoiceService.addLineItem(eq(INVOICE_ID), any()))
+                .thenThrow(new ConflictException("SUPPLIER_INVOICE_VEHICLE_LINE_ITEMS_CONFLICT", "Cannot add line item"));
+
+        mockMvc.perform(post("/api/v1/supplier-invoices/{id}/line-items", INVOICE_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"description\":\"Parts\",\"quantity\":2,\"unitPrice\":50.00}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("SUPPLIER_INVOICE_VEHICLE_LINE_ITEMS_CONFLICT"));
+    }
+
+    // --- PATCH /api/v1/supplier-invoices/{id}/pay — allocation reconciliation ---
+
+    @Test
+    void pay_returns409_whenLineItemsDoNotReconcileWithSubtotal() throws Exception {
+        when(supplierInvoiceService.pay(eq(INVOICE_ID), isNull()))
+                .thenThrow(new ConflictException("SUPPLIER_INVOICE_ALLOCATION_INCOMPLETE", "Allocation incomplete"));
+
+        mockMvc.perform(patch("/api/v1/supplier-invoices/{id}/pay", INVOICE_ID))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("SUPPLIER_INVOICE_ALLOCATION_INCOMPLETE"));
     }
 }

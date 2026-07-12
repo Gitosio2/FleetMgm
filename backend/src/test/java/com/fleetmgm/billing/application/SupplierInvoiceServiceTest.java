@@ -48,7 +48,9 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -154,6 +156,40 @@ class SupplierInvoiceServiceTest {
                 .satisfies(ex -> assertThat(((NotFoundException) ex).getCode()).isEqualTo("SUPPLIER_INVOICE_NOT_FOUND"));
     }
 
+    @Test
+    void getById_populatesLineItems_whenInvoiceHasLines() {
+        UUID id = UUID.randomUUID();
+        SupplierInvoice invoice = new SupplierInvoice();
+        SupplierInvoiceLineItem line1 = new SupplierInvoiceLineItem();
+        SupplierLineItemResponse response1 = new SupplierLineItemResponse(UUID.randomUUID(), "Fuel - Truck A",
+                new BigDecimal("40"), new BigDecimal("1.50"), new BigDecimal("60.00"), UUID.randomUUID(), null);
+        SupplierInvoiceResponse mapped = buildResponse(id);
+
+        when(supplierInvoiceRepository.findById(id)).thenReturn(Optional.of(invoice));
+        when(supplierInvoiceMapper.toResponse(invoice)).thenReturn(mapped);
+        when(supplierInvoiceLineItemRepository.findAllByInvoiceId(id)).thenReturn(List.of(line1));
+        when(supplierInvoiceMapper.toResponse(line1)).thenReturn(response1);
+
+        SupplierInvoiceResponse result = supplierInvoiceService.getById(id);
+
+        assertThat(result.lineItems()).containsExactly(response1);
+    }
+
+    @Test
+    void getById_returnsEmptyLineItems_notNull_whenInvoiceHasNoLines() {
+        UUID id = UUID.randomUUID();
+        SupplierInvoice invoice = new SupplierInvoice();
+        SupplierInvoiceResponse mapped = buildResponse(id);
+
+        when(supplierInvoiceRepository.findById(id)).thenReturn(Optional.of(invoice));
+        when(supplierInvoiceMapper.toResponse(invoice)).thenReturn(mapped);
+        when(supplierInvoiceLineItemRepository.findAllByInvoiceId(id)).thenReturn(List.of());
+
+        SupplierInvoiceResponse result = supplierInvoiceService.getById(id);
+
+        assertThat(result.lineItems()).isNotNull().isEmpty();
+    }
+
     // --- update ---
 
     @Test
@@ -197,6 +233,53 @@ class SupplierInvoiceServiceTest {
                         .isEqualTo("SUPPLIER_INVOICE_INVALID_STATE_TRANSITION"));
 
         verify(supplierInvoiceRepository, never()).save(any());
+    }
+
+    @Test
+    void update_throwsConflict_whenSettingHeaderVehicle_andLineItemsExist() {
+        UUID id = UUID.randomUUID();
+        UUID vehicleId = UUID.randomUUID();
+        UpdateSupplierInvoiceRequest request = new UpdateSupplierInvoiceRequest(
+                "Acme Parts", "SUP-002", ExpenseCategory.FUEL, LocalDate.now(), null,
+                vehicleId, new BigDecimal("100.00"), new BigDecimal("21.00"), new BigDecimal("121.00"), null, null);
+        SupplierInvoice invoice = new SupplierInvoice();
+        invoice.setStatus(SupplierInvoiceStatus.PENDING);
+        SupplierInvoiceLineItem existingLine = new SupplierInvoiceLineItem();
+
+        when(supplierInvoiceRepository.findById(id)).thenReturn(Optional.of(invoice));
+        when(supplierInvoiceLineItemRepository.findAllByInvoiceId(id)).thenReturn(List.of(existingLine));
+
+        assertThatThrownBy(() -> supplierInvoiceService.update(id, request))
+                .isInstanceOf(ConflictException.class)
+                .satisfies(ex -> assertThat(((ConflictException) ex).getCode())
+                        .isEqualTo("SUPPLIER_INVOICE_VEHICLE_LINE_ITEMS_CONFLICT"));
+
+        verify(supplierInvoiceRepository, never()).save(any());
+        verify(vehicleRepository, never()).findById(any());
+    }
+
+    @Test
+    void update_allowsClearingHeaderVehicle_whenLineItemsExist() {
+        UUID id = UUID.randomUUID();
+        UpdateSupplierInvoiceRequest request = new UpdateSupplierInvoiceRequest(
+                "Acme Parts", "SUP-002", ExpenseCategory.FUEL, LocalDate.now(), null,
+                null, new BigDecimal("100.00"), new BigDecimal("21.00"), new BigDecimal("121.00"), null, null);
+        SupplierInvoice invoice = new SupplierInvoice();
+        invoice.setStatus(SupplierInvoiceStatus.PENDING);
+        SupplierInvoiceLineItem existingLine = new SupplierInvoiceLineItem();
+        SupplierInvoiceResponse expected = buildResponse(id);
+
+        when(supplierInvoiceRepository.findById(id)).thenReturn(Optional.of(invoice));
+        when(supplierInvoiceLineItemRepository.findAllByInvoiceId(id)).thenReturn(List.of(existingLine));
+        when(supplierInvoiceRepository.save(invoice)).thenReturn(invoice);
+        when(supplierInvoiceMapper.toResponse(invoice)).thenReturn(expected);
+        when(supplierInvoiceMapper.toResponse(existingLine)).thenReturn(new SupplierLineItemResponse(
+                UUID.randomUUID(), "Parts", BigDecimal.ONE, new BigDecimal("50.00"), new BigDecimal("50.00"), null, null));
+
+        supplierInvoiceService.update(id, request);
+
+        assertThat(invoice.getVehicle()).isNull();
+        verify(supplierInvoiceRepository).save(invoice);
     }
 
     // --- delete ---
@@ -315,6 +398,91 @@ class SupplierInvoiceServiceTest {
         verify(supplierInvoiceRepository, never()).save(any());
     }
 
+    @Test
+    void pay_throwsConflict_whenLineItemsDoNotReconcileWithSubtotal() {
+        UUID id = UUID.randomUUID();
+        SupplierInvoice invoice = new SupplierInvoice();
+        invoice.setStatus(SupplierInvoiceStatus.PENDING);
+        invoice.setSubtotal(new BigDecimal("100.00"));
+        SupplierInvoiceLineItem line = new SupplierInvoiceLineItem();
+        line.setSubtotal(new BigDecimal("60.00"));
+
+        when(supplierInvoiceRepository.findById(id)).thenReturn(Optional.of(invoice));
+        when(supplierInvoiceLineItemRepository.findAllByInvoiceId(id)).thenReturn(List.of(line));
+
+        assertThatThrownBy(() -> supplierInvoiceService.pay(id, null))
+                .isInstanceOf(ConflictException.class)
+                .satisfies(ex -> assertThat(((ConflictException) ex).getCode())
+                        .isEqualTo("SUPPLIER_INVOICE_ALLOCATION_INCOMPLETE"));
+
+        verify(supplierInvoiceRepository, never()).save(any());
+        assertThat(invoice.getStatus()).isEqualTo(SupplierInvoiceStatus.PENDING);
+    }
+
+    @Test
+    void pay_succeeds_whenLineItemsReconcileWithSubtotal() {
+        UUID id = UUID.randomUUID();
+        SupplierInvoice invoice = new SupplierInvoice();
+        invoice.setStatus(SupplierInvoiceStatus.PENDING);
+        invoice.setSubtotal(new BigDecimal("100.00"));
+        SupplierInvoiceLineItem line1 = new SupplierInvoiceLineItem();
+        line1.setSubtotal(new BigDecimal("60.00"));
+        SupplierInvoiceLineItem line2 = new SupplierInvoiceLineItem();
+        line2.setSubtotal(new BigDecimal("40.00"));
+        SupplierInvoiceResponse expected = buildResponse(id);
+
+        when(supplierInvoiceRepository.findById(id)).thenReturn(Optional.of(invoice));
+        when(supplierInvoiceLineItemRepository.findAllByInvoiceId(id)).thenReturn(List.of(line1, line2));
+        when(supplierInvoiceRepository.save(invoice)).thenReturn(invoice);
+        when(supplierInvoiceMapper.toResponse(invoice)).thenReturn(expected);
+        when(supplierInvoiceMapper.toResponse(line1)).thenReturn(new SupplierLineItemResponse(
+                UUID.randomUUID(), "Fuel A", BigDecimal.ONE, new BigDecimal("60.00"), new BigDecimal("60.00"), null, null));
+        when(supplierInvoiceMapper.toResponse(line2)).thenReturn(new SupplierLineItemResponse(
+                UUID.randomUUID(), "Fuel B", BigDecimal.ONE, new BigDecimal("40.00"), new BigDecimal("40.00"), null, null));
+
+        SupplierInvoiceResponse result = supplierInvoiceService.pay(id, null);
+
+        assertThat(invoice.getStatus()).isEqualTo(SupplierInvoiceStatus.PAID);
+        assertThat(result.lineItems()).hasSize(2);
+    }
+
+    @Test
+    void pay_skipsReconciliationCheck_whenHeaderVehicleSet() {
+        UUID id = UUID.randomUUID();
+        SupplierInvoice invoice = new SupplierInvoice();
+        invoice.setStatus(SupplierInvoiceStatus.PENDING);
+        invoice.setSubtotal(new BigDecimal("100.00"));
+        invoice.setVehicle(new Vehicle());
+        SupplierInvoiceResponse expected = buildResponse(id);
+
+        when(supplierInvoiceRepository.findById(id)).thenReturn(Optional.of(invoice));
+        when(supplierInvoiceRepository.save(invoice)).thenReturn(invoice);
+        when(supplierInvoiceMapper.toResponse(invoice)).thenReturn(expected);
+
+        supplierInvoiceService.pay(id, null);
+
+        assertThat(invoice.getStatus()).isEqualTo(SupplierInvoiceStatus.PAID);
+        verify(supplierInvoiceLineItemRepository, never()).findAllByInvoiceId(any());
+    }
+
+    @Test
+    void pay_skipsReconciliationCheck_whenNoLineItems() {
+        UUID id = UUID.randomUUID();
+        SupplierInvoice invoice = new SupplierInvoice();
+        invoice.setStatus(SupplierInvoiceStatus.PENDING);
+        invoice.setSubtotal(new BigDecimal("100.00"));
+        SupplierInvoiceResponse expected = buildResponse(id);
+
+        when(supplierInvoiceRepository.findById(id)).thenReturn(Optional.of(invoice));
+        when(supplierInvoiceLineItemRepository.findAllByInvoiceId(id)).thenReturn(List.of());
+        when(supplierInvoiceRepository.save(invoice)).thenReturn(invoice);
+        when(supplierInvoiceMapper.toResponse(invoice)).thenReturn(expected);
+
+        supplierInvoiceService.pay(id, null);
+
+        assertThat(invoice.getStatus()).isEqualTo(SupplierInvoiceStatus.PAID);
+    }
+
     // --- addLineItem ---
 
     @Test
@@ -359,6 +527,24 @@ class SupplierInvoiceServiceTest {
 
         assertThat(entity.getSubtotal()).isEqualByComparingTo("30.02");
         assertThat(entity.getSubtotal().scale()).isEqualTo(2);
+    }
+
+    @Test
+    void addLineItem_throwsConflict_whenHeaderVehicleAlreadySet() {
+        UUID invoiceId = UUID.randomUUID();
+        SupplierInvoice invoice = new SupplierInvoice();
+        invoice.setStatus(SupplierInvoiceStatus.PENDING);
+        invoice.setVehicle(new Vehicle());
+        SupplierLineItemRequest request = new SupplierLineItemRequest("Parts", BigDecimal.ONE, new BigDecimal("50.00"), null, null);
+
+        when(supplierInvoiceRepository.findById(invoiceId)).thenReturn(Optional.of(invoice));
+
+        assertThatThrownBy(() -> supplierInvoiceService.addLineItem(invoiceId, request))
+                .isInstanceOf(ConflictException.class)
+                .satisfies(ex -> assertThat(((ConflictException) ex).getCode())
+                        .isEqualTo("SUPPLIER_INVOICE_VEHICLE_LINE_ITEMS_CONFLICT"));
+
+        verify(supplierInvoiceLineItemRepository, never()).save(any());
     }
 
     @Test
@@ -485,6 +671,56 @@ class SupplierInvoiceServiceTest {
         assertThat(result.totalElements()).isEqualTo(1);
     }
 
+    @Test
+    void list_populatesLineItems_batchedAcrossPage_notPerInvoice() {
+        Pageable pageable = PageRequest.of(0, 20);
+        UUID invoiceId1 = UUID.randomUUID();
+        UUID invoiceId2 = UUID.randomUUID();
+        SupplierInvoice invoice1 = new SupplierInvoice();
+        setId(invoice1, invoiceId1);
+        SupplierInvoice invoice2 = new SupplierInvoice();
+        setId(invoice2, invoiceId2);
+
+        SupplierInvoiceLineItem line1 = new SupplierInvoiceLineItem();
+        line1.setInvoice(invoice1);
+        SupplierInvoiceLineItem line2 = new SupplierInvoiceLineItem();
+        line2.setInvoice(invoice2);
+        SupplierInvoiceLineItem line3 = new SupplierInvoiceLineItem();
+        line3.setInvoice(invoice1);
+
+        SupplierLineItemResponse response1 = new SupplierLineItemResponse(UUID.randomUUID(), "Line1",
+                BigDecimal.ONE, new BigDecimal("10.00"), new BigDecimal("10.00"), null, null);
+        SupplierLineItemResponse response2 = new SupplierLineItemResponse(UUID.randomUUID(), "Line2",
+                BigDecimal.ONE, new BigDecimal("20.00"), new BigDecimal("20.00"), null, null);
+        SupplierLineItemResponse response3 = new SupplierLineItemResponse(UUID.randomUUID(), "Line3",
+                BigDecimal.ONE, new BigDecimal("30.00"), new BigDecimal("30.00"), null, null);
+
+        SupplierInvoiceResponse mapped1 = buildResponse(invoiceId1);
+        SupplierInvoiceResponse mapped2 = buildResponse(invoiceId2);
+
+        when(supplierInvoiceRepository.findAllJoinFetch(null, null, pageable))
+                .thenReturn(new PageImpl<>(List.of(invoice1, invoice2), pageable, 2));
+        when(supplierInvoiceMapper.toResponse(invoice1)).thenReturn(mapped1);
+        when(supplierInvoiceMapper.toResponse(invoice2)).thenReturn(mapped2);
+        when(supplierInvoiceLineItemRepository.findAllByInvoiceIdIn(List.of(invoiceId1, invoiceId2)))
+                .thenReturn(List.of(line1, line2, line3));
+        when(supplierInvoiceMapper.toResponse(line1)).thenReturn(response1);
+        when(supplierInvoiceMapper.toResponse(line2)).thenReturn(response2);
+        when(supplierInvoiceMapper.toResponse(line3)).thenReturn(response3);
+
+        PageResponse<SupplierInvoiceResponse> result = supplierInvoiceService.list(null, null, pageable);
+
+        SupplierInvoiceResponse resultInvoice1 = result.content().stream()
+                .filter(r -> r.id().equals(invoiceId1)).findFirst().orElseThrow();
+        SupplierInvoiceResponse resultInvoice2 = result.content().stream()
+                .filter(r -> r.id().equals(invoiceId2)).findFirst().orElseThrow();
+
+        assertThat(resultInvoice1.lineItems()).containsExactly(response1, response3);
+        assertThat(resultInvoice2.lineItems()).containsExactly(response2);
+        verify(supplierInvoiceLineItemRepository, times(1)).findAllByInvoiceIdIn(anyList());
+        verify(supplierInvoiceLineItemRepository, never()).findAllByInvoiceId(any());
+    }
+
     private static void setAuthentication(String email) {
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(email, null, List.of()));
@@ -504,6 +740,6 @@ class SupplierInvoiceServiceTest {
         return new SupplierInvoiceResponse(id, "Acme Parts", "SUP-001", ExpenseCategory.MAINTENANCE,
                 LocalDate.now(), null, null, SupplierInvoiceStatus.PENDING,
                 new BigDecimal("100.00"), new BigDecimal("21.00"), new BigDecimal("121.00"),
-                null, null, null, null, null, null, Instant.now());
+                null, null, null, null, null, null, Instant.now(), List.of());
     }
 }

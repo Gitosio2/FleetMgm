@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { EXPENSE_CATEGORY_LABEL } from './supplier-invoice-shared'
+import { SupplierInvoiceLineItemList } from './SupplierInvoiceLineItemList'
 
 const selectClassName =
   'flex h-11 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary-container disabled:cursor-not-allowed disabled:opacity-50'
@@ -55,6 +56,11 @@ export function SupplierInvoiceFormModal({ open, onOpenChange, supplierInvoice }
   }, [open, supplierInvoice])
 
   const isPending = createSupplierInvoice.isPending || updateSupplierInvoice.isPending
+  // Header vehicle and per-vehicle line items are mutually exclusive (see ProfitabilityRepository's
+  // si2.vehicle_id IS NULL condition, which already assumes this invariant). Once the invoice has
+  // line items, the header vehicle select is locked — the backend would reject it anyway (409
+  // SUPPLIER_INVOICE_VEHICLE_LINE_ITEMS_CONFLICT), this just surfaces the constraint earlier.
+  const hasLineItems = (supplierInvoice?.lineItems.length ?? 0) > 0
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -134,6 +140,7 @@ export function SupplierInvoiceFormModal({ open, onOpenChange, supplierInvoice }
                 className={selectClassName}
                 value={vehicleId}
                 onChange={(e) => setVehicleId(e.target.value)}
+                disabled={hasLineItems}
               >
                 <option value="">Sin vehículo asociado</option>
                 {(vehiclesPage?.content ?? []).map((vehicle) => (
@@ -143,6 +150,11 @@ export function SupplierInvoiceFormModal({ open, onOpenChange, supplierInvoice }
                   </option>
                 ))}
               </select>
+              {hasLineItems && (
+                <p className="text-xs text-on-surface-variant">
+                  Esta factura ya tiene vehículos asignados por línea.
+                </p>
+              )}
             </div>
           </div>
 
@@ -218,6 +230,13 @@ export function SupplierInvoiceFormModal({ open, onOpenChange, supplierInvoice }
             </p>
           )}
         </form>
+
+        {isEditing && !supplierInvoice.vehicleId && (
+          <div className="mt-6 flex flex-col gap-2 border-t border-outline-variant/40 pt-4">
+            <h3 className="font-display text-sm font-semibold">Líneas por vehículo</h3>
+            <SupplierInvoiceLineItemList supplierInvoice={supplierInvoice} />
+          </div>
+        )}
 
         <DialogFooter className="mt-6">
           <Button type="submit" form="supplier-invoice-form" disabled={isPending}>

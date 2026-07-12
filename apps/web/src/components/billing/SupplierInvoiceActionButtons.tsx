@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button'
 
 const SUPPLIER_INVOICE_ERROR_MESSAGES: Record<string, string> = {
   SUPPLIER_INVOICE_INVALID_STATE_TRANSITION: 'Esta factura ya no admite esta acción.',
+  SUPPLIER_INVOICE_ALLOCATION_INCOMPLETE:
+    'Las líneas de esta factura no suman el subtotal — completá la asignación por vehículo antes de marcarla como pagada.',
 }
 
 const DEFAULT_SUPPLIER_INVOICE_ERROR_MESSAGE = 'No se pudo completar la acción.'

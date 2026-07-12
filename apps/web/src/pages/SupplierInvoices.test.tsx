@@ -148,6 +148,49 @@ describe('SupplierInvoices', () => {
     expect(within(row).queryByRole('button', { name: /marcar pagada/i })).not.toBeInTheDocument()
   })
 
+  it('adds a line item to a PENDING supplier invoice without a header vehicle, updating the allocation indicator', async () => {
+    const user = userEvent.setup()
+    renderSupplierInvoices()
+
+    const withoutVehicle = SEED_SUPPLIER_INVOICES[1]!
+    const row = (await screen.findByText(withoutVehicle.supplierName)).closest('tr')!
+    await user.click(within(row).getByRole('button', { name: /editar/i }))
+
+    expect(await screen.findByRole('heading', { name: 'Editar factura de proveedor' })).toBeInTheDocument()
+    expect(screen.getByTestId('line-item-allocation-summary')).toHaveTextContent(
+      `Asignado: 0.00 € / ${withoutVehicle.subtotal.toFixed(2)} €`,
+    )
+
+    await user.selectOptions(screen.getByLabelText(/vehículo de la línea/i), 'vehicle-1')
+    await user.type(screen.getByLabelText(/^descripción$/i), 'Gasoil - Toyota Hilux')
+    await user.clear(screen.getByLabelText(/^cantidad$/i))
+    await user.type(screen.getByLabelText(/^cantidad$/i), '10')
+    await user.type(screen.getByLabelText(/^precio unitario$/i), '1.50')
+    await user.click(screen.getByRole('button', { name: /agregar línea/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText('Gasoil - Toyota Hilux')).toBeInTheDocument()
+    })
+    expect(screen.getByTestId('line-item-allocation-summary')).toHaveTextContent(
+      `Asignado: 15.00 € / ${withoutVehicle.subtotal.toFixed(2)} €`,
+    )
+  })
+
+  it('disables the header vehicle select once the supplier invoice already has line items', async () => {
+    const user = userEvent.setup()
+    renderSupplierInvoices()
+
+    const alreadySplit = SEED_SUPPLIER_INVOICES[3]!
+    const row = (await screen.findByText(alreadySplit.supplierName)).closest('tr')!
+    await user.click(within(row).getByRole('button', { name: /editar/i }))
+
+    expect(await screen.findByRole('heading', { name: 'Editar factura de proveedor' })).toBeInTheDocument()
+    expect(screen.getByLabelText(/^vehículo$/i)).toBeDisabled()
+    expect(screen.getByText('Esta factura ya tiene vehículos asignados por línea.')).toBeInTheDocument()
+    expect(screen.getByText(alreadySplit.lineItems[0]!.description)).toBeInTheDocument()
+    expect(screen.getByText(alreadySplit.lineItems[1]!.description)).toBeInTheDocument()
+  })
+
   it('narrows the supplier invoice list with the category filter', async () => {
     const user = userEvent.setup()
     renderSupplierInvoices()

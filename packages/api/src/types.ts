@@ -325,6 +325,24 @@ export type PayInvoiceRequest = {
 export type ExpenseCategory = 'MAINTENANCE' | 'FUEL' | 'INSURANCE' | 'LEASING_RENTING' | 'TOLL' | 'OTHER'
 export type SupplierInvoiceStatus = 'PENDING' | 'PAID'
 
+export type SupplierLineItemResponse = {
+  id: string
+  description: string
+  quantity: number
+  unitPrice: number
+  subtotal: number
+  vehicleId: string | null
+  maintenanceRecordId: string | null
+}
+
+export type SupplierLineItemRequest = {
+  description: string
+  quantity: number
+  unitPrice: number
+  vehicleId?: string | null
+  maintenanceRecordId?: string | null
+}
+
 export type SupplierInvoice = {
   id: string
   supplierName: string
@@ -344,6 +362,7 @@ export type SupplierInvoice = {
   notes: string | null
   documentPath: string | null
   createdAt: string
+  lineItems: SupplierLineItemResponse[]
 }
 
 export type CreateSupplierInvoiceRequest = {
