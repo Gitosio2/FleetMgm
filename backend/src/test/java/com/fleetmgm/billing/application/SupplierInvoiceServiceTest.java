@@ -490,10 +490,12 @@ class SupplierInvoiceServiceTest {
         UUID invoiceId = UUID.randomUUID();
         SupplierInvoice invoice = new SupplierInvoice();
         invoice.setStatus(SupplierInvoiceStatus.PENDING);
-        SupplierLineItemRequest request = new SupplierLineItemRequest("Parts", new BigDecimal("2"), new BigDecimal("50.00"), null, null);
+        // 48.30 (total cost, user-entered) / 30 (quantity) = 1.61 average unit price, derived.
+        SupplierLineItemRequest request = new SupplierLineItemRequest("Parts", new BigDecimal("30"), new BigDecimal("48.30"), null, null);
         SupplierInvoiceLineItem entity = new SupplierInvoiceLineItem();
+        entity.setSubtotal(new BigDecimal("48.30")); // simulates the real mapper mapping subtotal directly
         SupplierLineItemResponse expected = new SupplierLineItemResponse(UUID.randomUUID(), "Parts",
-                new BigDecimal("2"), new BigDecimal("50.00"), new BigDecimal("100.00"), null, null);
+                new BigDecimal("30"), new BigDecimal("1.61"), new BigDecimal("48.30"), null, null);
 
         when(supplierInvoiceRepository.findById(invoiceId)).thenReturn(Optional.of(invoice));
         when(supplierInvoiceMapper.toEntity(request)).thenReturn(entity);
@@ -504,19 +506,20 @@ class SupplierInvoiceServiceTest {
 
         assertThat(result).isEqualTo(expected);
         assertThat(entity.getInvoice()).isEqualTo(invoice);
-        assertThat(entity.getSubtotal()).isEqualByComparingTo("100.00");
+        assertThat(entity.getUnitPrice()).isEqualByComparingTo("1.61");
     }
 
     @Test
-    void addLineItem_roundsSubtotalToTwoDecimals_whenMultiplicationProducesMore() {
+    void addLineItem_roundsUnitPriceToTwoDecimals_whenDivisionProducesMore() {
         UUID invoiceId = UUID.randomUUID();
         SupplierInvoice invoice = new SupplierInvoice();
         invoice.setStatus(SupplierInvoiceStatus.PENDING);
-        // 3 * 10.005 = 30.015 -> HALF_UP to scale 2 = 30.02, not the raw scale-3 value.
-        SupplierLineItemRequest request = new SupplierLineItemRequest("Parts", new BigDecimal("3"), new BigDecimal("10.005"), null, null);
+        // 26.92 / 8 = 3.365 exactly -> HALF_UP to scale 2 = 3.37 (HALF_EVEN would give 3.36 instead).
+        SupplierLineItemRequest request = new SupplierLineItemRequest("Parts", new BigDecimal("8"), new BigDecimal("26.92"), null, null);
         SupplierInvoiceLineItem entity = new SupplierInvoiceLineItem();
+        entity.setSubtotal(new BigDecimal("26.92"));
         SupplierLineItemResponse expected = new SupplierLineItemResponse(UUID.randomUUID(), "Parts",
-                new BigDecimal("3"), new BigDecimal("10.005"), new BigDecimal("30.02"), null, null);
+                new BigDecimal("8"), new BigDecimal("3.37"), new BigDecimal("26.92"), null, null);
 
         when(supplierInvoiceRepository.findById(invoiceId)).thenReturn(Optional.of(invoice));
         when(supplierInvoiceMapper.toEntity(request)).thenReturn(entity);
@@ -525,8 +528,8 @@ class SupplierInvoiceServiceTest {
 
         supplierInvoiceService.addLineItem(invoiceId, request);
 
-        assertThat(entity.getSubtotal()).isEqualByComparingTo("30.02");
-        assertThat(entity.getSubtotal().scale()).isEqualTo(2);
+        assertThat(entity.getUnitPrice()).isEqualByComparingTo("3.37");
+        assertThat(entity.getUnitPrice().scale()).isEqualTo(2);
     }
 
     @Test
@@ -656,13 +659,13 @@ class SupplierInvoiceServiceTest {
     // --- updateLineItem ---
 
     @Test
-    void updateLineItem_updatesFieldsAndRecomputesSubtotal_whenPending() {
+    void updateLineItem_updatesFieldsAndRecomputesUnitPrice_whenPending() {
         UUID invoiceId = UUID.randomUUID();
         UUID lineItemId = UUID.randomUUID();
         SupplierInvoice invoice = new SupplierInvoice();
         invoice.setStatus(SupplierInvoiceStatus.PENDING);
         SupplierInvoiceLineItem lineItem = new SupplierInvoiceLineItem();
-        SupplierLineItemRequest request = new SupplierLineItemRequest("Updated Parts", new BigDecimal("3"), new BigDecimal("20.00"), null, null);
+        SupplierLineItemRequest request = new SupplierLineItemRequest("Updated Parts", new BigDecimal("3"), new BigDecimal("60.00"), null, null);
         SupplierLineItemResponse expected = new SupplierLineItemResponse(lineItemId, "Updated Parts",
                 new BigDecimal("3"), new BigDecimal("20.00"), new BigDecimal("60.00"), null, null);
 
@@ -676,8 +679,8 @@ class SupplierInvoiceServiceTest {
         assertThat(result).isEqualTo(expected);
         assertThat(lineItem.getDescription()).isEqualTo("Updated Parts");
         assertThat(lineItem.getQuantity()).isEqualByComparingTo("3");
-        assertThat(lineItem.getUnitPrice()).isEqualByComparingTo("20.00");
         assertThat(lineItem.getSubtotal()).isEqualByComparingTo("60.00");
+        assertThat(lineItem.getUnitPrice()).isEqualByComparingTo("20.00");
     }
 
     @Test

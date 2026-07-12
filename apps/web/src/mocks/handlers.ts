@@ -939,7 +939,7 @@ type SupplierLineItemMock = {
 type SupplierLineItemRequestBody = {
   description: string
   quantity: number
-  unitPrice: number
+  subtotal: number
   vehicleId?: string | null
   maintenanceRecordId?: string | null
 }
@@ -985,8 +985,10 @@ function buildSupplierLineItemMock(id: string, request: SupplierLineItemRequestB
     id,
     description: request.description,
     quantity: request.quantity,
-    unitPrice: request.unitPrice,
-    subtotal: request.quantity * request.unitPrice,
+    // unitPrice is derived (average price), mirroring the backend: subtotal / quantity, rounded
+    // to 2 decimals — subtotal itself is the user-entered total cost, mapped straight through.
+    unitPrice: Math.round((request.subtotal / request.quantity) * 100) / 100,
+    subtotal: request.subtotal,
     vehicleId: request.vehicleId ?? null,
     maintenanceRecordId: request.maintenanceRecordId ?? null,
   }
@@ -1082,13 +1084,13 @@ export const SEED_SUPPLIER_INVOICES: SupplierInvoiceMock[] = [
       buildSupplierLineItemMock('supplier-line-item-1', {
         description: 'Gasoil - Toyota Hilux',
         quantity: 40,
-        unitPrice: 1.5,
+        subtotal: 60,
         vehicleId: SEED_VEHICLES[0]!.id,
       }),
       buildSupplierLineItemMock('supplier-line-item-2', {
         description: 'Gasoil - Excavadora CAT 320',
         quantity: 20,
-        unitPrice: 1.5,
+        subtotal: 30,
         vehicleId: SEED_VEHICLES[1]!.id,
       }),
     ],

@@ -338,7 +338,7 @@ export type SupplierLineItemResponse = {
 export type SupplierLineItemRequest = {
   description: string
   quantity: number
-  unitPrice: number
+  subtotal: number
   vehicleId?: string | null
   maintenanceRecordId?: string | null
 }

@@ -41,7 +41,7 @@ function EditLineItemRow({ invoiceId, lineItem, vehiclesPage, onDone }: EditLine
   const [vehicleId, setVehicleId] = useState(lineItem.vehicleId ?? '')
   const [description, setDescription] = useState(lineItem.description)
   const [quantity, setQuantity] = useState(String(lineItem.quantity))
-  const [unitPrice, setUnitPrice] = useState(String(lineItem.unitPrice))
+  const [subtotal, setSubtotal] = useState(String(lineItem.subtotal))
 
   function handleSave() {
     updateLineItem.mutate(
@@ -51,13 +51,18 @@ function EditLineItemRow({ invoiceId, lineItem, vehiclesPage, onDone }: EditLine
         request: {
           description,
           quantity: Number(quantity),
-          unitPrice: Number(unitPrice),
+          subtotal: Number(subtotal),
           vehicleId,
         },
       },
       { onSuccess: onDone },
     )
   }
+
+  // Preview of the derived average unit price while editing — subtotal is now the direct user
+  // input, so there's no subtotal to preview; the previously-computed value (unit price) is
+  // shown here instead. Guarded against quantity being 0/empty to avoid NaN/Infinity while typing.
+  const previewUnitPrice = Number(quantity) > 0 ? (Number(subtotal) / Number(quantity)).toFixed(2) : '—'
 
   return (
     <TableRow>
@@ -96,17 +101,17 @@ function EditLineItemRow({ invoiceId, lineItem, vehiclesPage, onDone }: EditLine
           onChange={(e) => setQuantity(e.target.value)}
         />
       </TableCell>
+      <TableCell>{previewUnitPrice}</TableCell>
       <TableCell>
         <Input
-          aria-label="Precio unitario a editar"
+          aria-label="Coste total a editar"
           type="number"
           min="0"
           step="any"
-          value={unitPrice}
-          onChange={(e) => setUnitPrice(e.target.value)}
+          value={subtotal}
+          onChange={(e) => setSubtotal(e.target.value)}
         />
       </TableCell>
-      <TableCell>{(Number(quantity) * Number(unitPrice)).toFixed(2)}</TableCell>
       <TableCell>
         <div className="flex gap-1">
           <Button variant="outline" size="sm" onClick={handleSave} disabled={updateLineItem.isPending}>
@@ -129,7 +134,7 @@ export function SupplierInvoiceLineItemList({ supplierInvoice }: SupplierInvoice
   const [vehicleId, setVehicleId] = useState('')
   const [description, setDescription] = useState('')
   const [quantity, setQuantity] = useState('1')
-  const [unitPrice, setUnitPrice] = useState('')
+  const [subtotal, setSubtotal] = useState('')
   const [editingLineItemId, setEditingLineItemId] = useState<string | null>(null)
 
   const canAddLineItem = supplierInvoice.status === 'PENDING'
@@ -157,7 +162,7 @@ export function SupplierInvoiceLineItemList({ supplierInvoice }: SupplierInvoice
         request: {
           description,
           quantity: Number(quantity),
-          unitPrice: Number(unitPrice),
+          subtotal: Number(subtotal),
           vehicleId,
         },
       },
@@ -166,7 +171,7 @@ export function SupplierInvoiceLineItemList({ supplierInvoice }: SupplierInvoice
           setVehicleId('')
           setDescription('')
           setQuantity('1')
-          setUnitPrice('')
+          setSubtotal('')
         },
       },
     )
@@ -185,7 +190,7 @@ export function SupplierInvoiceLineItemList({ supplierInvoice }: SupplierInvoice
             <TableHead>Vehículo</TableHead>
             <TableHead>Descripción</TableHead>
             <TableHead>Cantidad</TableHead>
-            <TableHead>Precio unitario</TableHead>
+            <TableHead>Precio medio</TableHead>
             <TableHead>Subtotal</TableHead>
             {canAddLineItem && <TableHead>Acciones</TableHead>}
           </TableRow>
@@ -312,14 +317,14 @@ export function SupplierInvoiceLineItemList({ supplierInvoice }: SupplierInvoice
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="supplier-line-item-unit-price">Precio unitario</Label>
+              <Label htmlFor="supplier-line-item-subtotal">Coste total</Label>
               <Input
-                id="supplier-line-item-unit-price"
+                id="supplier-line-item-subtotal"
                 type="number"
                 min="0"
                 step="any"
-                value={unitPrice}
-                onChange={(e) => setUnitPrice(e.target.value)}
+                value={subtotal}
+                onChange={(e) => setSubtotal(e.target.value)}
                 required
               />
             </div>

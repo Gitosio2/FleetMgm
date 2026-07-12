@@ -42,9 +42,13 @@ public interface SupplierInvoiceMapper {
     @Mapping(target = "maintenanceRecordId", source = "maintenanceRecord.id")
     SupplierLineItemResponse toResponse(SupplierInvoiceLineItem lineItem);
 
+    // subtotal now maps automatically (same field name on both sides — SupplierLineItemRequest.subtotal
+    // is the user-entered total cost of the line). unitPrice is derived by the service from
+    // subtotal / quantity, so it's declared ignore here rather than left to silent unmapped-field
+    // behaviour, per CLAUDE.md MapStruct convention.
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "invoice", ignore = true)
-    @Mapping(target = "subtotal", ignore = true)
+    @Mapping(target = "unitPrice", ignore = true)
     @Mapping(target = "vehicle", ignore = true)
     @Mapping(target = "maintenanceRecord", ignore = true)
     SupplierInvoiceLineItem toEntity(SupplierLineItemRequest request);

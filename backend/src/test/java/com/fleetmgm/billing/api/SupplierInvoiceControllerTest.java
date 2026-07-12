@@ -194,7 +194,7 @@ class SupplierInvoiceControllerTest {
 
         mockMvc.perform(post("/api/v1/supplier-invoices/{id}/line-items", INVOICE_ID)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"description\":\"Parts\",\"quantity\":2,\"unitPrice\":50.00}"))
+                        .content("{\"description\":\"Parts\",\"quantity\":2,\"subtotal\":50.00}"))
                 .andExpect(status().isCreated());
     }
 
@@ -202,7 +202,7 @@ class SupplierInvoiceControllerTest {
     void addLineItem_returns400_whenDescriptionMissing() throws Exception {
         mockMvc.perform(post("/api/v1/supplier-invoices/{id}/line-items", INVOICE_ID)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"quantity\":2,\"unitPrice\":50.00}"))
+                        .content("{\"quantity\":2,\"subtotal\":50.00}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
     }
@@ -214,7 +214,7 @@ class SupplierInvoiceControllerTest {
 
         mockMvc.perform(post("/api/v1/supplier-invoices/{id}/line-items", INVOICE_ID)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"description\":\"Parts\",\"quantity\":2,\"unitPrice\":50.00}"))
+                        .content("{\"description\":\"Parts\",\"quantity\":2,\"subtotal\":50.00}"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("SUPPLIER_INVOICE_NOT_FOUND"));
     }
@@ -226,7 +226,7 @@ class SupplierInvoiceControllerTest {
 
         mockMvc.perform(post("/api/v1/supplier-invoices/{id}/line-items", INVOICE_ID)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"description\":\"Parts\",\"quantity\":2,\"unitPrice\":50.00}"))
+                        .content("{\"description\":\"Parts\",\"quantity\":2,\"subtotal\":50.00}"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("SUPPLIER_INVOICE_INVALID_STATE_TRANSITION"));
     }
@@ -238,7 +238,7 @@ class SupplierInvoiceControllerTest {
 
         mockMvc.perform(post("/api/v1/supplier-invoices/{id}/line-items", INVOICE_ID)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"description\":\"Parts\",\"quantity\":2,\"unitPrice\":50.00}"))
+                        .content("{\"description\":\"Parts\",\"quantity\":2,\"subtotal\":50.00}"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("SUPPLIER_INVOICE_VEHICLE_LINE_ITEMS_CONFLICT"));
     }
@@ -254,7 +254,7 @@ class SupplierInvoiceControllerTest {
 
         mockMvc.perform(put("/api/v1/supplier-invoices/{id}/line-items/{lineItemId}", INVOICE_ID, lineItemId)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"description\":\"Updated Parts\",\"quantity\":3,\"unitPrice\":20.00}"))
+                        .content("{\"description\":\"Updated Parts\",\"quantity\":3,\"subtotal\":20.00}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.description").value("Updated Parts"));
     }
@@ -267,7 +267,7 @@ class SupplierInvoiceControllerTest {
 
         mockMvc.perform(put("/api/v1/supplier-invoices/{id}/line-items/{lineItemId}", INVOICE_ID, lineItemId)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"description\":\"Parts\",\"quantity\":2,\"unitPrice\":50.00}"))
+                        .content("{\"description\":\"Parts\",\"quantity\":2,\"subtotal\":50.00}"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("SUPPLIER_INVOICE_INVALID_STATE_TRANSITION"));
     }
@@ -280,7 +280,7 @@ class SupplierInvoiceControllerTest {
 
         mockMvc.perform(put("/api/v1/supplier-invoices/{id}/line-items/{lineItemId}", INVOICE_ID, lineItemId)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"description\":\"Parts\",\"quantity\":2,\"unitPrice\":50.00}"))
+                        .content("{\"description\":\"Parts\",\"quantity\":2,\"subtotal\":50.00}"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("SUPPLIER_LINE_ITEM_NOT_FOUND"));
     }
@@ -290,7 +290,7 @@ class SupplierInvoiceControllerTest {
         UUID lineItemId = UUID.randomUUID();
         mockMvc.perform(put("/api/v1/supplier-invoices/{id}/line-items/{lineItemId}", INVOICE_ID, lineItemId)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"quantity\":2,\"unitPrice\":50.00}"))
+                        .content("{\"quantity\":2,\"subtotal\":50.00}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
     }

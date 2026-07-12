@@ -185,7 +185,7 @@ describe('SupplierInvoices', () => {
     await user.type(screen.getByLabelText(/^descripción$/i), 'Gasoil - Toyota Hilux')
     await user.clear(screen.getByLabelText(/^cantidad$/i))
     await user.type(screen.getByLabelText(/^cantidad$/i), '10')
-    await user.type(screen.getByLabelText(/^precio unitario$/i), '1.50')
+    await user.type(screen.getByLabelText(/^coste total$/i), '15.00')
     await user.click(screen.getByRole('button', { name: /agregar línea/i }))
 
     await waitFor(() => {
@@ -239,15 +239,15 @@ describe('SupplierInvoices', () => {
     const lineItemRow = screen.getByText(alreadySplit.lineItems[0]!.description).closest('tr')!
     await user.click(within(lineItemRow).getByRole('button', { name: /editar línea/i }))
 
-    await user.clear(screen.getByLabelText(/cantidad a editar/i))
-    await user.type(screen.getByLabelText(/cantidad a editar/i), '30')
+    await user.clear(screen.getByLabelText(/coste total a editar/i))
+    await user.type(screen.getByLabelText(/coste total a editar/i), '45.00')
     await user.click(screen.getByRole('button', { name: /^guardar$/i }))
 
     await waitFor(() => {
       const updatedRow = screen.getByText(alreadySplit.lineItems[0]!.description).closest('tr')!
-      expect(within(updatedRow).getByText('30')).toBeInTheDocument()
+      expect(within(updatedRow).getByText('45.00')).toBeInTheDocument()
     })
-    // Line 1 recomputes to 30 * 1.5 = 45.00; line 2 stays at 30.00 -> 75.00 total allocated.
+    // Line 1's total cost updates directly to 45.00; line 2 stays at 30.00 -> 75.00 total allocated.
     expect(screen.getByTestId('line-item-allocation-summary')).toHaveTextContent(
       `Asignado: 75.00 € / ${alreadySplit.subtotal.toFixed(2)} €`,
     )

@@ -207,7 +207,11 @@ public class SupplierInvoiceService {
         lineItem.setInvoice(invoice);
         lineItem.setVehicle(linkedVehicle);
         lineItem.setMaintenanceRecord(linkedMaintenance);
-        lineItem.setSubtotal(request.quantity().multiply(request.unitPrice()).setScale(MONEY_SCALE, RoundingMode.HALF_UP));
+        // subtotal is already set by the mapper (mapped directly from request.subtotal — the
+        // user-entered total cost). unitPrice is purely informational here: an average price
+        // derived from what the user actually knows (total cost / consumption), not the other
+        // way around — see class-level rationale in SupplierLineItemRequest.
+        lineItem.setUnitPrice(request.subtotal().divide(request.quantity(), MONEY_SCALE, RoundingMode.HALF_UP));
         return supplierInvoiceMapper.toResponse(supplierInvoiceLineItemRepository.save(lineItem));
     }
 
@@ -223,10 +227,10 @@ public class SupplierInvoiceService {
 
         lineItem.setDescription(request.description());
         lineItem.setQuantity(request.quantity());
-        lineItem.setUnitPrice(request.unitPrice());
+        lineItem.setSubtotal(request.subtotal());
         lineItem.setVehicle(linkedVehicle);
         lineItem.setMaintenanceRecord(linkedMaintenance);
-        lineItem.setSubtotal(request.quantity().multiply(request.unitPrice()).setScale(MONEY_SCALE, RoundingMode.HALF_UP));
+        lineItem.setUnitPrice(request.subtotal().divide(request.quantity(), MONEY_SCALE, RoundingMode.HALF_UP));
         return supplierInvoiceMapper.toResponse(supplierInvoiceLineItemRepository.save(lineItem));
     }
 
