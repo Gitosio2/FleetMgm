@@ -401,3 +401,20 @@ export type CreateSupplierInvoiceRequest = {
 }
 
 export type UpdateSupplierInvoiceRequest = CreateSupplierInvoiceRequest
+
+export type GpsSource = 'MOCK' | 'DEVICE'
+
+export type GpsPosition = {
+  id: string
+  vehicleId: string
+  licensePlate: string | null
+  vehicleMake: string | null
+  vehicleModel: string | null
+  vehicleCategory: VehicleCategory
+  latitude: number
+  longitude: number
+  heading: number | null
+  speed: number | null
+  recordedAt: string
+  source: GpsSource
+}

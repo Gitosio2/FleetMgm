@@ -1545,11 +1545,49 @@ FleetMgm/
 
 ### Hito 40 — Frontend: GPS Map
 > Requiere: Hitos 38–39 (backend GPS)
-- [ ] **[RED]** Handlers MSW — `GET /api/v1/gps/latest`
-- [ ] **[RED]** Tests `Map.test.tsx` — marcador renderizado por cada vehículo retornado por MSW; popover muestra licensePlate y speed; polling cada 10 s dispara segunda llamada
-- [ ] **[GREEN]** `packages/hooks/src/useGps.ts` — polling cada 10 s, invalida caché automáticamente
-- [ ] **[GREEN]** `apps/web/src/components/map/` — `FleetMap` (Leaflet + react-leaflet), `VehicleMarker`, `VehiclePopover`
-- [ ] **[GREEN]** Página `Map` — mapa Leaflet con marcadores de vehículos activos
+- [x] **[RED]** Handlers MSW — `GET /api/v1/gps/latest` (`SEED_GPS_POSITIONS`/`resetGpsMock` en `handlers.ts`, mismo patrón que `SEED_VEHICLES`/`resetVehiclesMock`)
+- [x] **[RED→GREEN]** Tests `Map.test.tsx` — marcador renderizado por cada posición devuelta por MSW (vía `data-testid="vehicle-marker-{vehicleId}"` inyectado en el `divIcon`, ya que Leaflet crea ese nodo por fuera del árbol de React); popover muestra matrícula y velocidad al hacer click; `server.events.on('request:start', ...)` + `vi.useFakeTimers({ shouldAdvanceTime: true })` + `vi.advanceTimersByTimeAsync(10_000)` confirman una segunda llamada tras 10s
+- [x] **[GREEN]** `packages/hooks/src/useGps.ts` — `useQuery` con `refetchInterval: 10_000` (solo lectura, sin invalidación manual — no encaja en `createCrudHooks`, pensado para mutaciones)
+- [x] **[GREEN]** `apps/web/src/components/map/` — `FleetMap` (`MapContainer`+`TileLayer` de OpenStreetMap, centrado en las mismas coordenadas base que `GpsMockScheduler` en el backend), `VehicleMarker` (icono por `vehicleCategory` vía `L.divIcon()` + `renderToStaticMarkup` de un icono `lucide-react` — `Car`/`Truck`/`Tractor`), `VehiclePopover` (matrícula + velocidad)
+- [x] **[GREEN]** Página `Map` — ruta `/gps` reemplaza el `NotImplemented` placeholder; nav item y ruta restringidos a `MANAGEMENT_ROLES` (ver nota de reversión de DRIVER en el Hito 39)
+  > **Nota (revisión Hito 40):** el checklist original no anticipaba icono por categoría — se añadió por decisión
+  > del usuario, lo que exigió un addendum al Hito 38 (`GpsPositionResponse.vehicleCategory`, PR #53) antes de
+  > empezar el frontend. `react-leaflet@5.0.0` + `leaflet@1.9.4` + `@types/leaflet@1.9.21` instalados (versiones
+  > verificadas contra el registro de npm — `react-leaflet` 5.x requiere React 19 como peer dependency, que ya
+  > cumple el proyecto). Suite: `npm run test` en `apps/web` — 100 tests, 0 failures; `tsc -b` limpio.
+- [x] **[GREEN]** Selects de filtro (tipo de vehículo + vehículo concreto) en la parte superior de la página `Map`,
+  consumiendo el filtrado añadido en el backend (PR #57, `GET /api/v1/gps/latest?category=&vehicleId=`)
+  > **Nota (revisión Hito 40, selects de filtro):** `useGps(category?, vehicleId?)` pasa ambos como query params
+  > (patrón calcado de `useSupplierInvoices(vehicleId?, category?, ...)`); el select de vehículo se puebla con
+  > `useVehicles(0, 100)` + `formatVehicleLabel()`, independiente del filtro de categoría (mismo diseño AND-combinado
+  > e independiente que ya decidió el backend). `VEHICLE_CATEGORY_LABEL`/`VEHICLE_CATEGORIES` se extrajeron de
+  > `VehicleFormModal.tsx` a `apps/web/src/lib/vehicle-category-label.ts` para no duplicar el mapping ahora que
+  > la página `Map` también lo necesita.
+  >
+  > **Bug real encontrado al añadir el segundo select:** `VehicleMarker` reconstruía el `L.divIcon()` en cada
+  > render sin memoizar. Con un solo `useGps()` en la página esto pasaba desapercibido, pero al añadir el select
+  > de vehículo (`useVehicles()`, una segunda query asíncrona) aparece un re-render adicional cuando esa query
+  > resuelve — y una nueva instancia de icono hace que react-leaflet llame a `setIcon()`, que en Leaflet destruye
+  > y recrea el nodo DOM del marcador en vez de reutilizarlo. Sin memoizar, esto también habría ocurrido en
+  > producción en cada poll de 10s (`refetchInterval`), recreando innecesariamente todos los marcadores del mapa
+  > aunque su posición no hubiera cambiado. Arreglado con `useMemo(() => buildDivIcon(...), [vehicleId, category])`
+  > en `VehicleMarker.tsx`. Efecto colateral en los tests: el `<option>` del select de vehículo puede mostrar el
+  > mismo texto de matrícula que el popover del marcador — se añadió `data-testid="vehicle-popover"` para acotar
+  > las aserciones de contenido del popover con `within(...)` y evitar coincidencias ambiguas de texto.
+  >
+  > Suite: `npm run test` en `apps/web` — 103 tests, 0 failures; `tsc -b` limpio.
+- [x] **[GREEN]** Iconos de marcador más grandes (28px → 40px), vista inicial centrada en toda España
+  (`[40.0, -3.7]`, zoom 6) en vez de un acercamiento a Madrid, y `MapViewController` — al filtrar por un vehículo
+  concreto el mapa hace `flyTo` hasta su posición (zoom 14); al quitar el filtro, vuelve a la vista de España.
+  > **Nota (revisión Hito 40, control de vista):** los props `center`/`zoom` de `<MapContainer>` solo se aplican
+  > al montar — react-leaflet no reacciona a cambios posteriores. Mover la vista después requiere la instancia
+  > imperativa de Leaflet vía `useMap()`, así que `MapViewController` es un componente hijo sin UI propia que
+  > vive dentro de `<MapContainer>` y llama a `map.flyTo(...)` desde un `useEffect`. Se re-centra solo cuando
+  > **cambia** el vehículo filtrado (guardado en un `useRef`), no en cada poll de 10s — si se re-centrara en cada
+  > refresco, el usuario no podría alejarse del vehículo para mirar el resto del mapa sin que le "recentraran" a
+  > los 10 segundos. Test: `vi.spyOn(L.Map.prototype, 'flyTo')` confirma la llamada con las coordenadas del
+  > vehículo al filtrar, y con el centro de España al limpiar el filtro. Suite: `npm run test` en `apps/web` —
+  > 104 tests, 0 failures; `tsc -b` limpio.
 
 ---
 
