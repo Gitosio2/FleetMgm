@@ -1537,11 +1537,35 @@ FleetMgm/
   > vuelve a depender solo de `GpsRepository`/`GpsMapper` (se retira la dependencia de `AssignmentRepository`).
   > Suite completa (`./mvnw test -Pfailsafe`): 431 tests, 0 failures/errors — sin regresión.
 
-> **Addendum (planificando Hito 40):** `GpsPositionResponse` ganó el campo `vehicleCategory` (denormalizado desde
+> **Addendum 1 (planificando Hito 40):** `GpsPositionResponse` ganó el campo `vehicleCategory` (denormalizado desde
 > `vehicle.vehicleCategory`, mismo patrón que `licensePlate`) — decisión con el usuario para poder pintar un icono
 > de marcador distinto por categoría (`LIGHT_VEHICLE`/`HEAVY_VEHICLE`/`HEAVY_MACHINERY`) en el mapa del Hito 40 sin
 > que el frontend tenga que cruzar `vehicleId` contra `useVehicles()` por su cuenta. Cambio de contrato menor sobre
 > el Hito 38 ya mergeado — `GpsMapper`/tests actualizados, `./mvnw test -Pfailsafe`: 433 tests, 0 failures/errors.
+
+> **Addendum 2 (planificando Hito 40):** `GpsPositionResponse` gana también `vehicleMake`/`vehicleModel`
+> (denormalizados desde `vehicle.make`/`vehicle.model`) — igual que `Job`/`WorkshopSchedule`/`MaintenanceRecord`,
+> maquinaria pesada (`licensePlate == null`) necesita un fallback "marca modelo" en el popover del mapa, y el
+> frontend ya tiene `formatVehicleLabel()` para eso (`apps/web/src/lib/vehicle-label.ts`) — solo faltaban los
+> campos en el DTO. No se renombró `licensePlate` a `vehicleLicensePlate` (aunque rompe la simetría de nombres con
+> el resto de DTOs que denormalizan datos de vehículo) para no encadenar un tercer cambio de contrato disruptivo
+> sobre este mismo record; el frontend adapta la forma en la llamada a `formatVehicleLabel()`. `./mvnw test
+> -Pfailsafe`: 433 tests, 0 failures/errors.
+
+> **Addendum 3 (planificando Hito 40):** `GET /api/v1/gps/latest` gana dos `@RequestParam` opcionales —
+> `category` (`VehicleCategory`) y `vehicleId` (`UUID`) — para los selects de filtro que pide el frontend. Filtrado
+> deliberadamente en `GpsService` (post-mapeo, sobre el `List<GpsPositionResponse>` ya construido) y no en
+> `GpsRepository`/JPQL: la flota de este proyecto es pequeña (escala de tesis, `findLatestForAllActiveVehicles()`
+> ya trae "la última posición por vehículo activo" en una sola query), así que añadir condiciones dinámicas a esa
+> JPQL no aporta nada frente a un `.filter()` en Java, y evita el idiom `(:param IS NULL OR ...)` para un caso que
+> no lo necesita. Los dos filtros son combinables (AND) e independientes entre sí. `./mvnw test -Pfailsafe`: 436
+> tests, 0 failures/errors.
+
+> **Nota de proceso:** los Addendums 2 y 3 se desarrollaron en ramas/PRs separadas (`hito40-gps-vehicle-make-model-addendum`
+> y `hito40-gps-filters`) mientras ambas seguían abiertas a la vez — un error de juicio, ya que ninguna de las dos
+> estaba mergeada y por tanto no había ninguna necesidad real de partirlas; ambas tocaban las mismas líneas de
+> `GpsServiceTest`/`GpsControllerTest` y habrían entrado en conflicto entre sí al mergear. Se consolidaron aquí,
+> en `hito40-gps-filters`, y la rama del Addendum 2 se cerró sin mergear (sustituida por este commit).
 
 ### Hito 40 — Frontend: GPS Map
 > Requiere: Hitos 38–39 (backend GPS)
