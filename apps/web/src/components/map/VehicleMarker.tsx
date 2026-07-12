@@ -16,14 +16,14 @@ function buildDivIcon(vehicleId: string, category: VehicleCategory) {
   const IconComponent = CATEGORY_ICON[category]
   // No `color` prop — lucide-react defaults to stroke="currentColor", which then follows the
   // wrapping div's `text-on-tertiary` class instead of being hardcoded here.
-  const iconMarkup = renderToStaticMarkup(<IconComponent size={16} />)
+  const iconMarkup = renderToStaticMarkup(<IconComponent size={24} />)
 
   return L.divIcon({
-    html: `<div data-testid="vehicle-marker-${vehicleId}" class="flex size-7 items-center justify-center rounded-full bg-tertiary text-on-tertiary shadow-md">${iconMarkup}</div>`,
+    html: `<div data-testid="vehicle-marker-${vehicleId}" class="flex size-10 items-center justify-center rounded-full bg-tertiary text-on-tertiary shadow-md">${iconMarkup}</div>`,
     className: '',
-    iconSize: [28, 28],
-    iconAnchor: [14, 14],
-    popupAnchor: [0, -14],
+    iconSize: [40, 40],
+    iconAnchor: [20, 20],
+    popupAnchor: [0, -20],
   })
 }
 

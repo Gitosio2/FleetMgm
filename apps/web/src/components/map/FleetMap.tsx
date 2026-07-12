@@ -4,9 +4,10 @@ import type { VehicleCategory } from '@fleetmgm/api'
 import { useGps } from '@fleetmgm/hooks'
 import { VehicleMarker } from './VehicleMarker'
 
-// Same base coordinates as GpsMockScheduler.BASE_LATITUDE/BASE_LONGITUDE on the backend —
-// the map starts centered where the mock fleet actually appears.
-const FLEET_BASE_POSITION: [number, number] = [40.4168, -3.7038]
+// Initial viewport shows the whole country (not zoomed to the mock fleet's Madrid base in
+// GpsMockScheduler) — markers still appear wherever their actual lat/lng puts them.
+const SPAIN_CENTER: [number, number] = [40.0, -3.7]
+const SPAIN_ZOOM = 6
 
 type FleetMapProps = {
   category?: VehicleCategory
@@ -17,7 +18,7 @@ export function FleetMap({ category, vehicleId }: FleetMapProps) {
   const { data: positions } = useGps(category, vehicleId)
 
   return (
-    <MapContainer center={FLEET_BASE_POSITION} zoom={12} className="h-full min-h-[32rem] w-full rounded-lg">
+    <MapContainer center={SPAIN_CENTER} zoom={SPAIN_ZOOM} className="h-full min-h-[32rem] w-full rounded-lg">
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
