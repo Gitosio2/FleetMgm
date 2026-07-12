@@ -6,6 +6,7 @@ import com.fleetmgm.billing.domain.SupplierInvoiceStatus;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 public record SupplierInvoiceResponse(
@@ -27,5 +28,6 @@ public record SupplierInvoiceResponse(
         String vehicleModel,
         String notes,
         String documentPath,
-        Instant createdAt
+        Instant createdAt,
+        List<SupplierLineItemResponse> lineItems
 ) {}

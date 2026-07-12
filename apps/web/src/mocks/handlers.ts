@@ -141,6 +141,15 @@ export const SEED_SUPPLIERS: Supplier[] = [
     address: null,
     createdAt: '2026-03-06T09:00:00Z',
   },
+  {
+    id: 'supplier-6',
+    name: 'Estación de Servicio Central',
+    taxId: null,
+    email: null,
+    phone: null,
+    address: null,
+    createdAt: '2026-03-07T09:00:00Z',
+  },
 ]
 
 let suppliers: Supplier[] = [...SEED_SUPPLIERS]
@@ -1000,6 +1009,24 @@ let lineItemSequence = SEED_INVOICES.reduce((count, invoice) => count + invoice.
 type ExpenseCategory = 'MAINTENANCE' | 'FUEL' | 'INSURANCE' | 'LEASING_RENTING' | 'TOLL' | 'OTHER'
 type SupplierInvoiceStatus = 'PENDING' | 'PAID'
 
+type SupplierLineItemMock = {
+  id: string
+  description: string
+  quantity: number
+  unitPrice: number
+  subtotal: number
+  vehicleId: string | null
+  maintenanceRecordId: string | null
+}
+
+type SupplierLineItemRequestBody = {
+  description: string
+  quantity: number
+  subtotal: number
+  vehicleId?: string | null
+  maintenanceRecordId?: string | null
+}
+
 type SupplierInvoiceMock = {
   id: string
   supplierId: string
@@ -1020,6 +1047,7 @@ type SupplierInvoiceMock = {
   notes: string | null
   documentPath: string | null
   createdAt: string
+  lineItems: SupplierLineItemMock[]
 }
 
 type SupplierInvoiceRequestBody = {
@@ -1034,6 +1062,20 @@ type SupplierInvoiceRequestBody = {
   total: number
   notes?: string | null
   documentPath?: string | null
+}
+
+function buildSupplierLineItemMock(id: string, request: SupplierLineItemRequestBody): SupplierLineItemMock {
+  return {
+    id,
+    description: request.description,
+    quantity: request.quantity,
+    // unitPrice is derived (average price), mirroring the backend: subtotal / quantity, rounded
+    // to 2 decimals — subtotal itself is the user-entered total cost, mapped straight through.
+    unitPrice: Math.round((request.subtotal / request.quantity) * 100) / 100,
+    subtotal: request.subtotal,
+    vehicleId: request.vehicleId ?? null,
+    maintenanceRecordId: request.maintenanceRecordId ?? null,
+  }
 }
 
 export const SEED_SUPPLIER_INVOICES: SupplierInvoiceMock[] = [
@@ -1057,6 +1099,7 @@ export const SEED_SUPPLIER_INVOICES: SupplierInvoiceMock[] = [
     notes: null,
     documentPath: null,
     createdAt: '2026-07-01T09:00:00Z',
+    lineItems: [],
   },
   {
     id: 'supplier-invoice-2',
@@ -1078,6 +1121,7 @@ export const SEED_SUPPLIER_INVOICES: SupplierInvoiceMock[] = [
     notes: null,
     documentPath: null,
     createdAt: '2026-07-05T09:00:00Z',
+    lineItems: [],
   },
   {
     id: 'supplier-invoice-3',
@@ -1099,10 +1143,53 @@ export const SEED_SUPPLIER_INVOICES: SupplierInvoiceMock[] = [
     notes: 'Pagada por transferencia',
     documentPath: null,
     createdAt: '2026-06-01T09:00:00Z',
+    lineItems: [],
+  },
+  // Already-split shared fuel invoice — no header vehicle, costs attributed per vehicle via
+  // line items. Exercises the "already split" rendering path (allocation indicator, disabled
+  // header vehicle select) without requiring a test to add a line item first.
+  {
+    id: 'supplier-invoice-4',
+    supplierId: SEED_SUPPLIERS[5]!.id,
+    supplierName: SEED_SUPPLIERS[5]!.name,
+    supplierInvoiceNumber: 'F-2026-0999',
+    category: 'FUEL',
+    invoiceDate: '2026-07-08',
+    dueDate: '2026-08-08',
+    paymentDate: null,
+    status: 'PENDING',
+    subtotal: 90,
+    taxAmount: 18.9,
+    total: 108.9,
+    vehicleId: null,
+    vehicleLicensePlate: null,
+    vehicleMake: null,
+    vehicleModel: null,
+    notes: 'Repostaje compartido — dividido por vehículo',
+    documentPath: null,
+    createdAt: '2026-07-08T09:00:00Z',
+    lineItems: [
+      buildSupplierLineItemMock('supplier-line-item-1', {
+        description: 'Gasoil - Toyota Hilux',
+        quantity: 40,
+        subtotal: 60,
+        vehicleId: SEED_VEHICLES[0]!.id,
+      }),
+      buildSupplierLineItemMock('supplier-line-item-2', {
+        description: 'Gasoil - Excavadora CAT 320',
+        quantity: 20,
+        subtotal: 30,
+        vehicleId: SEED_VEHICLES[1]!.id,
+      }),
+    ],
   },
 ]
 
 let supplierInvoices: SupplierInvoiceMock[] = [...SEED_SUPPLIER_INVOICES]
+let supplierLineItemSequence = SEED_SUPPLIER_INVOICES.reduce(
+  (count, invoice) => count + invoice.lineItems.length,
+  0,
+)
 
 export function resetSupplierInvoicesMock() {
   supplierInvoices = [...SEED_SUPPLIER_INVOICES]
@@ -2764,6 +2851,7 @@ export const handlers = [
       notes: body.notes ?? null,
       documentPath: body.documentPath ?? null,
       createdAt: new Date().toISOString(),
+      lineItems: [],
     }
     supplierInvoices = [...supplierInvoices, newInvoice]
 
@@ -2811,6 +2899,18 @@ export const handlers = [
           status: 409,
           code: 'SUPPLIER_INVOICE_INVALID_STATE_TRANSITION',
           message: `Supplier invoice ${params.id} cannot be updated from state ${existing.status}`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 409 },
+      )
+    }
+
+    if (body.vehicleId && existing.lineItems.length > 0) {
+      return HttpResponse.json(
+        {
+          status: 409,
+          code: 'SUPPLIER_INVOICE_VEHICLE_LINE_ITEMS_CONFLICT',
+          message: `Supplier invoice ${params.id} has line items and cannot also have a header vehicle`,
           correlationId: 'test-correlation-id',
         },
         { status: 409 },
@@ -2897,6 +2997,21 @@ export const handlers = [
       )
     }
 
+    if (existing.vehicleId == null && existing.lineItems.length > 0) {
+      const linesSum = existing.lineItems.reduce((sum, lineItem) => sum + lineItem.subtotal, 0)
+      if (Math.round(linesSum * 100) !== Math.round(existing.subtotal * 100)) {
+        return HttpResponse.json(
+          {
+            status: 409,
+            code: 'SUPPLIER_INVOICE_ALLOCATION_INCOMPLETE',
+            message: `Supplier invoice ${params.id} line items total ${linesSum} but the invoice subtotal is ${existing.subtotal}`,
+            correlationId: 'test-correlation-id',
+          },
+          { status: 409 },
+        )
+      }
+    }
+
     const body = (await request.json().catch(() => null)) as PayInvoiceRequestBody | null
 
     const updated: SupplierInvoiceMock = {
@@ -2907,6 +3022,161 @@ export const handlers = [
     supplierInvoices = supplierInvoices.map((invoice, i) => (i === index ? updated : invoice))
 
     return HttpResponse.json(updated)
+  }),
+
+  http.post('/api/v1/supplier-invoices/:id/line-items', async ({ request, params }) => {
+    const index = supplierInvoices.findIndex((invoice) => invoice.id === params.id)
+    const existing = supplierInvoices[index]
+
+    if (!existing) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'SUPPLIER_INVOICE_NOT_FOUND',
+          message: `Supplier invoice ${params.id} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    if (existing.status !== 'PENDING') {
+      return HttpResponse.json(
+        {
+          status: 409,
+          code: 'SUPPLIER_INVOICE_INVALID_STATE_TRANSITION',
+          message: `Supplier invoice ${params.id} cannot receive line items from state ${existing.status}`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 409 },
+      )
+    }
+
+    if (existing.vehicleId != null) {
+      return HttpResponse.json(
+        {
+          status: 409,
+          code: 'SUPPLIER_INVOICE_VEHICLE_LINE_ITEMS_CONFLICT',
+          message: `Supplier invoice ${params.id} has a header vehicle and cannot also receive line items`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 409 },
+      )
+    }
+
+    const body = (await request.json()) as SupplierLineItemRequestBody
+    supplierLineItemSequence += 1
+    const newLineItem = buildSupplierLineItemMock(`supplier-line-item-${supplierLineItemSequence}`, body)
+
+    const updated: SupplierInvoiceMock = { ...existing, lineItems: [...existing.lineItems, newLineItem] }
+    supplierInvoices = supplierInvoices.map((invoice, i) => (i === index ? updated : invoice))
+
+    // The real backend endpoint returns only the created line item (SupplierLineItemResponse),
+    // not the parent invoice — see SupplierInvoiceController.addLineItem. The caller relies on
+    // query invalidation (useAddSupplierLineItem) to refresh the invoice's lineItems array.
+    return HttpResponse.json(newLineItem, { status: 201 })
+  }),
+
+  http.put('/api/v1/supplier-invoices/:id/line-items/:lineItemId', async ({ request, params }) => {
+    const index = supplierInvoices.findIndex((invoice) => invoice.id === params.id)
+    const existing = supplierInvoices[index]
+
+    if (!existing) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'SUPPLIER_INVOICE_NOT_FOUND',
+          message: `Supplier invoice ${params.id} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    if (existing.status !== 'PENDING') {
+      return HttpResponse.json(
+        {
+          status: 409,
+          code: 'SUPPLIER_INVOICE_INVALID_STATE_TRANSITION',
+          message: `Supplier invoice ${params.id} line items cannot be modified from state ${existing.status}`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 409 },
+      )
+    }
+
+    const lineItemIndex = existing.lineItems.findIndex((lineItem) => lineItem.id === params.lineItemId)
+    if (lineItemIndex === -1) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'SUPPLIER_LINE_ITEM_NOT_FOUND',
+          message: `Line item ${params.lineItemId} not found on invoice ${params.id}`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    const body = (await request.json()) as SupplierLineItemRequestBody
+    const updatedLineItem = buildSupplierLineItemMock(params.lineItemId as string, body)
+    const updated: SupplierInvoiceMock = {
+      ...existing,
+      lineItems: existing.lineItems.map((lineItem, i) => (i === lineItemIndex ? updatedLineItem : lineItem)),
+    }
+    supplierInvoices = supplierInvoices.map((invoice, i) => (i === index ? updated : invoice))
+
+    return HttpResponse.json(updatedLineItem)
+  }),
+
+  http.delete('/api/v1/supplier-invoices/:id/line-items/:lineItemId', ({ params }) => {
+    const index = supplierInvoices.findIndex((invoice) => invoice.id === params.id)
+    const existing = supplierInvoices[index]
+
+    if (!existing) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'SUPPLIER_INVOICE_NOT_FOUND',
+          message: `Supplier invoice ${params.id} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    if (existing.status !== 'PENDING') {
+      return HttpResponse.json(
+        {
+          status: 409,
+          code: 'SUPPLIER_INVOICE_INVALID_STATE_TRANSITION',
+          message: `Supplier invoice ${params.id} line items cannot be modified from state ${existing.status}`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 409 },
+      )
+    }
+
+    const lineItemExists = existing.lineItems.some((lineItem) => lineItem.id === params.lineItemId)
+    if (!lineItemExists) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'SUPPLIER_LINE_ITEM_NOT_FOUND',
+          message: `Line item ${params.lineItemId} not found on invoice ${params.id}`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    const updated: SupplierInvoiceMock = {
+      ...existing,
+      lineItems: existing.lineItems.filter((lineItem) => lineItem.id !== params.lineItemId),
+    }
+    supplierInvoices = supplierInvoices.map((invoice, i) => (i === index ? updated : invoice))
+
+    return new HttpResponse(null, { status: 204 })
   }),
 
   http.post('/api/v1/auth/login', async ({ request }) => {

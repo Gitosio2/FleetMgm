@@ -5,6 +5,8 @@ import type {
   ExpenseCategory,
   PageResponse,
   SupplierInvoice,
+  SupplierLineItemRequest,
+  SupplierLineItemResponse,
   UpdateSupplierInvoiceRequest,
 } from '@fleetmgm/api'
 
@@ -53,6 +55,55 @@ export function usePaySupplierInvoice() {
     mutationFn: async ({ id, paymentDate }: { id: string; paymentDate?: string | null }) => {
       const { data } = await apiClient.patch<SupplierInvoice>(`/supplier-invoices/${id}/pay`, { paymentDate })
       return data
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [SUPPLIER_INVOICE_KEY] }),
+  })
+}
+
+export function useAddSupplierLineItem() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ id, request }: { id: string; request: SupplierLineItemRequest }) => {
+      // The backend endpoint returns only the created SupplierLineItemResponse, not the parent
+      // invoice (see SupplierInvoiceController.addLineItem) — the query invalidation below is
+      // what refreshes the invoice (and its lineItems array) in the UI.
+      const { data } = await apiClient.post<SupplierLineItemResponse>(`/supplier-invoices/${id}/line-items`, request)
+      return data
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [SUPPLIER_INVOICE_KEY] }),
+  })
+}
+
+export function useUpdateSupplierLineItem() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({
+      id,
+      lineItemId,
+      request,
+    }: {
+      id: string
+      lineItemId: string
+      request: SupplierLineItemRequest
+    }) => {
+      const { data } = await apiClient.put<SupplierLineItemResponse>(
+        `/supplier-invoices/${id}/line-items/${lineItemId}`,
+        request,
+      )
+      return data
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [SUPPLIER_INVOICE_KEY] }),
+  })
+}
+
+export function useDeleteSupplierLineItem() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ id, lineItemId }: { id: string; lineItemId: string }) => {
+      await apiClient.delete(`/supplier-invoices/${id}/line-items/${lineItemId}`)
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: [SUPPLIER_INVOICE_KEY] }),
   })

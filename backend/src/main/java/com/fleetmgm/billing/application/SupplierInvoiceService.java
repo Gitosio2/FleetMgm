@@ -26,6 +26,7 @@ import com.fleetmgm.vehicle.domain.Vehicle;
 import com.fleetmgm.vehicle.infrastructure.VehicleRepository;
 import com.fleetmgm.workshop.domain.MaintenanceRecord;
 import com.fleetmgm.workshop.infrastructure.MaintenanceRepository;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -36,7 +37,10 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class SupplierInvoiceService {
@@ -78,8 +82,17 @@ public class SupplierInvoiceService {
     @Transactional(readOnly = true)
     @PreAuthorize(ROLES)
     public PageResponse<SupplierInvoiceResponse> list(UUID vehicleId, ExpenseCategory category, Pageable pageable) {
-        return PageResponse.from(supplierInvoiceRepository.findAllJoinFetch(vehicleId, category, pageable)
-                .map(supplierInvoiceMapper::toResponse));
+        Page<SupplierInvoice> page = supplierInvoiceRepository.findAllJoinFetch(vehicleId, category, pageable);
+        List<UUID> invoiceIds = page.getContent().stream().map(SupplierInvoice::getId).toList();
+        // Single batched query for the whole page — grouping in memory here, instead of calling
+        // supplierInvoiceLineItemRepository.findAllByInvoiceId() once per invoice inside the loop
+        // below, is what keeps this at 2 queries total instead of 1+N (CLAUDE.md JPA N+1 rule).
+        Map<UUID, List<SupplierInvoiceLineItem>> lineItemsByInvoiceId = supplierInvoiceLineItemRepository
+                .findAllByInvoiceIdIn(invoiceIds)
+                .stream()
+                .collect(Collectors.groupingBy(lineItem -> lineItem.getInvoice().getId()));
+        return PageResponse.from(page.map(invoice ->
+                toResponseWithLineItems(invoice, lineItemsByInvoiceId.getOrDefault(invoice.getId(), List.of()))));
     }
 
     @Transactional
@@ -90,13 +103,17 @@ public class SupplierInvoiceService {
         SupplierInvoice invoice = supplierInvoiceMapper.toEntity(request);
         invoice.setSupplier(supplier);
         invoice.setVehicle(vehicle);
-        return supplierInvoiceMapper.toResponse(supplierInvoiceRepository.save(invoice));
+        // A brand-new invoice can't have pre-existing line items (they're only added afterward via
+        // addLineItem()), so there's nothing to fetch here - skip the query entirely.
+        return toResponseWithLineItems(supplierInvoiceRepository.save(invoice), List.of());
     }
 
     @Transactional(readOnly = true)
     @PreAuthorize(ROLES)
     public SupplierInvoiceResponse getById(UUID id) {
-        return supplierInvoiceMapper.toResponse(findInvoiceOrThrow(id));
+        SupplierInvoice invoice = findInvoiceOrThrow(id);
+        List<SupplierInvoiceLineItem> lineItems = supplierInvoiceLineItemRepository.findAllByInvoiceId(id);
+        return toResponseWithLineItems(invoice, lineItems);
     }
 
     @Transactional
@@ -105,12 +122,19 @@ public class SupplierInvoiceService {
         SupplierInvoice invoice = findInvoiceOrThrow(id);
         assertIsPending(invoice, "SUPPLIER_INVOICE_INVALID_STATE_TRANSITION",
                 "Supplier invoice " + id + " cannot be updated from state " + invoice.getStatus());
+        List<SupplierInvoiceLineItem> existingLineItems = supplierInvoiceLineItemRepository.findAllByInvoiceId(id);
+        if (request.vehicleId() != null && !existingLineItems.isEmpty()) {
+            throw new ConflictException("SUPPLIER_INVOICE_VEHICLE_LINE_ITEMS_CONFLICT",
+                    "Supplier invoice " + id + " has line items and cannot also have a header vehicle — "
+                            + "remove the line items first or leave the header vehicle unset");
+        }
         Supplier supplier = resolveSupplier(request.supplierId());
         Vehicle vehicle = resolveVehicle(request.vehicleId());
         supplierInvoiceMapper.updateEntity(request, invoice);
         invoice.setSupplier(supplier);
         invoice.setVehicle(vehicle);
-        return supplierInvoiceMapper.toResponse(supplierInvoiceRepository.save(invoice));
+        SupplierInvoice saved = supplierInvoiceRepository.save(invoice);
+        return toResponseWithLineItems(saved, existingLineItems);
     }
 
     @Transactional
@@ -146,10 +170,32 @@ public class SupplierInvoiceService {
             throw new ConflictException("SUPPLIER_INVOICE_INVALID_STATE_TRANSITION",
                     "Supplier invoice " + id + " cannot be paid from state " + invoice.getStatus());
         }
+        // Reconciliation only applies to invoices that use per-vehicle line-item splitting (no
+        // header vehicle). An invoice with a header vehicle can never have line items (mutual
+        // exclusion enforced in update()/addLineItem()), so it's skipped entirely rather than
+        // fetching a list that would always be empty.
+        List<SupplierInvoiceLineItem> lineItems = invoice.getVehicle() == null
+                ? supplierInvoiceLineItemRepository.findAllByInvoiceId(id)
+                : List.of();
+        if (!lineItems.isEmpty()) {
+            BigDecimal linesSum = lineItems.stream()
+                    .map(SupplierInvoiceLineItem::getSubtotal)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add)
+                    .setScale(MONEY_SCALE, RoundingMode.HALF_UP);
+            if (linesSum.compareTo(invoice.getSubtotal()) != 0) {
+                throw new ConflictException("SUPPLIER_INVOICE_ALLOCATION_INCOMPLETE",
+                        "Supplier invoice " + id + " line items total " + linesSum
+                                + " but the invoice subtotal is " + invoice.getSubtotal()
+                                + " — allocate the remaining " + invoice.getSubtotal().subtract(linesSum)
+                                + " before marking as paid");
+            }
+        }
         invoice.setStatus(SupplierInvoiceStatus.PAID);
         invoice.setPaymentDate(request != null && request.paymentDate() != null
                 ? request.paymentDate() : LocalDate.now());
-        return supplierInvoiceMapper.toResponse(supplierInvoiceRepository.save(invoice));
+        SupplierInvoice saved = supplierInvoiceRepository.save(invoice);
+        // Reuse the lineItems already fetched above - no extra query needed.
+        return toResponseWithLineItems(saved, lineItems);
     }
 
     @Transactional
@@ -158,6 +204,11 @@ public class SupplierInvoiceService {
         SupplierInvoice invoice = findInvoiceOrThrow(invoiceId);
         assertIsPending(invoice, "SUPPLIER_INVOICE_INVALID_STATE_TRANSITION",
                 "Supplier invoice " + invoiceId + " cannot receive line items from state " + invoice.getStatus());
+        if (invoice.getVehicle() != null) {
+            throw new ConflictException("SUPPLIER_INVOICE_VEHICLE_LINE_ITEMS_CONFLICT",
+                    "Supplier invoice " + invoiceId + " has a header vehicle and cannot also receive line items — "
+                            + "clear the header vehicle first");
+        }
         Vehicle linkedVehicle = resolveVehicle(request.vehicleId());
         MaintenanceRecord linkedMaintenance = resolveMaintenance(request.maintenanceRecordId());
 
@@ -165,8 +216,64 @@ public class SupplierInvoiceService {
         lineItem.setInvoice(invoice);
         lineItem.setVehicle(linkedVehicle);
         lineItem.setMaintenanceRecord(linkedMaintenance);
-        lineItem.setSubtotal(request.quantity().multiply(request.unitPrice()).setScale(MONEY_SCALE, RoundingMode.HALF_UP));
+        // subtotal is already set by the mapper (mapped directly from request.subtotal — the
+        // user-entered total cost). unitPrice is purely informational here: an average price
+        // derived from what the user actually knows (total cost / consumption), not the other
+        // way around — see class-level rationale in SupplierLineItemRequest.
+        lineItem.setUnitPrice(request.subtotal().divide(request.quantity(), MONEY_SCALE, RoundingMode.HALF_UP));
         return supplierInvoiceMapper.toResponse(supplierInvoiceLineItemRepository.save(lineItem));
+    }
+
+    @Transactional
+    @PreAuthorize(ROLES)
+    public SupplierLineItemResponse updateLineItem(UUID invoiceId, UUID lineItemId, SupplierLineItemRequest request) {
+        SupplierInvoice invoice = findInvoiceOrThrow(invoiceId);
+        assertIsPending(invoice, "SUPPLIER_INVOICE_INVALID_STATE_TRANSITION",
+                "Supplier invoice " + invoiceId + " line items cannot be modified from state " + invoice.getStatus());
+        SupplierInvoiceLineItem lineItem = findLineItemOrThrow(invoiceId, lineItemId);
+        Vehicle linkedVehicle = resolveVehicle(request.vehicleId());
+        MaintenanceRecord linkedMaintenance = resolveMaintenance(request.maintenanceRecordId());
+
+        lineItem.setDescription(request.description());
+        lineItem.setQuantity(request.quantity());
+        lineItem.setSubtotal(request.subtotal());
+        lineItem.setVehicle(linkedVehicle);
+        lineItem.setMaintenanceRecord(linkedMaintenance);
+        lineItem.setUnitPrice(request.subtotal().divide(request.quantity(), MONEY_SCALE, RoundingMode.HALF_UP));
+        return supplierInvoiceMapper.toResponse(supplierInvoiceLineItemRepository.save(lineItem));
+    }
+
+    @Transactional
+    @PreAuthorize(ROLES)
+    public void deleteLineItem(UUID invoiceId, UUID lineItemId) {
+        SupplierInvoice invoice = findInvoiceOrThrow(invoiceId);
+        assertIsPending(invoice, "SUPPLIER_INVOICE_INVALID_STATE_TRANSITION",
+                "Supplier invoice " + invoiceId + " line items cannot be modified from state " + invoice.getStatus());
+        SupplierInvoiceLineItem lineItem = findLineItemOrThrow(invoiceId, lineItemId);
+        supplierInvoiceLineItemRepository.delete(lineItem);
+    }
+
+    private SupplierInvoiceLineItem findLineItemOrThrow(UUID invoiceId, UUID lineItemId) {
+        return supplierInvoiceLineItemRepository.findByIdAndInvoiceId(lineItemId, invoiceId)
+                .orElseThrow(() -> new NotFoundException("SUPPLIER_LINE_ITEM_NOT_FOUND",
+                        "Line item " + lineItemId + " not found on invoice " + invoiceId));
+    }
+
+    // MapStruct can't express "attach a batched/pre-fetched collection" via @Mapping, so the base
+    // response is mapped normally (lineItems left unmapped, see SupplierInvoiceMapper) and the
+    // line items — resolved by the caller via whichever query strategy fits (single lookup for
+    // getById(), batched lookup for list()) — are attached here via the record's canonical
+    // constructor. Mirrors InvoiceService.toResponseWithLineItems().
+    private SupplierInvoiceResponse toResponseWithLineItems(SupplierInvoice invoice, List<SupplierInvoiceLineItem> lineItems) {
+        SupplierInvoiceResponse base = supplierInvoiceMapper.toResponse(invoice);
+        List<SupplierLineItemResponse> lineItemResponses = lineItems.stream()
+                .map(supplierInvoiceMapper::toResponse)
+                .toList();
+        return new SupplierInvoiceResponse(base.id(), base.supplierId(), base.supplierName(),
+                base.supplierInvoiceNumber(), base.category(), base.invoiceDate(), base.dueDate(),
+                base.paymentDate(), base.status(), base.subtotal(), base.taxAmount(), base.total(),
+                base.vehicleId(), base.vehicleLicensePlate(), base.vehicleMake(), base.vehicleModel(),
+                base.notes(), base.documentPath(), base.createdAt(), lineItemResponses);
     }
 
     // --- relation resolution helpers ---

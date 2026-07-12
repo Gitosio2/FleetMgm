@@ -10,7 +10,7 @@ import java.util.UUID;
 public record SupplierLineItemRequest(
         @NotBlank String description,
         @NotNull @Positive BigDecimal quantity,
-        @NotNull @Positive BigDecimal unitPrice,
+        @NotNull @Positive BigDecimal subtotal,
         UUID vehicleId,
         UUID maintenanceRecordId
 ) {}

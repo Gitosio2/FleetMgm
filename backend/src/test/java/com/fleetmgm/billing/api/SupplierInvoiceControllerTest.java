@@ -47,7 +47,7 @@ class SupplierInvoiceControllerTest {
         return new SupplierInvoiceResponse(INVOICE_ID, SUPPLIER_ID, "Acme Parts", "SUP-001", ExpenseCategory.MAINTENANCE,
                 LocalDate.now(), null, null, SupplierInvoiceStatus.PENDING,
                 new BigDecimal("100.00"), new BigDecimal("21.00"), new BigDecimal("121.00"),
-                null, null, null, null, null, null, Instant.now());
+                null, null, null, null, null, null, Instant.now(), List.of());
     }
 
     // --- GET /api/v1/supplier-invoices ---
@@ -195,7 +195,7 @@ class SupplierInvoiceControllerTest {
 
         mockMvc.perform(post("/api/v1/supplier-invoices/{id}/line-items", INVOICE_ID)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"description\":\"Parts\",\"quantity\":2,\"unitPrice\":50.00}"))
+                        .content("{\"description\":\"Parts\",\"quantity\":2,\"subtotal\":50.00}"))
                 .andExpect(status().isCreated());
     }
 
@@ -203,7 +203,7 @@ class SupplierInvoiceControllerTest {
     void addLineItem_returns400_whenDescriptionMissing() throws Exception {
         mockMvc.perform(post("/api/v1/supplier-invoices/{id}/line-items", INVOICE_ID)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"quantity\":2,\"unitPrice\":50.00}"))
+                        .content("{\"quantity\":2,\"subtotal\":50.00}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
     }
@@ -215,7 +215,7 @@ class SupplierInvoiceControllerTest {
 
         mockMvc.perform(post("/api/v1/supplier-invoices/{id}/line-items", INVOICE_ID)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"description\":\"Parts\",\"quantity\":2,\"unitPrice\":50.00}"))
+                        .content("{\"description\":\"Parts\",\"quantity\":2,\"subtotal\":50.00}"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("SUPPLIER_INVOICE_NOT_FOUND"));
     }
@@ -227,8 +227,117 @@ class SupplierInvoiceControllerTest {
 
         mockMvc.perform(post("/api/v1/supplier-invoices/{id}/line-items", INVOICE_ID)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"description\":\"Parts\",\"quantity\":2,\"unitPrice\":50.00}"))
+                        .content("{\"description\":\"Parts\",\"quantity\":2,\"subtotal\":50.00}"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("SUPPLIER_INVOICE_INVALID_STATE_TRANSITION"));
+    }
+
+    @Test
+    void addLineItem_returns409_whenHeaderVehicleAlreadySet() throws Exception {
+        when(supplierInvoiceService.addLineItem(eq(INVOICE_ID), any()))
+                .thenThrow(new ConflictException("SUPPLIER_INVOICE_VEHICLE_LINE_ITEMS_CONFLICT", "Cannot add line item"));
+
+        mockMvc.perform(post("/api/v1/supplier-invoices/{id}/line-items", INVOICE_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"description\":\"Parts\",\"quantity\":2,\"subtotal\":50.00}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("SUPPLIER_INVOICE_VEHICLE_LINE_ITEMS_CONFLICT"));
+    }
+
+    // --- PUT /api/v1/supplier-invoices/{id}/line-items/{lineItemId} ---
+
+    @Test
+    void updateLineItem_returns200_whenValid() throws Exception {
+        UUID lineItemId = UUID.randomUUID();
+        SupplierLineItemResponse response = new SupplierLineItemResponse(lineItemId, "Updated Parts",
+                new BigDecimal("3"), new BigDecimal("20.00"), new BigDecimal("60.00"), null, null);
+        when(supplierInvoiceService.updateLineItem(eq(INVOICE_ID), eq(lineItemId), any())).thenReturn(response);
+
+        mockMvc.perform(put("/api/v1/supplier-invoices/{id}/line-items/{lineItemId}", INVOICE_ID, lineItemId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"description\":\"Updated Parts\",\"quantity\":3,\"subtotal\":20.00}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.description").value("Updated Parts"));
+    }
+
+    @Test
+    void updateLineItem_returns409_whenInvoiceNotPending() throws Exception {
+        UUID lineItemId = UUID.randomUUID();
+        when(supplierInvoiceService.updateLineItem(eq(INVOICE_ID), eq(lineItemId), any()))
+                .thenThrow(new ConflictException("SUPPLIER_INVOICE_INVALID_STATE_TRANSITION", "Cannot update line item"));
+
+        mockMvc.perform(put("/api/v1/supplier-invoices/{id}/line-items/{lineItemId}", INVOICE_ID, lineItemId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"description\":\"Parts\",\"quantity\":2,\"subtotal\":50.00}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("SUPPLIER_INVOICE_INVALID_STATE_TRANSITION"));
+    }
+
+    @Test
+    void updateLineItem_returns404_whenLineItemDoesNotBelongToInvoice() throws Exception {
+        UUID lineItemId = UUID.randomUUID();
+        when(supplierInvoiceService.updateLineItem(eq(INVOICE_ID), eq(lineItemId), any()))
+                .thenThrow(new NotFoundException("SUPPLIER_LINE_ITEM_NOT_FOUND", "Line item not found"));
+
+        mockMvc.perform(put("/api/v1/supplier-invoices/{id}/line-items/{lineItemId}", INVOICE_ID, lineItemId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"description\":\"Parts\",\"quantity\":2,\"subtotal\":50.00}"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("SUPPLIER_LINE_ITEM_NOT_FOUND"));
+    }
+
+    @Test
+    void updateLineItem_returns400_whenDescriptionMissing() throws Exception {
+        UUID lineItemId = UUID.randomUUID();
+        mockMvc.perform(put("/api/v1/supplier-invoices/{id}/line-items/{lineItemId}", INVOICE_ID, lineItemId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"quantity\":2,\"subtotal\":50.00}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+    // --- DELETE /api/v1/supplier-invoices/{id}/line-items/{lineItemId} ---
+
+    @Test
+    void deleteLineItem_returns204_whenValid() throws Exception {
+        UUID lineItemId = UUID.randomUUID();
+        doNothing().when(supplierInvoiceService).deleteLineItem(INVOICE_ID, lineItemId);
+
+        mockMvc.perform(delete("/api/v1/supplier-invoices/{id}/line-items/{lineItemId}", INVOICE_ID, lineItemId))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void deleteLineItem_returns409_whenInvoiceNotPending() throws Exception {
+        UUID lineItemId = UUID.randomUUID();
+        org.mockito.Mockito.doThrow(new ConflictException("SUPPLIER_INVOICE_INVALID_STATE_TRANSITION", "Cannot delete line item"))
+                .when(supplierInvoiceService).deleteLineItem(INVOICE_ID, lineItemId);
+
+        mockMvc.perform(delete("/api/v1/supplier-invoices/{id}/line-items/{lineItemId}", INVOICE_ID, lineItemId))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("SUPPLIER_INVOICE_INVALID_STATE_TRANSITION"));
+    }
+
+    @Test
+    void deleteLineItem_returns404_whenLineItemDoesNotBelongToInvoice() throws Exception {
+        UUID lineItemId = UUID.randomUUID();
+        org.mockito.Mockito.doThrow(new NotFoundException("SUPPLIER_LINE_ITEM_NOT_FOUND", "Line item not found"))
+                .when(supplierInvoiceService).deleteLineItem(INVOICE_ID, lineItemId);
+
+        mockMvc.perform(delete("/api/v1/supplier-invoices/{id}/line-items/{lineItemId}", INVOICE_ID, lineItemId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("SUPPLIER_LINE_ITEM_NOT_FOUND"));
+    }
+
+    // --- PATCH /api/v1/supplier-invoices/{id}/pay — allocation reconciliation ---
+
+    @Test
+    void pay_returns409_whenLineItemsDoNotReconcileWithSubtotal() throws Exception {
+        when(supplierInvoiceService.pay(eq(INVOICE_ID), isNull()))
+                .thenThrow(new ConflictException("SUPPLIER_INVOICE_ALLOCATION_INCOMPLETE", "Allocation incomplete"));
+
+        mockMvc.perform(patch("/api/v1/supplier-invoices/{id}/pay", INVOICE_ID))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("SUPPLIER_INVOICE_ALLOCATION_INCOMPLETE"));
     }
 }
