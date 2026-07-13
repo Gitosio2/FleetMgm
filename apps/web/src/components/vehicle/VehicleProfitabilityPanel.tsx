@@ -95,15 +95,15 @@ export function VehicleProfitabilityPanel({ vehicleId, vehicleLabel }: VehiclePr
               <ul className="flex flex-col gap-2">
                 {maintenanceHistory.map((record) => (
                   <li key={record.id} className="flex items-center justify-between gap-2 text-sm">
-                    <div className="flex flex-col">
-                      <span className="font-medium">{record.type}</span>
+                    <div className="flex min-w-0 flex-col">
+                      <span className="truncate font-medium">{record.type}</span>
                       <span className="text-on-surface-variant">
                         {record.workshopEntryDate
                           ? new Date(record.workshopEntryDate).toLocaleDateString('es-ES')
                           : 'Sin fecha'}
                       </span>
                     </div>
-                    <div className="flex flex-col items-end gap-1">
+                    <div className="flex shrink-0 flex-col items-end gap-1">
                       <span className="font-medium">{(record.cost ?? 0).toFixed(2)} €</span>
                       <MaintenanceStatusBadge status={record.status} />
                     </div>
