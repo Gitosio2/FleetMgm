@@ -34,6 +34,8 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase.Replace.NONE;
@@ -164,6 +166,143 @@ class ProfitabilityRepositoryTest {
         assertThat(projection.getCosts()).isEqualByComparingTo("200.00");
     }
 
+    @Test
+    void findProfitabilityByVehicleId_computesRevenueAndCosts_forSingleVehicle() {
+        Vehicle vehicle = persistVehicle("7777GGG");
+        Client client = persistClient("33333333C");
+
+        Job job = persistJob(vehicle, JobStatus.COMPLETED);
+        Invoice invoice = persistInvoice(client, "INV-2026-00003", InvoiceStatus.ISSUED);
+        persistLineItem(invoice, new BigDecimal("300.00"), job);
+        persistMaintenanceRecord(vehicle, new BigDecimal("75.00"));
+
+        entityManager.getEntityManager().clear();
+
+        Optional<VehicleProfitabilityProjection> result =
+                profitabilityRepository.findProfitabilityByVehicleId(vehicle.getId());
+
+        assertThat(result).isPresent();
+        VehicleProfitabilityProjection projection = result.get();
+        assertThat(projection.getVehicleLicensePlate()).isEqualTo("7777GGG");
+        assertThat(projection.getRevenue()).isEqualByComparingTo("300.00");
+        assertThat(projection.getCosts()).isEqualByComparingTo("75.00");
+    }
+
+    @Test
+    void findProfitabilityByVehicleId_returnsEmpty_whenVehicleDoesNotExist() {
+        Optional<VehicleProfitabilityProjection> result =
+                profitabilityRepository.findProfitabilityByVehicleId(UUID.randomUUID());
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void findProfitabilityByVehicleId_returnsEmpty_whenVehicleIsSoftDeleted() {
+        Vehicle vehicle = persistVehicle("8888HHH");
+        vehicle.setDeletedAt(java.time.Instant.now());
+        entityManager.persistAndFlush(vehicle);
+        entityManager.getEntityManager().clear();
+
+        Optional<VehicleProfitabilityProjection> result =
+                profitabilityRepository.findProfitabilityByVehicleId(vehicle.getId());
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void findMonthlyFinancialTrend_aggregatesRevenueAndCosts_perMonth() {
+        Vehicle vehicle = persistVehicle("9991AAA");
+        Client client = persistClient("44444444D");
+
+        LocalDate monthOne = LocalDate.of(2026, 5, 1);
+        LocalDate monthTwo = LocalDate.of(2026, 6, 1);
+
+        Job jobOne = persistJob(vehicle, JobStatus.COMPLETED);
+        Invoice invoiceOne = persistInvoiceWithIssueDate(client, "INV-2026-10001", InvoiceStatus.ISSUED, monthOne);
+        persistLineItem(invoiceOne, new BigDecimal("500.00"), jobOne);
+        persistMaintenanceRecordOnDate(vehicle, new BigDecimal("100.00"), monthOne);
+
+        Job jobTwo = persistJob(vehicle, JobStatus.COMPLETED);
+        Invoice invoiceTwo = persistInvoiceWithIssueDate(client, "INV-2026-10002", InvoiceStatus.ISSUED, monthTwo);
+        persistLineItem(invoiceTwo, new BigDecimal("300.00"), jobTwo);
+        persistSupplierInvoiceOnDate(vehicle, new BigDecimal("50.00"), monthTwo);
+
+        entityManager.getEntityManager().clear();
+
+        List<MonthlyFinancialProjection> result =
+                profitabilityRepository.findMonthlyFinancialTrend(monthOne, monthTwo);
+
+        assertThat(result).hasSize(2);
+        MonthlyFinancialProjection may = findByMonth(result, "2026-05");
+        assertThat(may.getRevenue()).isEqualByComparingTo("500.00");
+        assertThat(may.getCosts()).isEqualByComparingTo("100.00");
+
+        MonthlyFinancialProjection june = findByMonth(result, "2026-06");
+        assertThat(june.getRevenue()).isEqualByComparingTo("300.00");
+        assertThat(june.getCosts()).isEqualByComparingTo("50.00");
+    }
+
+    @Test
+    void findMonthlyFinancialTrend_zeroFillsMonths_withNoActivity() {
+        Vehicle vehicle = persistVehicle("9992BBB");
+        Client client = persistClient("55555555E");
+
+        LocalDate monthOne = LocalDate.of(2026, 4, 1);
+        LocalDate monthThree = LocalDate.of(2026, 6, 1);
+        // monthTwo (2026-05) intentionally has zero activity — must still appear with 0/0.
+
+        Job job = persistJob(vehicle, JobStatus.COMPLETED);
+        Invoice invoice = persistInvoiceWithIssueDate(client, "INV-2026-10003", InvoiceStatus.ISSUED, monthOne);
+        persistLineItem(invoice, new BigDecimal("200.00"), job);
+
+        entityManager.getEntityManager().clear();
+
+        List<MonthlyFinancialProjection> result =
+                profitabilityRepository.findMonthlyFinancialTrend(monthOne, monthThree);
+
+        assertThat(result).hasSize(3);
+        MonthlyFinancialProjection zeroMonth = findByMonth(result, "2026-05");
+        assertThat(zeroMonth.getRevenue()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(zeroMonth.getCosts()).isEqualByComparingTo(BigDecimal.ZERO);
+    }
+
+    @Test
+    void findMonthlyFinancialTrend_excludesRecords_outsideDateRange() {
+        Vehicle vehicle = persistVehicle("9993CCC");
+        Client client = persistClient("66666666F");
+
+        LocalDate beforeRange = LocalDate.of(2026, 1, 1);
+        LocalDate inRange = LocalDate.of(2026, 3, 1);
+        LocalDate afterRange = LocalDate.of(2026, 5, 1);
+
+        Job jobBefore = persistJob(vehicle, JobStatus.COMPLETED);
+        Invoice invoiceBefore = persistInvoiceWithIssueDate(client, "INV-2026-10004", InvoiceStatus.ISSUED, beforeRange);
+        persistLineItem(invoiceBefore, new BigDecimal("999.00"), jobBefore);
+
+        Job jobAfter = persistJob(vehicle, JobStatus.COMPLETED);
+        Invoice invoiceAfter = persistInvoiceWithIssueDate(client, "INV-2026-10005", InvoiceStatus.ISSUED, afterRange);
+        persistLineItem(invoiceAfter, new BigDecimal("888.00"), jobAfter);
+
+        entityManager.getEntityManager().clear();
+
+        List<MonthlyFinancialProjection> result =
+                profitabilityRepository.findMonthlyFinancialTrend(inRange, inRange);
+
+        assertThat(result).hasSize(1);
+        MonthlyFinancialProjection onlyMonth = result.get(0);
+        assertThat(onlyMonth.getMonth()).isEqualTo("2026-03");
+        assertThat(onlyMonth.getRevenue()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(onlyMonth.getCosts()).isEqualByComparingTo(BigDecimal.ZERO);
+    }
+
+    private MonthlyFinancialProjection findByMonth(List<MonthlyFinancialProjection> results, String month) {
+        List<MonthlyFinancialProjection> matches = results.stream()
+                .filter(p -> p.getMonth().equals(month))
+                .toList();
+        assertThat(matches).hasSize(1);
+        return matches.get(0);
+    }
+
     private VehicleProfitabilityProjection findByVehicleId(Page<VehicleProfitabilityProjection> page, java.util.UUID vehicleId) {
         List<VehicleProfitabilityProjection> matches = page.getContent().stream()
                 .filter(p -> p.getVehicleId().equals(vehicleId))
@@ -208,6 +347,15 @@ class ProfitabilityRepositoryTest {
         return entityManager.persistAndFlush(invoice);
     }
 
+    private Invoice persistInvoiceWithIssueDate(Client client, String invoiceNumber, InvoiceStatus status, LocalDate issueDate) {
+        Invoice invoice = new Invoice();
+        invoice.setClient(client);
+        invoice.setInvoiceNumber(invoiceNumber);
+        invoice.setStatus(status);
+        invoice.setIssueDate(issueDate);
+        return entityManager.persistAndFlush(invoice);
+    }
+
     private InvoiceLineItem persistLineItem(Invoice invoice, BigDecimal subtotal, Job linkedJob) {
         InvoiceLineItem lineItem = new InvoiceLineItem();
         lineItem.setInvoice(invoice);
@@ -227,6 +375,15 @@ class ProfitabilityRepositoryTest {
         return entityManager.persistAndFlush(record);
     }
 
+    private MaintenanceRecord persistMaintenanceRecordOnDate(Vehicle vehicle, BigDecimal cost, LocalDate workshopEntryDate) {
+        MaintenanceRecord record = new MaintenanceRecord();
+        record.setVehicle(vehicle);
+        record.setType("Oil change");
+        record.setCost(cost);
+        record.setWorkshopEntryDate(workshopEntryDate);
+        return entityManager.persistAndFlush(record);
+    }
+
     private SupplierInvoice persistSupplierInvoice(Vehicle vehicle, BigDecimal total) {
         Supplier supplier = new Supplier();
         supplier.setName("Test Supplier");
@@ -236,6 +393,22 @@ class ProfitabilityRepositoryTest {
         invoice.setSupplier(supplier);
         invoice.setCategory(ExpenseCategory.MAINTENANCE);
         invoice.setInvoiceDate(LocalDate.now());
+        invoice.setVehicle(vehicle);
+        invoice.setSubtotal(total);
+        invoice.setTaxAmount(BigDecimal.ZERO);
+        invoice.setTotal(total);
+        return entityManager.persistAndFlush(invoice);
+    }
+
+    private SupplierInvoice persistSupplierInvoiceOnDate(Vehicle vehicle, BigDecimal total, LocalDate invoiceDate) {
+        Supplier supplier = new Supplier();
+        supplier.setName("Test Supplier");
+        entityManager.persistAndFlush(supplier);
+
+        SupplierInvoice invoice = new SupplierInvoice();
+        invoice.setSupplier(supplier);
+        invoice.setCategory(ExpenseCategory.MAINTENANCE);
+        invoice.setInvoiceDate(invoiceDate);
         invoice.setVehicle(vehicle);
         invoice.setSubtotal(total);
         invoice.setTaxAmount(BigDecimal.ZERO);

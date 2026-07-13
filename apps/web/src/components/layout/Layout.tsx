@@ -11,11 +11,11 @@ export function Layout() {
   const logout = useLogout()
 
   return (
-    <div className="flex min-h-screen bg-surface-dim text-on-surface">
+    <div className="flex h-screen bg-surface-dim text-on-surface">
       <Sidebar />
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-between border-b border-outline-variant/40 px-8 py-4">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <header className="shrink-0 flex items-center justify-between border-b border-outline-variant/40 px-8 py-4">
           <div>
             <p className="text-sm font-medium">{email}</p>
             <p className="text-xs text-on-surface-variant">{role}</p>

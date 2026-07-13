@@ -8,6 +8,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 public interface SupplierInvoiceRepository extends JpaRepository<SupplierInvoice, UUID> {
@@ -23,4 +26,20 @@ public interface SupplierInvoiceRepository extends JpaRepository<SupplierInvoice
             + "AND (:category IS NULL OR si.category = :category)")
     Page<SupplierInvoice> findAllJoinFetch(
             @Param("vehicleId") UUID vehicleId, @Param("category") ExpenseCategory category, Pageable pageable);
+
+    // Fleet-summary KPI (dashboard) — monthly supplier costs, summed alongside
+    // MaintenanceRepository.sumCostByWorkshopEntryDateBetween. COALESCE guards against SUM
+    // returning null when no rows fall in the range.
+    @Query("SELECT COALESCE(SUM(si.total), 0) FROM SupplierInvoice si WHERE si.invoiceDate BETWEEN :from AND :to")
+    BigDecimal sumTotalByInvoiceDateBetween(@Param("from") LocalDate from, @Param("to") LocalDate to);
+
+    // Financial-summary KPI (dashboard) — top-N unpaid supplier invoices due soon. No lower bound
+    // on dueDate: already-overdue rows (dueDate in the past) must be included too, not filtered
+    // out — the frontend flags them separately (see DashboardService.getFinancialSummary()).
+    // SupplierInvoiceStatus has no OVERDUE value at all (just PENDING/PAID), so "overdue" is
+    // always computed live from dueDate, same as the client-invoice side.
+    @Query("SELECT si FROM SupplierInvoice si JOIN FETCH si.supplier "
+            + "WHERE si.status = com.fleetmgm.billing.domain.SupplierInvoiceStatus.PENDING AND si.dueDate <= :to "
+            + "ORDER BY si.dueDate ASC")
+    List<SupplierInvoice> findUpcomingPayables(@Param("to") LocalDate to, Pageable pageable);
 }

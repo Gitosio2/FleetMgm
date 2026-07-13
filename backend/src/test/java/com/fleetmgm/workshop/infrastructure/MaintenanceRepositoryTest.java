@@ -25,7 +25,9 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase.Replace.NONE;
@@ -100,6 +102,42 @@ class MaintenanceRepositoryTest {
 
         assertThat(maintenanceRepository.existsByVehicleIdAndStatus(vehicle.getId(), MaintenanceStatus.IN_PROGRESS))
                 .isFalse();
+    }
+
+    @Test
+    void sumCostByWorkshopEntryDateBetween_sumsOnlyRecordsInRange() {
+        Vehicle vehicle = persistVehicle("5555EEE");
+        persistMaintenanceWithCost(vehicle, new BigDecimal("100.00"), LocalDate.now());
+        persistMaintenanceWithCost(vehicle, new BigDecimal("50.00"), LocalDate.now());
+        // Outside the queried range — must not be included in the sum.
+        persistMaintenanceWithCost(vehicle, new BigDecimal("999.00"), LocalDate.now().minusMonths(2));
+        entityManager.getEntityManager().clear();
+
+        BigDecimal total = maintenanceRepository.sumCostByWorkshopEntryDateBetween(
+                LocalDate.now().withDayOfMonth(1), LocalDate.now().withDayOfMonth(LocalDate.now().lengthOfMonth()));
+
+        assertThat(total).isEqualByComparingTo("150.00");
+    }
+
+    @Test
+    void sumCostByWorkshopEntryDateBetween_returnsZero_whenNoRecordsInRange() {
+        Vehicle vehicle = persistVehicle("6666FFF");
+        persistMaintenanceWithCost(vehicle, new BigDecimal("100.00"), LocalDate.now().minusMonths(3));
+        entityManager.getEntityManager().clear();
+
+        BigDecimal total = maintenanceRepository.sumCostByWorkshopEntryDateBetween(
+                LocalDate.now().withDayOfMonth(1), LocalDate.now().withDayOfMonth(LocalDate.now().lengthOfMonth()));
+
+        assertThat(total).isEqualByComparingTo(BigDecimal.ZERO);
+    }
+
+    private MaintenanceRecord persistMaintenanceWithCost(Vehicle vehicle, BigDecimal cost, LocalDate workshopEntryDate) {
+        MaintenanceRecord record = new MaintenanceRecord();
+        record.setVehicle(vehicle);
+        record.setType("Oil change");
+        record.setCost(cost);
+        record.setWorkshopEntryDate(workshopEntryDate);
+        return entityManager.persistAndFlush(record);
     }
 
     private Worker persistTechnician(String nationalId) {

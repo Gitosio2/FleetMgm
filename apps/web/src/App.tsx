@@ -2,7 +2,7 @@ import { Route, Routes } from 'react-router-dom'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { Layout } from '@/components/layout/Layout'
 import { Login } from '@/pages/Login'
-import { Dashboard } from '@/pages/Dashboard'
+import { DashboardHome } from '@/pages/DashboardHome'
 import { Clients } from '@/pages/Clients'
 import { Vehicles } from '@/pages/Vehicles'
 import { Workers } from '@/pages/Workers'
@@ -28,7 +28,7 @@ function App() {
           </ProtectedRoute>
         }
       >
-        <Route index element={<Dashboard />} />
+        <Route index element={<DashboardHome />} />
         <Route
           path="/clients"
           element={

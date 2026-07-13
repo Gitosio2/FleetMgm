@@ -1,8 +1,9 @@
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useAuthStore } from '@fleetmgm/store'
-import { resetVehiclesMock, SEED_VEHICLES } from '@/mocks/handlers'
+import { resetVehiclesMock, SEED_PROFITABILITY, SEED_VEHICLES } from '@/mocks/handlers'
 import { Vehicles } from './Vehicles'
 
 function renderVehicles() {
@@ -70,5 +71,25 @@ describe('Vehicles', () => {
     expect(screen.queryByRole('button', { name: /nuevo vehículo/i })).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Editar vehículo')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Eliminar vehículo')).not.toBeInTheDocument()
+  })
+
+  it('opens the profitability dialog for a vehicle', async () => {
+    const user = userEvent.setup()
+    loginAs('ADMIN')
+    renderVehicles()
+
+    await screen.findByText(`${FIRST_VEHICLE!.make} ${FIRST_VEHICLE!.model}`)
+
+    const profitabilityButtons = await screen.findAllByLabelText('Ver rentabilidad')
+    await user.click(profitabilityButtons[0]!)
+
+    const profitability = SEED_PROFITABILITY.find((entry) => entry.vehicleId === FIRST_VEHICLE!.id)!
+
+    expect(
+      await screen.findByText(`Rentabilidad — ${FIRST_VEHICLE!.make} ${FIRST_VEHICLE!.model}`),
+    ).toBeInTheDocument()
+    expect(await screen.findByText(`${profitability.revenue.toFixed(2)} €`)).toBeInTheDocument()
+    expect(await screen.findByText(`${profitability.costs.toFixed(2)} €`)).toBeInTheDocument()
+    expect(await screen.findByText(`${profitability.margin.toFixed(2)} €`)).toBeInTheDocument()
   })
 })

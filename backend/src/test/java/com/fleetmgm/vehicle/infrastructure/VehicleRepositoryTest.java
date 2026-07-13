@@ -5,6 +5,7 @@ import com.fleetmgm.config.JpaAuditingConfig;
 import com.fleetmgm.vehicle.domain.UsageMeasure;
 import com.fleetmgm.vehicle.domain.Vehicle;
 import com.fleetmgm.vehicle.domain.VehicleCategory;
+import com.fleetmgm.vehicle.domain.VehicleStatus;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -69,6 +70,31 @@ class VehicleRepositoryTest {
 
         assertThat(vehicleRepository.existsByLicensePlate("1234ABC")).isTrue();
         assertThat(vehicleRepository.existsByLicensePlate("XXXX")).isFalse();
+    }
+
+    @Test
+    void countByStatus_countsOnlyVehiclesInThatStatus() {
+        Vehicle active = buildVehicle("3333CCC");
+        Vehicle maintenance = buildVehicle("4444DDD");
+        maintenance.setStatus(VehicleStatus.MAINTENANCE);
+        vehicleRepository.saveAll(List.of(active, maintenance));
+        em.flush();
+        em.clear();
+
+        assertThat(vehicleRepository.countByStatus(VehicleStatus.ACTIVE)).isEqualTo(1);
+        assertThat(vehicleRepository.countByStatus(VehicleStatus.MAINTENANCE)).isEqualTo(1);
+    }
+
+    @Test
+    void countByStatusNot_excludesOnlyTheGivenStatus() {
+        Vehicle active = buildVehicle("5555EEE");
+        Vehicle decommissioned = buildVehicle("6666FFF");
+        decommissioned.setStatus(VehicleStatus.DECOMMISSIONED);
+        vehicleRepository.saveAll(List.of(active, decommissioned));
+        em.flush();
+        em.clear();
+
+        assertThat(vehicleRepository.countByStatusNot(VehicleStatus.DECOMMISSIONED)).isEqualTo(1);
     }
 
     private Vehicle buildVehicle(String licensePlate) {

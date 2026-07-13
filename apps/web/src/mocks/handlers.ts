@@ -1265,6 +1265,145 @@ type AuditLogMock = {
   details: string | null
 }
 
+type FleetSummaryMock = {
+  activeVehicles: number
+  totalVehicles: number
+  inWorkshop: number
+  pendingMaintenance: number
+  pendingMaintenanceDueSoon: number
+}
+
+// Mirrors the actual SEED_VEHICLES/SEED_SCHEDULES counts instead of the Stitch design mockup's
+// enterprise-scale placeholder numbers: 2 vehicles (1 ACTIVE, 1 MAINTENANCE), 2 PENDING schedules
+// out of 3 (schedule-1, schedule-3 — schedule-2 is IN_PROGRESS). pendingMaintenanceDueSoon stays
+// illustrative (not literally derived from scheduledDate) — neither PENDING schedule's date
+// actually falls within 48h of "today" in this fixed seed, and shifting a shared schedule date to
+// force it would risk the Workshop feature's own tests that depend on those exact dates/rangeTags.
+export const SEED_FLEET_SUMMARY: FleetSummaryMock = {
+  activeVehicles: 1,
+  totalVehicles: 2,
+  inWorkshop: 1,
+  pendingMaintenance: 2,
+  pendingMaintenanceDueSoon: 1,
+}
+
+type UpcomingInvoiceMock = {
+  id: string
+  number: string
+  counterparty: string
+  amount: number
+  dueDate: string
+  overdue: boolean
+}
+
+type FinancialSummaryMock = {
+  monthlyCosts: number
+  upcomingReceivables: UpcomingInvoiceMock[]
+  upcomingPayables: UpcomingInvoiceMock[]
+}
+
+// Read-only feature (no dedicated CRUD screen) — mirrors SEED_FLEET_SUMMARY's scale, plus two
+// short invoice lists each containing one overdue and one not-yet-due row so Dashboard.test.tsx
+// can assert both the "Vencida" marker and its absence without depending on the current date.
+export const SEED_FINANCIAL_SUMMARY: FinancialSummaryMock = {
+  monthlyCosts: 8420.5,
+  upcomingReceivables: [
+    {
+      id: 'invoice-2',
+      number: 'INV-2026-00002',
+      counterparty: 'Transportes Ibérica',
+      amount: 605,
+      dueDate: '2026-07-10',
+      overdue: true,
+    },
+    {
+      id: 'invoice-5',
+      number: 'INV-2026-00005',
+      counterparty: 'Acme Logistics',
+      amount: 350,
+      dueDate: '2026-07-18',
+      overdue: false,
+    },
+  ],
+  upcomingPayables: [
+    {
+      id: 'supplier-invoice-1',
+      number: 'F-2026-0456',
+      counterparty: 'Taller Mecánico Norte',
+      amount: 121,
+      dueDate: '2026-07-05',
+      overdue: true,
+    },
+    {
+      id: 'supplier-invoice-2',
+      number: 'F-2026-0501',
+      counterparty: 'Estación de Servicio Sur',
+      amount: 60.5,
+      dueDate: '2026-07-20',
+      overdue: false,
+    },
+  ],
+}
+
+type ProfitabilityMock = {
+  vehicleId: string
+  vehicleLicensePlate: string | null
+  vehicleMake: string
+  vehicleModel: string
+  revenue: number
+  costs: number
+  margin: number
+}
+
+// Read-only feature (no create/update/delete) — mirrors SEED_VEHICLES 1:1 (one profitability row
+// per seed vehicle) so Dashboard.test.tsx can assert chart/summary totals derived from real seed
+// identities instead of unrelated placeholder numbers.
+export const SEED_PROFITABILITY: ProfitabilityMock[] = [
+  {
+    vehicleId: SEED_VEHICLES[0]!.id,
+    vehicleLicensePlate: SEED_VEHICLES[0]!.licensePlate,
+    vehicleMake: SEED_VEHICLES[0]!.make,
+    vehicleModel: SEED_VEHICLES[0]!.model,
+    revenue: 12500,
+    costs: 4200,
+    margin: 8300,
+  },
+  {
+    vehicleId: SEED_VEHICLES[1]!.id,
+    vehicleLicensePlate: SEED_VEHICLES[1]!.licensePlate,
+    vehicleMake: SEED_VEHICLES[1]!.make,
+    vehicleModel: SEED_VEHICLES[1]!.model,
+    revenue: 6200,
+    costs: 5100,
+    margin: 1100,
+  },
+]
+
+type MonthlyFinancialMock = {
+  month: string
+  revenue: number
+  costs: number
+}
+
+// Fixed 12-month fixture (2025-08 through 2026-07, "now" per this project's fixed dev clock) so
+// Dashboard.test.tsx can assert deterministic totals for the 3/6/12-month selector without any
+// dependency on the actual current date. Magnitudes mirror SEED_FINANCIAL_SUMMARY.monthlyCosts
+// (~8420.5/month) rather than arbitrary enterprise-scale placeholders.
+export const SEED_FINANCIAL_TREND: MonthlyFinancialMock[] = [
+  { month: '2025-08', revenue: 11200, costs: 6100 },
+  { month: '2025-09', revenue: 9800, costs: 5200 },
+  { month: '2025-10', revenue: 13400, costs: 7300 },
+  { month: '2025-11', revenue: 10500, costs: 6800 },
+  { month: '2025-12', revenue: 15200, costs: 8420.5 },
+  { month: '2026-01', revenue: 9200, costs: 5100 },
+  { month: '2026-02', revenue: 12100, costs: 6400 },
+  { month: '2026-03', revenue: 14300, costs: 7900 },
+  { month: '2026-04', revenue: 10800, costs: 6000 },
+  { month: '2026-05', revenue: 13900, costs: 7200 },
+  { month: '2026-06', revenue: 11600, costs: 6500 },
+  { month: '2026-07', revenue: 12500, costs: 6900 },
+]
+
 // Read-only feature (no create/update/delete) — a plain const seed is enough, no mutable copy or
 // reset function needed like the other mocks above.
 export const SEED_AUDIT_LOGS: AuditLogMock[] = [
@@ -3359,6 +3498,61 @@ export const handlers = [
     ].sort()
 
     return HttpResponse.json(emails.map((email) => ({ email })))
+  }),
+
+  http.get('/api/v1/reports/fleet-summary', () => {
+    return HttpResponse.json(SEED_FLEET_SUMMARY)
+  }),
+
+  http.get('/api/v1/reports/financial-summary', () => {
+    return HttpResponse.json(SEED_FINANCIAL_SUMMARY)
+  }),
+
+  http.get('/api/v1/reports/profitability', ({ request }) => {
+    const url = new URL(request.url)
+    const page = Number(url.searchParams.get('page') ?? 0)
+    const size = Number(url.searchParams.get('size') ?? 20)
+
+    const start = page * size
+    const content = SEED_PROFITABILITY.slice(start, start + size)
+
+    return HttpResponse.json({
+      content,
+      page,
+      size,
+      totalElements: SEED_PROFITABILITY.length,
+      totalPages: Math.max(1, Math.ceil(SEED_PROFITABILITY.length / size)),
+    })
+  }),
+
+  // Last N months ending "now" — simplest deterministic slice of the fixed 12-entry fixture is
+  // just the last N entries, since SEED_FINANCIAL_TREND's final entry already represents the
+  // current month.
+  http.get('/api/v1/reports/profitability/trend', ({ request }) => {
+    const url = new URL(request.url)
+    const months = Number(url.searchParams.get('months') ?? 6)
+
+    return HttpResponse.json(SEED_FINANCIAL_TREND.slice(-months))
+  }),
+
+  // Registered after the more specific /reports/profitability/trend handler above — MSW matches
+  // handlers in array order, and this :vehicleId pattern would otherwise shadow /trend requests.
+  http.get('/api/v1/reports/profitability/:vehicleId', ({ params }) => {
+    const profitability = SEED_PROFITABILITY.find((entry) => entry.vehicleId === params.vehicleId)
+
+    if (!profitability) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'VEHICLE_NOT_FOUND',
+          message: `Vehicle ${params.vehicleId} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    return HttpResponse.json(profitability)
   }),
 
   http.post('/api/v1/auth/login', async ({ request }) => {

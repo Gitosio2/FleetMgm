@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { VehicleTable } from '@/components/vehicle/VehicleTable'
 import { VehicleFormModal } from '@/components/vehicle/VehicleFormModal'
 import { VehicleAssignmentPanel } from '@/components/assignment/VehicleAssignmentPanel'
+import { VehicleProfitabilityPanel } from '@/components/vehicle/VehicleProfitabilityPanel'
 import { MANAGEMENT_ROLES } from '@/components/layout/nav-items'
 
 const PAGE_SIZE = 20
@@ -17,6 +18,7 @@ export function Vehicles() {
   const [formOpen, setFormOpen] = useState(false)
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | undefined>(undefined)
   const [assignmentVehicle, setAssignmentVehicle] = useState<Vehicle | undefined>(undefined)
+  const [profitabilityVehicle, setProfitabilityVehicle] = useState<Vehicle | undefined>(undefined)
 
   const role = useAuthStore((state) => state.role)
   const canManage = role != null && MANAGEMENT_ROLES.includes(role)
@@ -35,6 +37,10 @@ export function Vehicles() {
 
   function openAssignmentPanel(vehicle: Vehicle) {
     setAssignmentVehicle(vehicle)
+  }
+
+  function openProfitabilityPanel(vehicle: Vehicle) {
+    setProfitabilityVehicle(vehicle)
   }
 
   return (
@@ -62,6 +68,7 @@ export function Vehicles() {
           canManage={canManage}
           onEdit={openEditForm}
           onViewAssignment={openAssignmentPanel}
+          onViewProfitability={openProfitabilityPanel}
         />
       )}
 
@@ -108,6 +115,25 @@ export function Vehicles() {
               vehicleId={assignmentVehicle.id}
               vehicleLabel={`${assignmentVehicle.make} ${assignmentVehicle.model}`}
               canManage={canManage}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={profitabilityVehicle != null}
+        onOpenChange={(open) => !open && setProfitabilityVehicle(undefined)}
+      >
+        <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Rentabilidad — {profitabilityVehicle && `${profitabilityVehicle.make} ${profitabilityVehicle.model}`}
+            </DialogTitle>
+          </DialogHeader>
+          {profitabilityVehicle && (
+            <VehicleProfitabilityPanel
+              vehicleId={profitabilityVehicle.id}
+              vehicleLabel={`${profitabilityVehicle.make} ${profitabilityVehicle.model}`}
             />
           )}
         </DialogContent>

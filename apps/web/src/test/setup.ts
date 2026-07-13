@@ -20,6 +20,22 @@ class ResizeObserverStub {
 
 globalThis.ResizeObserver ??= ResizeObserverStub
 
+// jsdom has no layout engine, so Element.getBoundingClientRect() always returns an all-zero rect.
+// Recharts' <ResponsiveContainer> reads it (on its own outer wrapper div) to size the chart and
+// refuses to render any children below a positive width/height. The fix is scoped to that one
+// wrapper class: recharts also calls getBoundingClientRect internally on nested nodes (legend,
+// tooltip, axis ticks) to auto-measure their own footprint — if those reported the same 800x400
+// as the whole container, recharts would reserve all available space for e.g. the legend and
+// collapse the actual plot area to zero height. Leaving those at jsdom's natural zero rect keeps
+// that internal layout math sane.
+const zeroRect = { width: 0, height: 0, top: 0, left: 0, bottom: 0, right: 0, x: 0, y: 0, toJSON() {} }
+Element.prototype.getBoundingClientRect = function (this: Element) {
+  if (this.classList.contains('recharts-responsive-container')) {
+    return { width: 800, height: 400, top: 0, left: 0, bottom: 400, right: 800, x: 0, y: 0, toJSON() {} }
+  }
+  return zeroRect
+}
+
 // jsdom has no layout engine, so it doesn't implement window.scrollTo — Leaflet calls it
 // when centering the map, which otherwise logs a noisy "Not implemented" jsdom error.
 window.scrollTo = () => {}

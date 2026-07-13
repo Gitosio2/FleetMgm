@@ -9,6 +9,7 @@ import com.fleetmgm.worker.domain.Worker;
 import com.fleetmgm.worker.domain.WorkerRole;
 import com.fleetmgm.workshop.domain.MaintenanceRecord;
 import com.fleetmgm.workshop.domain.WorkshopSchedule;
+import com.fleetmgm.workshop.domain.WorkshopStatus;
 import org.hibernate.Hibernate;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -126,6 +127,33 @@ class WorkshopScheduleRepositoryTest {
         Optional<WorkshopSchedule> result = workshopScheduleRepository.findByMaintenanceRecordId(UUID.randomUUID());
 
         assertThat(result).isEmpty();
+    }
+
+    @Test
+    void countByStatus_countsOnlySchedulesInThatStatus() {
+        Vehicle vehicle = persistVehicle("5555EEE");
+        persistSchedule(vehicle, null, LocalDate.now());
+        WorkshopSchedule cancelled = persistSchedule(vehicle, null, LocalDate.now());
+        cancelled.setStatus(WorkshopStatus.CANCELLED);
+        entityManager.persistAndFlush(cancelled);
+        entityManager.getEntityManager().clear();
+
+        assertThat(workshopScheduleRepository.countByStatus(WorkshopStatus.PENDING)).isEqualTo(1);
+        assertThat(workshopScheduleRepository.countByStatus(WorkshopStatus.CANCELLED)).isEqualTo(1);
+    }
+
+    @Test
+    void countByStatusAndScheduledDateBetween_countsOnlyPendingSchedulesInRange() {
+        Vehicle vehicle = persistVehicle("6666FFF");
+        persistSchedule(vehicle, null, LocalDate.now());
+        persistSchedule(vehicle, null, LocalDate.now().plusDays(1));
+        persistSchedule(vehicle, null, LocalDate.now().plusDays(20));
+        entityManager.getEntityManager().clear();
+
+        long dueSoon = workshopScheduleRepository.countByStatusAndScheduledDateBetween(
+                WorkshopStatus.PENDING, LocalDate.now(), LocalDate.now().plusDays(2));
+
+        assertThat(dueSoon).isEqualTo(2);
     }
 
     private Vehicle persistVehicle(String licensePlate) {
