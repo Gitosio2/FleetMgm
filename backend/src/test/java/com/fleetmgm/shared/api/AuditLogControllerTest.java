@@ -4,6 +4,7 @@ import com.fleetmgm.auth.infrastructure.JwtAuthenticationFilter;
 import com.fleetmgm.shared.PageResponse;
 import com.fleetmgm.shared.application.AuditLogService;
 import com.fleetmgm.shared.domain.AuditAction;
+import com.fleetmgm.shared.dto.AuditLogPerformerResponse;
 import com.fleetmgm.shared.dto.AuditLogResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -109,5 +110,21 @@ class AuditLogControllerTest {
     void list_returns400_whenActionIsInvalid() throws Exception {
         mockMvc.perform(get("/api/v1/audit").param("action", "NOT_A_REAL_ACTION"))
                 .andExpect(status().isBadRequest());
+    }
+
+    // --- GET /api/v1/audit/performers ---
+
+    @Test
+    void listPerformers_returns200_withDistinctEmails() throws Exception {
+        List<AuditLogPerformerResponse> performers = List.of(
+                new AuditLogPerformerResponse("admin@example.com"),
+                new AuditLogPerformerResponse("manager@example.com"));
+        when(auditLogService.listPerformers()).thenReturn(performers);
+
+        mockMvc.perform(get("/api/v1/audit/performers"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$[0].email").value("admin@example.com"))
+                .andExpect(jsonPath("$[1].email").value("manager@example.com"));
     }
 }

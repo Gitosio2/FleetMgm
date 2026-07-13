@@ -1640,6 +1640,9 @@ FleetMgm/
 - [x] **[GREEN — addendum]** Filtro por usuario (`performedByEmail`, substring case-insensitive) en backend
   (`AuditLogRepository`/`Service`/`Controller`) y frontend (`useAuditLog`, `AuditLogFilters`, input "Filtrar por
   usuario"), a petición explícita tras el cierre de Hito 41/42
+- [x] **[GREEN — addendum]** El input de texto libre se reemplaza por un `<select>` de usuarios existentes en
+  `audit_logs` — `GET /api/v1/audit/performers` (`AuditLogRepository.findDistinctPerformerEmails`,
+  `AuditLogPerformerResponse`), `useAuditLogPerformers`, sin tocar `auth` ni crear un listado general de usuarios
 
 ### Hito 43 — Frontend: Dashboard y rentabilidad
 > Requiere: Hito 34 (backend profitability endpoint — incluye costes de mantenimiento y de proveedores)

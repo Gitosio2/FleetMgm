@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { AuditAction } from '@fleetmgm/api'
-import { useAuditLog } from '@fleetmgm/hooks'
+import { useAuditLog, useAuditLogPerformers } from '@fleetmgm/hooks'
 import { Button } from '@/components/ui/button'
 import { AuditLogTable } from '@/components/audit/AuditLogTable'
 import { AuditLogFilters } from '@/components/audit/AuditLogFilters'
@@ -14,6 +14,8 @@ export function AuditLog() {
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
   const [performedByEmail, setPerformedByEmail] = useState('')
+
+  const { data: performers } = useAuditLogPerformers()
 
   const { data, isLoading, isError } = useAuditLog(
     {
@@ -52,6 +54,7 @@ export function AuditLog() {
         onToChange={resetPageAnd(setTo)}
         performedByEmail={performedByEmail}
         onPerformedByEmailChange={resetPageAnd(setPerformedByEmail)}
+        performers={performers ?? []}
       />
 
       {isLoading ? (

@@ -3349,6 +3349,18 @@ export const handlers = [
     })
   }),
 
+  http.get('/api/v1/audit/performers', () => {
+    const emails = [
+      ...new Set(
+        SEED_AUDIT_LOGS.map((entry) => entry.performedByEmail).filter(
+          (email): email is string => email != null,
+        ),
+      ),
+    ].sort()
+
+    return HttpResponse.json(emails.map((email) => ({ email })))
+  }),
+
   http.post('/api/v1/auth/login', async ({ request }) => {
     const body = (await request.json()) as LoginRequestBody
 

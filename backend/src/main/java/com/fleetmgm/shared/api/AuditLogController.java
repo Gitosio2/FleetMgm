@@ -3,6 +3,7 @@ package com.fleetmgm.shared.api;
 import com.fleetmgm.shared.PageResponse;
 import com.fleetmgm.shared.application.AuditLogService;
 import com.fleetmgm.shared.domain.AuditAction;
+import com.fleetmgm.shared.dto.AuditLogPerformerResponse;
 import com.fleetmgm.shared.dto.AuditLogResponse;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Instant;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/audit")
@@ -33,5 +35,11 @@ public class AuditLogController {
             @RequestParam(required = false) String performedByEmail,
             @PageableDefault(size = 20, sort = "performedAt") Pageable pageable) {
         return ResponseEntity.ok(auditLogService.list(entityType, action, from, to, performedByEmail, pageable));
+    }
+
+    // Small, unpaginated dropdown list — not a paginated resource, so no PageResponse wrapper.
+    @GetMapping("/performers")
+    public ResponseEntity<List<AuditLogPerformerResponse>> listPerformers() {
+        return ResponseEntity.ok(auditLogService.listPerformers());
     }
 }

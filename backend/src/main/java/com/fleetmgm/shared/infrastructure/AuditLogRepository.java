@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 public interface AuditLogRepository extends JpaRepository<AuditLog, UUID> {
@@ -27,4 +28,12 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, UUID> {
             @Param("entityType") String entityType, @Param("action") AuditAction action,
             @Param("from") Instant from, @Param("to") Instant to,
             @Param("performedByEmail") String performedByEmail, Pageable pageable);
+
+    // Distinct performers already present in audit_logs, for the frontend's user filter dropdown.
+    // Scoped to this feature on purpose — not a query against the full users table (see
+    // AuditLogPerformerResponse). performedByEmail can be null in theory (see AuditLog entity), so
+    // null rows are excluded to avoid a blank option; ordered by email for a stable dropdown.
+    @Query("SELECT DISTINCT a.performedByEmail FROM AuditLog a WHERE a.performedByEmail IS NOT NULL "
+            + "ORDER BY a.performedByEmail ASC")
+    List<String> findDistinctPerformerEmails();
 }

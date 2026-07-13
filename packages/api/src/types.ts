@@ -418,6 +418,10 @@ export type AuditLog = {
   details: string | null
 }
 
+export type AuditLogPerformer = {
+  email: string
+}
+
 export type GpsSource = 'MOCK' | 'DEVICE'
 
 export type GpsPosition = {
