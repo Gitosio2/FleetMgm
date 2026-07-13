@@ -3535,6 +3535,26 @@ export const handlers = [
     return HttpResponse.json(SEED_FINANCIAL_TREND.slice(-months))
   }),
 
+  // Registered after the more specific /reports/profitability/trend handler above — MSW matches
+  // handlers in array order, and this :vehicleId pattern would otherwise shadow /trend requests.
+  http.get('/api/v1/reports/profitability/:vehicleId', ({ params }) => {
+    const profitability = SEED_PROFITABILITY.find((entry) => entry.vehicleId === params.vehicleId)
+
+    if (!profitability) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'VEHICLE_NOT_FOUND',
+          message: `Vehicle ${params.vehicleId} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    return HttpResponse.json(profitability)
+  }),
+
   http.post('/api/v1/auth/login', async ({ request }) => {
     const body = (await request.json()) as LoginRequestBody
 

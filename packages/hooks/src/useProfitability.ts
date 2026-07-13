@@ -16,6 +16,17 @@ export function useProfitability(page = 0, size = 20) {
   })
 }
 
+export function useVehicleProfitability(vehicleId: string) {
+  return useQuery({
+    queryKey: [PROFITABILITY_KEY, 'vehicle', vehicleId],
+    queryFn: async () => {
+      const { data } = await apiClient.get<Profitability>(`/reports/profitability/${vehicleId}`)
+      return data
+    },
+    enabled: Boolean(vehicleId),
+  })
+}
+
 export const FINANCIAL_TREND_KEY = 'profitability-trend'
 
 export function useFinancialTrend(months: number) {
