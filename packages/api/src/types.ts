@@ -461,6 +461,15 @@ export type MonthlyFinancial = {
   costs: number
 }
 
+export type VehicleRevenueLineItem = {
+  invoiceNumber: string
+  issueDate: string
+  description: string
+  quantity: number
+  unitPrice: number
+  subtotal: number
+}
+
 export type GpsSource = 'MOCK' | 'DEVICE'
 
 export type GpsPosition = {

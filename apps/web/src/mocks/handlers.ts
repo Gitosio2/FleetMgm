@@ -1379,6 +1379,40 @@ export const SEED_PROFITABILITY: ProfitabilityMock[] = [
   },
 ]
 
+// vehicleId is mock-internal (used to filter by :vehicleId) — stripped before the handler
+// returns a response, since the real VehicleRevenueLineItem type has no vehicleId field
+// (already scoped by the URL path param).
+type VehicleRevenueLineItemMock = {
+  vehicleId: string
+  invoiceNumber: string
+  issueDate: string
+  description: string
+  quantity: number
+  unitPrice: number
+  subtotal: number
+}
+
+export const SEED_VEHICLE_REVENUE: VehicleRevenueLineItemMock[] = [
+  {
+    vehicleId: SEED_VEHICLES[0]!.id,
+    invoiceNumber: 'INV-2026-00001',
+    issueDate: '2026-07-05',
+    description: 'Transporte de mercancía',
+    quantity: 1,
+    unitPrice: 500,
+    subtotal: 500,
+  },
+  {
+    vehicleId: SEED_VEHICLES[0]!.id,
+    invoiceNumber: 'INV-2026-00002',
+    issueDate: '2026-06-15',
+    description: 'Transporte de mercancía',
+    quantity: 1,
+    unitPrice: 300,
+    subtotal: 300,
+  },
+]
+
 type MonthlyFinancialMock = {
   month: string
   revenue: number
@@ -2200,15 +2234,26 @@ export const handlers = [
     const url = new URL(request.url)
     const page = Number(url.searchParams.get('page') ?? 0)
     const size = Number(url.searchParams.get('size') ?? 20)
+    const vehicleId = url.searchParams.get('vehicleId')
+    const year = url.searchParams.get('year')
+    const month = url.searchParams.get('month')
+
+    const filtered = maintenanceRecords.filter((record) => {
+      if (vehicleId && record.vehicleId !== vehicleId) return false
+      if ((year || month) && !record.workshopEntryDate) return false
+      if (year && record.workshopEntryDate!.slice(0, 4) !== year) return false
+      if (month && Number(record.workshopEntryDate!.slice(5, 7)) !== Number(month)) return false
+      return true
+    })
     const start = page * size
-    const content = maintenanceRecords.slice(start, start + size)
+    const content = filtered.slice(start, start + size)
 
     return HttpResponse.json({
       content,
       page,
       size,
-      totalElements: maintenanceRecords.length,
-      totalPages: Math.max(1, Math.ceil(maintenanceRecords.length / size)),
+      totalElements: filtered.length,
+      totalPages: Math.max(1, Math.ceil(filtered.length / size)),
     })
   }),
 
@@ -3533,6 +3578,21 @@ export const handlers = [
     const months = Number(url.searchParams.get('months') ?? 6)
 
     return HttpResponse.json(SEED_FINANCIAL_TREND.slice(-months))
+  }),
+
+  // Registered before the :vehicleId catch-all below — same shadowing risk as /trend above,
+  // this time for the /:vehicleId/revenue sub-route.
+  http.get('/api/v1/reports/profitability/:vehicleId/revenue', ({ params, request }) => {
+    const url = new URL(request.url)
+    const year = url.searchParams.get('year')
+    const month = url.searchParams.get('month')
+
+    const content = SEED_VEHICLE_REVENUE.filter((item) => item.vehicleId === params.vehicleId)
+      .filter((item) => !year || item.issueDate.slice(0, 4) === year)
+      .filter((item) => !month || Number(item.issueDate.slice(5, 7)) === Number(month))
+      .map(({ vehicleId: _vehicleId, ...rest }) => rest)
+
+    return HttpResponse.json(content)
   }),
 
   // Registered after the more specific /reports/profitability/trend handler above — MSW matches
