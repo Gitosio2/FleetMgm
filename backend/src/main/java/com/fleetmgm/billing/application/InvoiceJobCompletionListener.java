@@ -13,6 +13,7 @@ import com.fleetmgm.shared.exception.NotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
@@ -47,7 +48,7 @@ public class InvoiceJobCompletionListener {
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void onJobCompleted(JobCompletedEvent event) {
         // AFTER_COMMIT: the triggering transaction already committed and the original HTTP call
         // already returned 200 OK, so an exception here can't roll anything back — it must be

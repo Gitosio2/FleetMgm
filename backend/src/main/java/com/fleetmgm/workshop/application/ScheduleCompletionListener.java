@@ -5,6 +5,7 @@ import com.fleetmgm.workshop.domain.WorkshopSchedule;
 import com.fleetmgm.workshop.domain.WorkshopStatus;
 import com.fleetmgm.workshop.infrastructure.WorkshopScheduleRepository;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
@@ -22,7 +23,7 @@ public class ScheduleCompletionListener {
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void onMaintenanceCompleted(MaintenanceCompletedEvent event) {
         // No manual /complete endpoint exists for WorkshopSchedule (Hito 25 decision) — a schedule only
         // becomes COMPLETED as a side effect of its linked maintenance record being completed. A schedule
