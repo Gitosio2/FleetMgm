@@ -3,20 +3,13 @@ import { useVehicleMaintenanceHistory, useVehicleProfitability, useVehicleRevenu
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { MaintenanceStatusBadge } from '@/components/workshop/MaintenanceStatusBadge'
 
-const MONTH_LABEL = [
-  'Enero',
-  'Febrero',
-  'Marzo',
-  'Abril',
-  'Mayo',
-  'Junio',
-  'Julio',
-  'Agosto',
-  'Septiembre',
-  'Octubre',
-  'Noviembre',
-  'Diciembre',
-]
+// Derived from Intl instead of hardcoded, same 'es-ES' + toLocaleDateString convention as
+// ProfitabilityChart's month-axis labels — capitalized because Spanish's Intl output is
+// lowercase ("enero") but every other label in this UI is capitalized (e.g. status badges).
+const MONTH_LABEL = Array.from({ length: 12 }, (_, index) => {
+  const label = new Date(2000, index, 1).toLocaleDateString('es-ES', { month: 'long' })
+  return label.charAt(0).toUpperCase() + label.slice(1)
+})
 
 const selectClassName =
   'flex h-9 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary-container'
