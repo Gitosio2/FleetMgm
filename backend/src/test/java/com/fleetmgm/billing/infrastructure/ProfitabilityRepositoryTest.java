@@ -34,6 +34,8 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase.Replace.NONE;
@@ -162,6 +164,49 @@ class ProfitabilityRepositoryTest {
 
         VehicleProfitabilityProjection projection = findByVehicleId(result, vehicle.getId());
         assertThat(projection.getCosts()).isEqualByComparingTo("200.00");
+    }
+
+    @Test
+    void findProfitabilityByVehicleId_computesRevenueAndCosts_forSingleVehicle() {
+        Vehicle vehicle = persistVehicle("7777GGG");
+        Client client = persistClient("33333333C");
+
+        Job job = persistJob(vehicle, JobStatus.COMPLETED);
+        Invoice invoice = persistInvoice(client, "INV-2026-00003", InvoiceStatus.ISSUED);
+        persistLineItem(invoice, new BigDecimal("300.00"), job);
+        persistMaintenanceRecord(vehicle, new BigDecimal("75.00"));
+
+        entityManager.getEntityManager().clear();
+
+        Optional<VehicleProfitabilityProjection> result =
+                profitabilityRepository.findProfitabilityByVehicleId(vehicle.getId());
+
+        assertThat(result).isPresent();
+        VehicleProfitabilityProjection projection = result.get();
+        assertThat(projection.getVehicleLicensePlate()).isEqualTo("7777GGG");
+        assertThat(projection.getRevenue()).isEqualByComparingTo("300.00");
+        assertThat(projection.getCosts()).isEqualByComparingTo("75.00");
+    }
+
+    @Test
+    void findProfitabilityByVehicleId_returnsEmpty_whenVehicleDoesNotExist() {
+        Optional<VehicleProfitabilityProjection> result =
+                profitabilityRepository.findProfitabilityByVehicleId(UUID.randomUUID());
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void findProfitabilityByVehicleId_returnsEmpty_whenVehicleIsSoftDeleted() {
+        Vehicle vehicle = persistVehicle("8888HHH");
+        vehicle.setDeletedAt(java.time.Instant.now());
+        entityManager.persistAndFlush(vehicle);
+        entityManager.getEntityManager().clear();
+
+        Optional<VehicleProfitabilityProjection> result =
+                profitabilityRepository.findProfitabilityByVehicleId(vehicle.getId());
+
+        assertThat(result).isEmpty();
     }
 
     private VehicleProfitabilityProjection findByVehicleId(Page<VehicleProfitabilityProjection> page, java.util.UUID vehicleId) {

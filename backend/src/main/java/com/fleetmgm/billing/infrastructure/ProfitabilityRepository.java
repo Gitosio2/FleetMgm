@@ -5,7 +5,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.Repository;
+import org.springframework.data.repository.query.Param;
 
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -58,4 +60,41 @@ public interface ProfitabilityRepository extends Repository<Vehicle, UUID> {
             countQuery = "SELECT count(*) FROM vehicles v WHERE v.deleted_at IS NULL",
             nativeQuery = true)
     Page<VehicleProfitabilityProjection> findProfitabilityByVehicle(Pageable pageable);
+
+    // Intentional duplication of the aggregation SQL above, scoped to a single vehicle instead of
+    // a page. Not refactored into a shared SQL fragment/Java constant/PostgreSQL view — that's out
+    // of scope for this slice. planning.md's "Rentabilidad" section already flags a PostgreSQL view
+    // as a possible future alternative if this duplication becomes a maintenance problem.
+    @Query(value = """
+            SELECT v.id AS vehicleId,
+                   v.license_plate AS vehicleLicensePlate,
+                   v.make AS vehicleMake,
+                   v.model AS vehicleModel,
+                   COALESCE((SELECT SUM(ili.subtotal)
+                             FROM invoice_line_items ili
+                             JOIN jobs j ON ili.linked_job_id = j.id
+                             JOIN invoices inv ON ili.invoice_id = inv.id
+                             WHERE j.vehicle_id = v.id
+                               AND j.deleted_at IS NULL
+                               AND inv.deleted_at IS NULL), 0) AS revenue,
+                   COALESCE((SELECT SUM(mr.cost)
+                             FROM maintenance_records mr
+                             WHERE mr.vehicle_id = v.id
+                               AND mr.deleted_at IS NULL), 0)
+                   + COALESCE((SELECT SUM(si.total)
+                               FROM supplier_invoices si
+                               WHERE si.vehicle_id = v.id
+                                 AND si.deleted_at IS NULL), 0)
+                   + COALESCE((SELECT SUM(sili.subtotal)
+                               FROM supplier_invoice_line_items sili
+                               JOIN supplier_invoices si2 ON sili.invoice_id = si2.id
+                               WHERE sili.vehicle_id = v.id
+                                 AND si2.vehicle_id IS NULL
+                                 AND si2.deleted_at IS NULL), 0) AS costs
+            FROM vehicles v
+            WHERE v.id = :vehicleId
+              AND v.deleted_at IS NULL
+            """,
+            nativeQuery = true)
+    Optional<VehicleProfitabilityProjection> findProfitabilityByVehicleId(@Param("vehicleId") UUID vehicleId);
 }

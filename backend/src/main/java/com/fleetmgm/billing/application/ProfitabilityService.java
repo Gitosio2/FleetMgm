@@ -4,10 +4,13 @@ import com.fleetmgm.billing.dto.ProfitabilityResponse;
 import com.fleetmgm.billing.infrastructure.ProfitabilityRepository;
 import com.fleetmgm.billing.infrastructure.VehicleProfitabilityProjection;
 import com.fleetmgm.shared.PageResponse;
+import com.fleetmgm.shared.exception.NotFoundException;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.UUID;
 
 @Service
 public class ProfitabilityService {
@@ -29,6 +32,14 @@ public class ProfitabilityService {
     public PageResponse<ProfitabilityResponse> list(Pageable pageable) {
         return PageResponse.from(profitabilityRepository.findProfitabilityByVehicle(pageable)
                 .map(this::toResponse));
+    }
+
+    @Transactional(readOnly = true)
+    @PreAuthorize(ROLES)
+    public ProfitabilityResponse getByVehicleId(UUID vehicleId) {
+        VehicleProfitabilityProjection projection = profitabilityRepository.findProfitabilityByVehicleId(vehicleId)
+                .orElseThrow(() -> new NotFoundException("VEHICLE_NOT_FOUND", "Vehicle " + vehicleId + " not found"));
+        return toResponse(projection);
     }
 
     // margin is derived math (revenue - costs) — computed here in the application layer, not in

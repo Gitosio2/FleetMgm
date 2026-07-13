@@ -4,6 +4,7 @@ import com.fleetmgm.billing.dto.ProfitabilityResponse;
 import com.fleetmgm.billing.infrastructure.ProfitabilityRepository;
 import com.fleetmgm.billing.infrastructure.VehicleProfitabilityProjection;
 import com.fleetmgm.shared.PageResponse;
+import com.fleetmgm.shared.exception.NotFoundException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -15,9 +16,11 @@ import org.springframework.data.domain.Pageable;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -78,6 +81,39 @@ class ProfitabilityServiceTest {
         ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
         verify(profitabilityRepository).findProfitabilityByVehicle(captor.capture());
         assertThat(captor.getValue()).isEqualTo(pageable);
+    }
+
+    @Test
+    void getByVehicleId_mapsProjection_toResponse() {
+        profitabilityService = new ProfitabilityService(profitabilityRepository);
+        UUID vehicleId = UUID.randomUUID();
+        VehicleProfitabilityProjection projection = buildProjection(
+                vehicleId, "9999III", "Renault", "Kangoo", new BigDecimal("800.00"), new BigDecimal("300.00"));
+        when(profitabilityRepository.findProfitabilityByVehicleId(vehicleId))
+                .thenReturn(Optional.of(projection));
+
+        ProfitabilityResponse response = profitabilityService.getByVehicleId(vehicleId);
+
+        assertThat(response.vehicleId()).isEqualTo(vehicleId);
+        assertThat(response.vehicleLicensePlate()).isEqualTo("9999III");
+        assertThat(response.vehicleMake()).isEqualTo("Renault");
+        assertThat(response.vehicleModel()).isEqualTo("Kangoo");
+        assertThat(response.revenue()).isEqualByComparingTo("800.00");
+        assertThat(response.costs()).isEqualByComparingTo("300.00");
+        assertThat(response.margin()).isEqualByComparingTo("500.00");
+    }
+
+    @Test
+    void getByVehicleId_throwsNotFoundException_whenVehicleUnknown() {
+        profitabilityService = new ProfitabilityService(profitabilityRepository);
+        UUID vehicleId = UUID.randomUUID();
+        when(profitabilityRepository.findProfitabilityByVehicleId(vehicleId))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> profitabilityService.getByVehicleId(vehicleId))
+                .isInstanceOf(NotFoundException.class)
+                .extracting(ex -> ((NotFoundException) ex).getCode())
+                .isEqualTo("VEHICLE_NOT_FOUND");
     }
 
     private VehicleProfitabilityProjection buildProjection(UUID vehicleId, String licensePlate, String make,
