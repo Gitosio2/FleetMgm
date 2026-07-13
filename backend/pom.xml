@@ -189,6 +189,19 @@
                     <excludedGroups>${surefire.excludedGroups}</excludedGroups>
                     <!-- Required for Mockito/ByteBuddy to work on Java 24+ -->
                     <argLine>-Dnet.bytebuddy.experimental=true</argLine>
+                    <!-- Surefire's own defaults (**/*Test.java, **/*Tests.java, **/*TestCase.java) don't
+                         match the *IT naming convention used for full-flow @SpringBootTest classes
+                         (AuthFlowIT, JobLifecycleIT, InvoiceFlowIT) — there's no Failsafe plugin bound
+                         in this build (see the `failsafe` profile below), so *IT classes must be added
+                         to Surefire's own discovery patterns explicitly, alongside the defaults, or
+                         they're silently skipped by a plain `mvn test`/`mvn verify -Pfailsafe`. -->
+                    <includes>
+                        <include>**/Test*.java</include>
+                        <include>**/*Test.java</include>
+                        <include>**/*Tests.java</include>
+                        <include>**/*TestCase.java</include>
+                        <include>**/*IT.java</include>
+                    </includes>
                 </configuration>
             </plugin>
             <plugin>

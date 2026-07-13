@@ -1709,9 +1709,15 @@ FleetMgm/
 - [x] **[GREEN]** `VehicleProfitabilityPanel` — selector mes (ene-dic) + año (nativo `<select>`, mismo patrón que `AuditLogFilters`), dos listas ("Historial de mantenimientos", "Historial de ingresos") con total calculado en el cliente sumando el listado filtrado, hooks nuevos `useVehicleMaintenanceHistory`/`useVehicleRevenue` en `packages/hooks/src/useMaintenance.ts`/`useProfitability.ts`. Selector por defecto al mes/año actuales.
 
 ### Hito 45 — Tests de integración (`@SpringBootTest` + Testcontainers)
-- [ ] `AuthFlowIT` — login correcto → JWT → endpoint protegido; 5 intentos fallidos → cuenta bloqueada → 401
-- [ ] `JobLifecycleIT` — crear job → iniciar → completar → verificar `UsageLog` creado y `currentKm` actualizado
-- [ ] `InvoiceFlowIT` — crear DRAFT → añadir línea → emitir → pagar → descargar PDF
+> Primeros tests `@SpringBootTest` de todo el proyecto (hasta ahora solo `@DataJpaTest`/`@WebMvcTest`/Mockito) — cargar el contexto completo por primera vez expuso 3 bugs preexistentes, invisibles a los tests unitarios/mockeados:
+> 1. **8 listeners `@TransactionalEventListener(phase = AFTER_COMMIT)` con `@Transactional` simple** (`JobEventListener`, `InvoiceJobCompletionListener`, `MaintenanceEventListener` ×2, `ScheduleCreationListener`, `ScheduleCompletionListener`, `ScheduleCancellationListener` ×2) — Spring 6.2 rechaza arrancar el contexto con esa combinación salvo `REQUIRES_NEW`/`NOT_SUPPORTED`. Corregido a `@Transactional(propagation = Propagation.REQUIRES_NEW)` en los 8.
+> 2. **`AuditLog.oldValues`/`newValues` (`jsonb`) sin `@JdbcTypeCode(SqlTypes.JSON)`** — Hibernate bindeaba el parámetro como `VARCHAR` plano; Postgres rechaza el INSERT por mismatch de tipo en el protocolo extendido, incluso con valor `null`. Nunca se había escrito una fila de `audit_logs` contra Postgres real (solo `@WebMvcTest` con el servicio mockeado).
+> 3. **`AuthService.login()` — el contador de intentos fallidos nunca se persistía**: `@Transactional` (default) hace rollback en cualquier `RuntimeException`, y `login()` guarda el intento fallido y LUEGO lanza `BadCredentialsException` — el rollback deshacía el `save()`. El bloqueo de cuenta era funcionalmente inexistente en producción. Corregido con `@Transactional(noRollbackFor = BadCredentialsException.class)`. `AuthServiceTest` (Mockito) nunca lo detectó porque no hay transacción real de por medio.
+>
+> Además: los nombres `*IT` (pedidos así en este hito) no calzan con los patrones de descubrimiento por defecto de Surefire (`**/*Test.java` etc.) — no hay plugin Failsafe en este `pom.xml`, solo el profile `failsafe` que limpia `excludedGroups`. Sin agregar `**/*IT.java` a `<includes>`, `mvn verify -Pfailsafe` corría igual sin ejecutar ninguno de los 3 tests nuevos. Corregido en `maven-surefire-plugin`.
+- [x] `AuthFlowIT` — login correcto → JWT → endpoint protegido; 5 intentos fallidos → cuenta bloqueada → 401
+- [x] `JobLifecycleIT` — crear job → iniciar → completar → verificar `UsageLog` creado y `currentKm` actualizado
+- [x] `InvoiceFlowIT` — crear DRAFT → añadir línea → emitir → pagar → descargar PDF
 
 ### Hito 46 — Demo y hardening final
 - [ ] `docker-compose.yml` — postgres:16 + backend + apps/web (nginx), health checks, `depends_on`
