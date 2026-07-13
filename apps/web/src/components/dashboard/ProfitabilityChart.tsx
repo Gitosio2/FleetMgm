@@ -14,21 +14,18 @@ type ProfitabilityChartProps = {
   data: MonthlyFinancial[]
 }
 
-// Validated against this app's actual dark surface (#0b1326) with the dataviz skill's palette
-// validator — the app's own semantic tokens (primary/secondary/etc.) failed the categorical
-// lightness-band check and are UI chrome only, not chart-safe. These two hex values passed
-// lightness band, chroma floor, CVD separation (ΔE 69.8), and contrast (>=3:1). Recharts consumes
-// SVG `fill`/`stroke` as plain strings, so a JS constant is simpler here than a CSS custom property.
+// Defined in apps/web/src/index.css's @theme block (validated there against this app's actual
+// dark surface with the dataviz skill's palette validator) — SVG presentation attributes like
+// `fill` participate in the CSS cascade in modern browsers, so `var(--color-x)` resolves here the
+// same way it would in a stylesheet.
 const CHART_COLORS = {
-  revenue: '#3987e5',
-  costs: '#199e70',
+  revenue: 'var(--color-chart-revenue)',
+  costs: 'var(--color-chart-costs)',
 } as const
 
-// Muted axis ink and recessive gridline, matching the `text-on-surface-variant` /
-// `outline-variant` tokens already used elsewhere (e.g. FleetKpiCards.tsx) — Recharts renders
-// SVG text/stroke directly, so it needs the resolved hex value, not a Tailwind class.
-const AXIS_TICK_COLOR = '#c1c7c9'
-const GRID_STROKE_COLOR = '#42484a'
+// Muted axis ink and recessive gridline, reusing this app's existing design tokens.
+const AXIS_TICK_COLOR = 'var(--color-on-surface-variant)'
+const GRID_STROKE_COLOR = 'var(--color-outline-variant)'
 
 function monthLabel(month: string) {
   return new Date(`${month}-01`).toLocaleDateString('es-ES', { month: 'short', year: 'numeric' })
@@ -54,8 +51,11 @@ export function ProfitabilityChart({ data }: ProfitabilityChartProps) {
           <YAxis tick={{ fill: AXIS_TICK_COLOR }} />
           <Tooltip
             formatter={(value) => formatCurrency(Number(value))}
-            contentStyle={{ backgroundColor: '#171f33', border: '1px solid #42484a' }}
-            labelStyle={{ color: '#dae2fd' }}
+            contentStyle={{
+              backgroundColor: 'var(--color-surface-container)',
+              border: '1px solid var(--color-outline-variant)',
+            }}
+            labelStyle={{ color: 'var(--color-on-surface)' }}
           />
           <Legend />
           <Bar dataKey="revenue" name="Ingresos" fill={CHART_COLORS.revenue} />

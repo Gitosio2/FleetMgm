@@ -41,6 +41,13 @@
 
   --color-background: #0b1326;
   --color-on-background: #dae2fd;
+
+  /* Categorical chart series — validated with the dataviz skill's palette validator against this
+     app's actual dark surface (#0b1326), not derived from the semantic tokens above (those failed
+     the categorical lightness-band check — they're UI chrome, not chart-safe). Fixed hue order:
+     revenue is always the first slot, costs the second, across every chart in this app. */
+  --color-chart-revenue: #3987e5;
+  --color-chart-costs: #199e70;
 }
 
 :root {
