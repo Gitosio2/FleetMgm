@@ -1,11 +1,15 @@
 package com.fleetmgm.billing.application;
 
+import com.fleetmgm.billing.domain.InvoiceLineItem;
 import com.fleetmgm.billing.dto.MonthlyFinancialResponse;
 import com.fleetmgm.billing.dto.ProfitabilityResponse;
+import com.fleetmgm.billing.dto.VehicleRevenueLineItemResponse;
+import com.fleetmgm.billing.infrastructure.LineItemRepository;
 import com.fleetmgm.billing.infrastructure.ProfitabilityRepository;
 import com.fleetmgm.billing.infrastructure.VehicleProfitabilityProjection;
 import com.fleetmgm.shared.PageResponse;
 import com.fleetmgm.shared.exception.NotFoundException;
+import com.fleetmgm.vehicle.infrastructure.VehicleRepository;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
@@ -32,9 +36,15 @@ public class ProfitabilityService {
     private static final int MAX_MONTHS = 12;
 
     private final ProfitabilityRepository profitabilityRepository;
+    private final VehicleRepository vehicleRepository;
+    private final LineItemRepository lineItemRepository;
 
-    public ProfitabilityService(ProfitabilityRepository profitabilityRepository) {
+    public ProfitabilityService(ProfitabilityRepository profitabilityRepository,
+                                 VehicleRepository vehicleRepository,
+                                 LineItemRepository lineItemRepository) {
         this.profitabilityRepository = profitabilityRepository;
+        this.vehicleRepository = vehicleRepository;
+        this.lineItemRepository = lineItemRepository;
     }
 
     @Transactional(readOnly = true)
@@ -65,6 +75,32 @@ public class ProfitabilityService {
         return profitabilityRepository.findMonthlyFinancialTrend(from, to).stream()
                 .map(p -> new MonthlyFinancialResponse(p.getMonth(), p.getRevenue(), p.getCosts()))
                 .toList();
+    }
+
+    // Historial de ingresos (Hito 44) — per-vehicle invoice line items for a given month/year,
+    // backing the "Historial de ingresos" list in VehicleProfitabilityPanel. Existence check is
+    // explicit here (unlike getByVehicleId, which relies on the aggregate projection being absent)
+    // because an empty line-item list is also the correct result for a real vehicle with no revenue
+    // in the given period — the two cases must be distinguishable.
+    @Transactional(readOnly = true)
+    @PreAuthorize(ROLES)
+    public List<VehicleRevenueLineItemResponse> getRevenueByVehicle(UUID vehicleId, Integer year, Integer month) {
+        vehicleRepository.findById(vehicleId)
+                .orElseThrow(() -> new NotFoundException("VEHICLE_NOT_FOUND", "Vehicle " + vehicleId + " not found"));
+        return lineItemRepository.findAllByVehicleIdAndPeriod(vehicleId, year, month).stream()
+                .map(this::toRevenueResponse)
+                .toList();
+    }
+
+    private VehicleRevenueLineItemResponse toRevenueResponse(InvoiceLineItem lineItem) {
+        return new VehicleRevenueLineItemResponse(
+                lineItem.getInvoice().getInvoiceNumber(),
+                lineItem.getInvoice().getIssueDate(),
+                lineItem.getDescription(),
+                lineItem.getQuantity(),
+                lineItem.getUnitPrice(),
+                lineItem.getSubtotal()
+        );
     }
 
     // margin is derived math (revenue - costs) — computed here in the application layer, not in

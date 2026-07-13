@@ -4,6 +4,7 @@ import com.fleetmgm.auth.infrastructure.JwtAuthenticationFilter;
 import com.fleetmgm.billing.application.ProfitabilityService;
 import com.fleetmgm.billing.dto.MonthlyFinancialResponse;
 import com.fleetmgm.billing.dto.ProfitabilityResponse;
+import com.fleetmgm.billing.dto.VehicleRevenueLineItemResponse;
 import com.fleetmgm.shared.PageResponse;
 import com.fleetmgm.shared.exception.NotFoundException;
 import org.junit.jupiter.api.Test;
@@ -15,10 +16,13 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -78,6 +82,43 @@ class ProfitabilityControllerTest {
                 .thenThrow(new NotFoundException("VEHICLE_NOT_FOUND", "Vehicle " + VEHICLE_ID + " not found"));
 
         mockMvc.perform(get("/api/v1/reports/profitability/{vehicleId}", VEHICLE_ID))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("VEHICLE_NOT_FOUND"));
+    }
+
+    // --- GET /api/v1/reports/profitability/{vehicleId}/revenue ---
+
+    @Test
+    void getRevenueByVehicle_returns200_withLineItems() throws Exception {
+        VehicleRevenueLineItemResponse response = new VehicleRevenueLineItemResponse(
+                "INV-2026-00001", LocalDate.of(2026, 7, 5), "Transport",
+                new BigDecimal("2"), new BigDecimal("50.00"), new BigDecimal("100.00"));
+        when(profitabilityService.getRevenueByVehicle(eq(VEHICLE_ID), isNull(), isNull()))
+                .thenReturn(List.of(response));
+
+        mockMvc.perform(get("/api/v1/reports/profitability/{vehicleId}/revenue", VEHICLE_ID))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].invoiceNumber").value("INV-2026-00001"))
+                .andExpect(jsonPath("$[0].subtotal").value(100.00));
+    }
+
+    @Test
+    void getRevenueByVehicle_forwardsYearAndMonthQueryParams() throws Exception {
+        when(profitabilityService.getRevenueByVehicle(VEHICLE_ID, 2026, 7)).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/v1/reports/profitability/{vehicleId}/revenue", VEHICLE_ID)
+                        .param("year", "2026")
+                        .param("month", "7"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray());
+    }
+
+    @Test
+    void getRevenueByVehicle_returns404_whenVehicleMissing() throws Exception {
+        when(profitabilityService.getRevenueByVehicle(eq(VEHICLE_ID), isNull(), isNull()))
+                .thenThrow(new NotFoundException("VEHICLE_NOT_FOUND", "Vehicle " + VEHICLE_ID + " not found"));
+
+        mockMvc.perform(get("/api/v1/reports/profitability/{vehicleId}/revenue", VEHICLE_ID))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("VEHICLE_NOT_FOUND"));
     }

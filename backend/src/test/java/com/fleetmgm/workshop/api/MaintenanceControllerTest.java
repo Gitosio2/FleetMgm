@@ -52,11 +52,24 @@ class MaintenanceControllerTest {
     @Test
     void list_returns200_withPage() throws Exception {
         PageResponse<MaintenanceResponse> page = new PageResponse<>(List.of(sampleResponse()), 0, 20, 1, 1);
-        when(maintenanceService.list(any(Pageable.class))).thenReturn(page);
+        when(maintenanceService.list(any(), any(), any(), any(Pageable.class))).thenReturn(page);
 
         mockMvc.perform(get("/api/v1/maintenance"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    @Test
+    void list_forwardsVehicleIdYearAndMonthQueryParams() throws Exception {
+        PageResponse<MaintenanceResponse> page = new PageResponse<>(List.of(sampleResponse()), 0, 20, 1, 1);
+        when(maintenanceService.list(eq(VEHICLE_ID), eq(2026), eq(7), any(Pageable.class))).thenReturn(page);
+
+        mockMvc.perform(get("/api/v1/maintenance")
+                        .param("vehicleId", VEHICLE_ID.toString())
+                        .param("year", "2026")
+                        .param("month", "7"))
+                .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(1));
     }
 

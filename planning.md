@@ -1700,11 +1700,11 @@ FleetMgm/
 
 ### Hito 44 — Historial de mantenimientos e ingresos por vehículo
 > Extiende `VehicleProfitabilityPanel` (Hito 43) con dos listados filtrables por mes/año, no una vista nueva.
-- [ ] **[RED]** Tests `MaintenanceRepositoryTest`/`MaintenanceControllerTest` — filtro opcional `vehicleId`/`year`/`month` sobre `GET /api/v1/maintenance`
-- [ ] **[GREEN]** `MaintenanceRepository.findAllJoinFetch` — añade `(:vehicleId IS NULL OR ...)`, `(:year IS NULL OR FUNCTION('YEAR', workshopEntryDate) = :year)`, `(:month IS NULL OR FUNCTION('MONTH', workshopEntryDate) = :month)` (mismo idiom que `SupplierInvoiceRepository`)
-- [ ] **[RED]** Tests `LineItemRepositoryTest` — nueva query de líneas de factura por vehículo+periodo
-- [ ] **[GREEN]** `LineItemRepository.findAllByVehicleIdAndPeriod` — JPQL puro (no nativo — `InvoiceLineItem.linkedJob.vehicle` es una relación JPA real, a diferencia de la agregación de `ProfitabilityRepository`), filtrado por `linkedJob.vehicle.id` + año/mes de `invoice.issueDate`
-- [ ] **[GREEN]** Nuevo `VehicleRevenueLineItemResponse` (record) + `GET /api/v1/reports/profitability/{vehicleId}/revenue?year=&month=` en `ProfitabilityController`/`ProfitabilityService`
+- [x] **[RED]** Tests `MaintenanceRepositoryTest`/`MaintenanceControllerTest` — filtro opcional `vehicleId`/`year`/`month` sobre `GET /api/v1/maintenance`
+- [x] **[GREEN]** `MaintenanceRepository.findAllJoinFetch` — añade `(:vehicleId IS NULL OR ...)`, `(:year IS NULL OR EXTRACT(YEAR FROM workshopEntryDate) = :year)`, `(:month IS NULL OR EXTRACT(MONTH FROM workshopEntryDate) = :month)` (mismo idiom que `SupplierInvoiceRepository`; `FUNCTION('YEAR', ...)` se descartó porque se traduce a `year(...)`, inexistente en PostgreSQL — `EXTRACT` es JPQL estándar y Postgres lo soporta nativo)
+- [x] **[RED]** Tests `LineItemRepositoryTest` — nueva query de líneas de factura por vehículo+periodo
+- [x] **[GREEN]** `LineItemRepository.findAllByVehicleIdAndPeriod` — JPQL puro (no nativo — `InvoiceLineItem.linkedJob.vehicle` es una relación JPA real, a diferencia de la agregación de `ProfitabilityRepository`), filtrado por `linkedJob.vehicle.id` + año/mes de `invoice.issueDate`. `LineItemRepository` ya existía (`findAllByInvoiceId`/`findAllByInvoiceIdIn` para `InvoiceService`) — se agregó el método ahí, no un archivo nuevo.
+- [x] **[GREEN]** Nuevo `VehicleRevenueLineItemResponse` (record) + `GET /api/v1/reports/profitability/{vehicleId}/revenue?year=&month=` en `ProfitabilityController`/`ProfitabilityService`
 - [ ] **[RED]** Tests `Vehicles.test.tsx` — selector de mes/año filtra ambos listados dentro del diálogo de rentabilidad
 - [ ] **[GREEN]** `VehicleProfitabilityPanel` — selector mes (ene-dic) + año, dos listas ("Historial de mantenimientos", "Historial de ingresos") con total calculado del listado filtrado, hooks nuevos en `packages/hooks/src/useMaintenance.ts`/`useProfitability.ts`
 

@@ -3,6 +3,7 @@ package com.fleetmgm.billing.api;
 import com.fleetmgm.billing.application.ProfitabilityService;
 import com.fleetmgm.billing.dto.MonthlyFinancialResponse;
 import com.fleetmgm.billing.dto.ProfitabilityResponse;
+import com.fleetmgm.billing.dto.VehicleRevenueLineItemResponse;
 import com.fleetmgm.shared.PageResponse;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -36,6 +37,17 @@ public class ProfitabilityController {
     @GetMapping("/{vehicleId}")
     public ResponseEntity<ProfitabilityResponse> getByVehicleId(@PathVariable UUID vehicleId) {
         return ResponseEntity.ok(profitabilityService.getByVehicleId(vehicleId));
+    }
+
+    // Historial de ingresos (Hito 44) — declared alongside /trend as a static-looking sub-path of
+    // /{vehicleId}; Spring MVC resolves "/revenue" as a literal segment rather than a second
+    // path-variable capture, same precedent as /trend above.
+    @GetMapping("/{vehicleId}/revenue")
+    public ResponseEntity<List<VehicleRevenueLineItemResponse>> getRevenueByVehicle(
+            @PathVariable UUID vehicleId,
+            @RequestParam(required = false) Integer year,
+            @RequestParam(required = false) Integer month) {
+        return ResponseEntity.ok(profitabilityService.getRevenueByVehicle(vehicleId, year, month));
     }
 
     // Fleet-wide monthly Ingresos/Gastos trend backing the Dashboard chart (Hito 43 redesign).

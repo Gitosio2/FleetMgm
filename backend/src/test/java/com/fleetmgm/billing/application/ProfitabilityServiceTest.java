@@ -1,12 +1,18 @@
 package com.fleetmgm.billing.application;
 
+import com.fleetmgm.billing.domain.Invoice;
+import com.fleetmgm.billing.domain.InvoiceLineItem;
 import com.fleetmgm.billing.dto.MonthlyFinancialResponse;
 import com.fleetmgm.billing.dto.ProfitabilityResponse;
+import com.fleetmgm.billing.dto.VehicleRevenueLineItemResponse;
+import com.fleetmgm.billing.infrastructure.LineItemRepository;
 import com.fleetmgm.billing.infrastructure.MonthlyFinancialProjection;
 import com.fleetmgm.billing.infrastructure.ProfitabilityRepository;
 import com.fleetmgm.billing.infrastructure.VehicleProfitabilityProjection;
 import com.fleetmgm.shared.PageResponse;
 import com.fleetmgm.shared.exception.NotFoundException;
+import com.fleetmgm.vehicle.domain.Vehicle;
+import com.fleetmgm.vehicle.infrastructure.VehicleRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -33,11 +39,13 @@ import static org.mockito.Mockito.when;
 class ProfitabilityServiceTest {
 
     @Mock ProfitabilityRepository profitabilityRepository;
+    @Mock VehicleRepository vehicleRepository;
+    @Mock LineItemRepository lineItemRepository;
     ProfitabilityService profitabilityService;
 
     @Test
     void list_computesMargin_asRevenueMinusCosts() {
-        profitabilityService = new ProfitabilityService(profitabilityRepository);
+        profitabilityService = new ProfitabilityService(profitabilityRepository, vehicleRepository, lineItemRepository);
         UUID vehicleId = UUID.randomUUID();
         VehicleProfitabilityProjection projection = buildProjection(
                 vehicleId, "1111AAA", "Toyota", "Hilux", new BigDecimal("1000.00"), new BigDecimal("400.00"));
@@ -60,7 +68,7 @@ class ProfitabilityServiceTest {
 
     @Test
     void list_allowsNegativeMargin_whenCostsExceedRevenue() {
-        profitabilityService = new ProfitabilityService(profitabilityRepository);
+        profitabilityService = new ProfitabilityService(profitabilityRepository, vehicleRepository, lineItemRepository);
         UUID vehicleId = UUID.randomUUID();
         VehicleProfitabilityProjection projection = buildProjection(
                 vehicleId, "2222BBB", "Ford", "Transit", new BigDecimal("100.00"), new BigDecimal("350.00"));
@@ -76,7 +84,7 @@ class ProfitabilityServiceTest {
 
     @Test
     void list_passesPageableThrough_toRepository() {
-        profitabilityService = new ProfitabilityService(profitabilityRepository);
+        profitabilityService = new ProfitabilityService(profitabilityRepository, vehicleRepository, lineItemRepository);
         Pageable pageable = PageRequest.of(2, 10);
         when(profitabilityRepository.findProfitabilityByVehicle(pageable))
                 .thenReturn(new PageImpl<>(List.of(), pageable, 0));
@@ -90,7 +98,7 @@ class ProfitabilityServiceTest {
 
     @Test
     void getByVehicleId_mapsProjection_toResponse() {
-        profitabilityService = new ProfitabilityService(profitabilityRepository);
+        profitabilityService = new ProfitabilityService(profitabilityRepository, vehicleRepository, lineItemRepository);
         UUID vehicleId = UUID.randomUUID();
         VehicleProfitabilityProjection projection = buildProjection(
                 vehicleId, "9999III", "Renault", "Kangoo", new BigDecimal("800.00"), new BigDecimal("300.00"));
@@ -110,7 +118,7 @@ class ProfitabilityServiceTest {
 
     @Test
     void getByVehicleId_throwsNotFoundException_whenVehicleUnknown() {
-        profitabilityService = new ProfitabilityService(profitabilityRepository);
+        profitabilityService = new ProfitabilityService(profitabilityRepository, vehicleRepository, lineItemRepository);
         UUID vehicleId = UUID.randomUUID();
         when(profitabilityRepository.findProfitabilityByVehicleId(vehicleId))
                 .thenReturn(Optional.empty());
@@ -123,7 +131,7 @@ class ProfitabilityServiceTest {
 
     @Test
     void getFinancialTrend_mapsProjections_toResponses() {
-        profitabilityService = new ProfitabilityService(profitabilityRepository);
+        profitabilityService = new ProfitabilityService(profitabilityRepository, vehicleRepository, lineItemRepository);
         MonthlyFinancialProjection projection =
                 buildMonthlyProjection("2026-06", new BigDecimal("1000.00"), new BigDecimal("400.00"));
         when(profitabilityRepository.findMonthlyFinancialTrend(any(), any()))
@@ -139,7 +147,7 @@ class ProfitabilityServiceTest {
 
     @Test
     void getFinancialTrend_computesFromAndTo_forGivenMonthsWindow() {
-        profitabilityService = new ProfitabilityService(profitabilityRepository);
+        profitabilityService = new ProfitabilityService(profitabilityRepository, vehicleRepository, lineItemRepository);
         when(profitabilityRepository.findMonthlyFinancialTrend(any(), any())).thenReturn(List.of());
 
         profitabilityService.getFinancialTrend(6);
@@ -155,7 +163,7 @@ class ProfitabilityServiceTest {
 
     @Test
     void getFinancialTrend_clampsMonths_whenBelowMinimum() {
-        profitabilityService = new ProfitabilityService(profitabilityRepository);
+        profitabilityService = new ProfitabilityService(profitabilityRepository, vehicleRepository, lineItemRepository);
         when(profitabilityRepository.findMonthlyFinancialTrend(any(), any())).thenReturn(List.of());
 
         profitabilityService.getFinancialTrend(0);
@@ -168,7 +176,7 @@ class ProfitabilityServiceTest {
 
     @Test
     void getFinancialTrend_clampsMonths_whenAboveMaximum() {
-        profitabilityService = new ProfitabilityService(profitabilityRepository);
+        profitabilityService = new ProfitabilityService(profitabilityRepository, vehicleRepository, lineItemRepository);
         when(profitabilityRepository.findMonthlyFinancialTrend(any(), any())).thenReturn(List.of());
 
         profitabilityService.getFinancialTrend(50);
@@ -177,6 +185,54 @@ class ProfitabilityServiceTest {
         verify(profitabilityRepository).findMonthlyFinancialTrend(fromCaptor.capture(), any());
         YearMonth currentMonth = YearMonth.now();
         assertThat(fromCaptor.getValue()).isEqualTo(currentMonth.minusMonths(11).atDay(1));
+    }
+
+    @Test
+    void getRevenueByVehicle_mapsLineItems_toResponses() {
+        profitabilityService = new ProfitabilityService(profitabilityRepository, vehicleRepository, lineItemRepository);
+        UUID vehicleId = UUID.randomUUID();
+        when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(new Vehicle()));
+        InvoiceLineItem lineItem = buildLineItem("INV-2026-00001", LocalDate.of(2026, 7, 5), "Transport",
+                new BigDecimal("2"), new BigDecimal("50.00"), new BigDecimal("100.00"));
+        when(lineItemRepository.findAllByVehicleIdAndPeriod(vehicleId, 2026, 7))
+                .thenReturn(List.of(lineItem));
+
+        List<VehicleRevenueLineItemResponse> result = profitabilityService.getRevenueByVehicle(vehicleId, 2026, 7);
+
+        assertThat(result).hasSize(1);
+        VehicleRevenueLineItemResponse response = result.get(0);
+        assertThat(response.invoiceNumber()).isEqualTo("INV-2026-00001");
+        assertThat(response.issueDate()).isEqualTo(LocalDate.of(2026, 7, 5));
+        assertThat(response.description()).isEqualTo("Transport");
+        assertThat(response.quantity()).isEqualByComparingTo("2");
+        assertThat(response.unitPrice()).isEqualByComparingTo("50.00");
+        assertThat(response.subtotal()).isEqualByComparingTo("100.00");
+    }
+
+    @Test
+    void getRevenueByVehicle_throwsNotFoundException_whenVehicleUnknown() {
+        profitabilityService = new ProfitabilityService(profitabilityRepository, vehicleRepository, lineItemRepository);
+        UUID vehicleId = UUID.randomUUID();
+        when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> profitabilityService.getRevenueByVehicle(vehicleId, null, null))
+                .isInstanceOf(NotFoundException.class)
+                .extracting(ex -> ((NotFoundException) ex).getCode())
+                .isEqualTo("VEHICLE_NOT_FOUND");
+    }
+
+    private InvoiceLineItem buildLineItem(String invoiceNumber, LocalDate issueDate, String description,
+                                           BigDecimal quantity, BigDecimal unitPrice, BigDecimal subtotal) {
+        Invoice invoice = new Invoice();
+        invoice.setInvoiceNumber(invoiceNumber);
+        invoice.setIssueDate(issueDate);
+        InvoiceLineItem lineItem = new InvoiceLineItem();
+        lineItem.setInvoice(invoice);
+        lineItem.setDescription(description);
+        lineItem.setQuantity(quantity);
+        lineItem.setUnitPrice(unitPrice);
+        lineItem.setSubtotal(subtotal);
+        return lineItem;
     }
 
     private MonthlyFinancialProjection buildMonthlyProjection(String month, BigDecimal revenue, BigDecimal costs) {

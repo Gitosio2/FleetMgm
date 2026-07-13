@@ -62,7 +62,8 @@ class MaintenanceRepositoryTest {
         MaintenanceRecord record = persistMaintenance(vehicle, technician, MaintenanceStatus.SCHEDULED);
         entityManager.getEntityManager().clear();
 
-        Page<MaintenanceRecord> result = maintenanceRepository.findAllJoinFetch(PageRequest.of(0, 20));
+        Page<MaintenanceRecord> result = maintenanceRepository
+                .findAllJoinFetch(null, null, null, PageRequest.of(0, 20));
 
         assertThat(result.getContent()).hasSize(1);
         MaintenanceRecord fetched = result.getContent().get(0);
@@ -79,9 +80,69 @@ class MaintenanceRepositoryTest {
         entityManager.persistAndFlush(record);
         entityManager.getEntityManager().clear();
 
-        Page<MaintenanceRecord> result = maintenanceRepository.findAllJoinFetch(PageRequest.of(0, 20));
+        Page<MaintenanceRecord> result = maintenanceRepository
+                .findAllJoinFetch(null, null, null, PageRequest.of(0, 20));
 
         assertThat(result.getContent()).isEmpty();
+    }
+
+    @Test
+    void findAllJoinFetch_narrowsByVehicleId_whenProvided() {
+        Vehicle vehicleA = persistVehicle("7777GGG");
+        Vehicle vehicleB = persistVehicle("8888HHH");
+        MaintenanceRecord recordA = persistMaintenance(vehicleA, null, MaintenanceStatus.SCHEDULED);
+        persistMaintenance(vehicleB, null, MaintenanceStatus.SCHEDULED);
+        entityManager.getEntityManager().clear();
+
+        Page<MaintenanceRecord> result = maintenanceRepository
+                .findAllJoinFetch(vehicleA.getId(), null, null, PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().get(0).getId()).isEqualTo(recordA.getId());
+    }
+
+    @Test
+    void findAllJoinFetch_narrowsByYear_whenProvided() {
+        Vehicle vehicle = persistVehicle("9999III");
+        MaintenanceRecord thisYear = persistMaintenanceWithCost(vehicle, new BigDecimal("100.00"), LocalDate.now());
+        persistMaintenanceWithCost(vehicle, new BigDecimal("50.00"), LocalDate.now().minusYears(1));
+        entityManager.getEntityManager().clear();
+
+        Page<MaintenanceRecord> result = maintenanceRepository
+                .findAllJoinFetch(null, LocalDate.now().getYear(), null, PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().get(0).getId()).isEqualTo(thisYear.getId());
+    }
+
+    @Test
+    void findAllJoinFetch_narrowsByMonth_whenProvided() {
+        Vehicle vehicle = persistVehicle("0000JJJ");
+        MaintenanceRecord thisMonth = persistMaintenanceWithCost(vehicle, new BigDecimal("100.00"), LocalDate.now());
+        persistMaintenanceWithCost(vehicle, new BigDecimal("50.00"), LocalDate.now().minusMonths(2));
+        entityManager.getEntityManager().clear();
+
+        Page<MaintenanceRecord> result = maintenanceRepository
+                .findAllJoinFetch(null, null, LocalDate.now().getMonthValue(), PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().get(0).getId()).isEqualTo(thisMonth.getId());
+    }
+
+    @Test
+    void findAllJoinFetch_combinesAllFilters_whenAllProvided() {
+        Vehicle vehicleA = persistVehicle("1234AAB");
+        Vehicle vehicleB = persistVehicle("5678BBC");
+        MaintenanceRecord match = persistMaintenanceWithCost(vehicleA, new BigDecimal("100.00"), LocalDate.now());
+        persistMaintenanceWithCost(vehicleA, new BigDecimal("50.00"), LocalDate.now().minusMonths(2));
+        persistMaintenanceWithCost(vehicleB, new BigDecimal("75.00"), LocalDate.now());
+        entityManager.getEntityManager().clear();
+
+        Page<MaintenanceRecord> result = maintenanceRepository.findAllJoinFetch(
+                vehicleA.getId(), LocalDate.now().getYear(), LocalDate.now().getMonthValue(), PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().get(0).getId()).isEqualTo(match.getId());
     }
 
     @Test
