@@ -236,7 +236,7 @@ FleetMgm/
 │           ├── V15__add_job_price.sql                           ← aplicada, Hito 31 (precio del job, para la línea de factura automática)
 │           ├── V16__create_invoice_number_seq.sql               ← aplicada, Hito 31 (secuencia PostgreSQL para INV-2026-00001)
 │           ├── V17__drop_dead_invoice_maintenance_links.sql     ← aplicada (limpieza: MaintenanceRecord.invoice e InvoiceLineItem.linkedMaintenance, nunca usados)
-│           ├── V18__seed_demo_data.sql                          ← pendiente, Hito 45 (única migración de datos que falta)
+│           ├── V18__seed_demo_data.sql                          ← pendiente, Hito 46 (única migración de datos que falta)
 │           └── V19__create_suppliers.sql                        ← aplicada, Hito 36 (entidad maestra Supplier + FK supplier_invoices.supplier_id)
 │
 ├── packages/                                   ← lógica compartida entre web y mobile
@@ -411,7 +411,7 @@ FleetMgm/
 - [x] `.github/workflows/security.yml` — OWASP scan semanal programado (`schedule: cron`, lunes 06:00 UTC)
 - [x] Maven Wrapper (`mvnw`/`mvnw.cmd` + `.mvn/wrapper/`) añadido — no existía pese a estar documentado en `CLAUDE.md`
 - [x] Verificado localmente: `./mvnw test` (60/60) y `./mvnw dependency-check:check` (`BUILD SUCCESS`) tras subir `spring-boot-starter-parent` 3.3.5 → **3.5.16** (la línea 3.3.x llegó a su último patch con CVEs CVSS ≥ 7 sin resolver en Spring Core/Security/Tomcat) + overrides de `postgresql`, `log4j2`, `jackson-bom`, `tomcat.version`, y bump de `springdoc-openapi-starter-webmvc-ui` a 2.8.17
-- [ ] Anclar `actions/checkout` / `actions/setup-java` a SHA concreto — diferido al Hito 45 (hardening final); por ahora usan tag `@v4`
+- [ ] Anclar `actions/checkout` / `actions/setup-java` a SHA concreto — diferido al Hito 46 (hardening final); por ahora usan tag `@v4`
 
 ---
 
@@ -550,7 +550,7 @@ FleetMgm/
 - [x] **[RED]** Tests `MaintenanceControllerTest` (`@WebMvcTest`) — 200/201/400/404/409 (el 403 por rol no se cubre acá — mismo gap AOP/`@PreAuthorize` heredado de Job/Vehicle: `@MockBean` en `@WebMvcTest` salta el proxy)
 - [x] **[GREEN]** `MaintenanceRepository` — `findAllJoinFetch` (JOIN FETCH vehicle/technician/invoice, sin N+1) + `existsByVehicleIdAndStatus` (para el edge case del listener)
 - [x] **[GREEN]** `VehicleEntersWorkshopEvent` + `MaintenanceCompletedEvent` (records, `workshop.domain`)
-- [x] **[GREEN]** Migración `V11__add_maintenance_deleted_at.sql` (`ALTER TABLE maintenance_records ADD COLUMN deleted_at TIMESTAMPTZ`) + campo `deletedAt` y `@SQLRestriction("deleted_at IS NULL")` en la entidad + `@Mapping(target = "deletedAt", ignore = true)` en `toEntity`/`updateEntity` del mapper *(la seed de datos, originalmente V11, pasó a V12, luego a V13, luego a V14/Hito 43, luego a V15/Hito 45, luego a V17/Hito 45 y ahora a **V18**/Hito 45 — Hito 28 insertó V14 para el rango horario, Hito 31 insertó V15 (precio del job) y V16 (secuencia de numeración de factura), el Hito 36 insertó V19 (entidad Supplier) sin afectar al número de la seed, y una limpieza posterior inserta V17 (borra `MaintenanceRecord.invoice`/`InvoiceLineItem.linkedMaintenance`, nunca usados); ver adenda de categoría de mantenimiento, Hito 26, Hito 28, Hito 31 y la limpieza de campos muertos)*
+- [x] **[GREEN]** Migración `V11__add_maintenance_deleted_at.sql` (`ALTER TABLE maintenance_records ADD COLUMN deleted_at TIMESTAMPTZ`) + campo `deletedAt` y `@SQLRestriction("deleted_at IS NULL")` en la entidad + `@Mapping(target = "deletedAt", ignore = true)` en `toEntity`/`updateEntity` del mapper *(la seed de datos, originalmente V11, pasó a V12, luego a V13, luego a V14/Hito 43, luego a V15/Hito 45, luego a V17/Hito 45, luego a V18/Hito 45 y ahora a **V18**/Hito 46 — Hito 28 insertó V14 para el rango horario, Hito 31 insertó V15 (precio del job) y V16 (secuencia de numeración de factura), el Hito 36 insertó V19 (entidad Supplier) sin afectar al número de la seed, una limpieza posterior insertó V17 (borra `MaintenanceRecord.invoice`/`InvoiceLineItem.linkedMaintenance`, nunca usados), y este nuevo Hito 44 desplaza el hardening final de 45 a 46; ver adenda de categoría de mantenimiento, Hito 26, Hito 28, Hito 31 y la limpieza de campos muertos)*
 - [x] **[GREEN]** `MaintenanceService.create()` — crear SCHEDULED (sin efecto sobre el vehículo todavía); `list()`/`getById()`/`update()` también cerrados (los stubs restantes del CRUD)
 - [x] **[GREEN]** `MaintenanceService.start()` — SCHEDULED → IN_PROGRESS, publicar `VehicleEntersWorkshopEvent` (el vehículo entra a `MAINTENANCE` acá, no en `create()`)
 - [x] **[GREEN]** `MaintenanceService.complete()` — IN_PROGRESS → COMPLETED, `workshopExitDate = now()`, publicar `MaintenanceCompletedEvent`
@@ -591,7 +591,7 @@ FleetMgm/
 - [x] **[RED]** Tests `ScheduleCompletionListenerTest` (o equivalente) — `MaintenanceCompletedEvent` con `maintenanceRecordId` enlazado a un schedule → `WorkshopSchedule.status` pasa a `COMPLETED`; sin schedule enlazado → no-op
 - [x] **[RED]** Tests `WorkshopScheduleRepositoryTest` (`@DataJpaTest` + Testcontainers) — queries por rango de fecha devuelven solo registros del periodo correcto; excluye soft-deleted
 - [x] **[RED]** Tests `WorkshopControllerTest` (`@WebMvcTest`) — 201, 400, 404, 409; parámetro `range` inválido → 400 (ya cubierto en Hito 25 vía `ScheduleRange.fromValue`, pero el `@WebMvcTest` completo llega acá)
-- [x] **[GREEN]** Migración `V13__add_workshop_schedule_deleted_at.sql` (`ALTER TABLE workshop_schedules ADD COLUMN deleted_at TIMESTAMPTZ`) + `deletedAt` + `@SQLRestriction` en la entidad + ignore en el mapper *(la seed de datos, hasta ahora V13, pasa a **V14**/Hito 43 en este hito — misma corrección de numeración que ya se hizo dos veces; actualizado `planning.md` línea del árbol de arquitectura, Hito 43, y `CLAUDE.md`; pasa a **V15**/Hito 45 al insertarse Hito 28, a **V17**/Hito 45 al insertarse Hito 31, y a **V18**/Hito 45 al insertarse la limpieza de campos muertos, ver notas de esas secciones)*
+- [x] **[GREEN]** Migración `V13__add_workshop_schedule_deleted_at.sql` (`ALTER TABLE workshop_schedules ADD COLUMN deleted_at TIMESTAMPTZ`) + `deletedAt` + `@SQLRestriction` en la entidad + ignore en el mapper *(la seed de datos, hasta ahora V13, pasa a **V14**/Hito 43 en este hito — misma corrección de numeración que ya se hizo dos veces; actualizado `planning.md` línea del árbol de arquitectura, Hito 43, y `CLAUDE.md`; pasa a **V15**/Hito 45 al insertarse Hito 28, a **V17**/Hito 45 al insertarse Hito 31, a **V18**/Hito 45 al insertarse la limpieza de campos muertos, y a **V18**/Hito 46 al insertarse este Hito 44, ver notas de esas secciones)*
 - [x] **[GREEN]** `WorkshopScheduleRepository` — queries por rango de fecha: hoy, semana actual, mes actual
 - [x] **[GREEN]** `WorkshopScheduleService.create()` — crear `PENDING`; default `priority = MEDIUM` si viene null (mismo patrón que `category` en `MaintenanceService`)
 - [x] **[GREEN]** `WorkshopScheduleService.start()` — `PENDING` → `IN_PROGRESS`
@@ -1685,15 +1685,32 @@ FleetMgm/
   > el validador de la skill dataviz contra la superficie oscura real de la app (`#0b1326`), no contra los tokens
   > semánticos existentes (`--color-primary` etc.), que fallaron el check de banda de luminosidad para uso en
   > gráficos — son tokens de UI chrome, no aptos para series categóricas.
+- [x] **[GREEN — addendum]** `GET /api/v1/reports/profitability/{vehicleId}` — rentabilidad de un solo vehículo
+  (`ProfitabilityService.getByVehicleId`, 404 `VEHICLE_NOT_FOUND` si no existe). Reutiliza la misma query nativa de
+  `findProfitabilityByVehicle`, duplicada a propósito y acotada a un vehículo (ver comentario en
+  `ProfitabilityRepository` — sin refactor a vista de PostgreSQL en este slice).
+- [x] **[GREEN — addendum]** Acción "Ver rentabilidad" en la tabla de Vehículos — mismo patrón que "Ver asignación"
+  (botón por fila → `Dialog` con `VehicleProfitabilityPanel`), `useVehicleProfitability(vehicleId)`, gateado a
+  `canManage` igual que la asignación.
 
 ---
 
-### Hito 44 — Tests de integración (`@SpringBootTest` + Testcontainers)
+### Hito 44 — Historial de mantenimientos e ingresos por vehículo
+> Extiende `VehicleProfitabilityPanel` (Hito 43) con dos listados filtrables por mes/año, no una vista nueva.
+- [ ] **[RED]** Tests `MaintenanceRepositoryTest`/`MaintenanceControllerTest` — filtro opcional `vehicleId`/`year`/`month` sobre `GET /api/v1/maintenance`
+- [ ] **[GREEN]** `MaintenanceRepository.findAllJoinFetch` — añade `(:vehicleId IS NULL OR ...)`, `(:year IS NULL OR FUNCTION('YEAR', workshopEntryDate) = :year)`, `(:month IS NULL OR FUNCTION('MONTH', workshopEntryDate) = :month)` (mismo idiom que `SupplierInvoiceRepository`)
+- [ ] **[RED]** Tests `LineItemRepositoryTest` — nueva query de líneas de factura por vehículo+periodo
+- [ ] **[GREEN]** `LineItemRepository.findAllByVehicleIdAndPeriod` — JPQL puro (no nativo — `InvoiceLineItem.linkedJob.vehicle` es una relación JPA real, a diferencia de la agregación de `ProfitabilityRepository`), filtrado por `linkedJob.vehicle.id` + año/mes de `invoice.issueDate`
+- [ ] **[GREEN]** Nuevo `VehicleRevenueLineItemResponse` (record) + `GET /api/v1/reports/profitability/{vehicleId}/revenue?year=&month=` en `ProfitabilityController`/`ProfitabilityService`
+- [ ] **[RED]** Tests `Vehicles.test.tsx` — selector de mes/año filtra ambos listados dentro del diálogo de rentabilidad
+- [ ] **[GREEN]** `VehicleProfitabilityPanel` — selector mes (ene-dic) + año, dos listas ("Historial de mantenimientos", "Historial de ingresos") con total calculado del listado filtrado, hooks nuevos en `packages/hooks/src/useMaintenance.ts`/`useProfitability.ts`
+
+### Hito 45 — Tests de integración (`@SpringBootTest` + Testcontainers)
 - [ ] `AuthFlowIT` — login correcto → JWT → endpoint protegido; 5 intentos fallidos → cuenta bloqueada → 401
 - [ ] `JobLifecycleIT` — crear job → iniciar → completar → verificar `UsageLog` creado y `currentKm` actualizado
 - [ ] `InvoiceFlowIT` — crear DRAFT → añadir línea → emitir → pagar → descargar PDF
 
-### Hito 45 — Demo y hardening final
+### Hito 46 — Demo y hardening final
 - [ ] `docker-compose.yml` — postgres:16 + backend + apps/web (nginx), health checks, `depends_on`
 - [ ] `Flyway V18` — seed datos demo realistas (5 vehículos, 3 conductores, 10 trabajos completados, 3 facturas de cliente, facturas de proveedor de ejemplo)
 - [ ] Revisar headers HTTP en `SecurityConfig`: `X-Content-Type-Options`, `X-Frame-Options`, `HSTS` (prod)
