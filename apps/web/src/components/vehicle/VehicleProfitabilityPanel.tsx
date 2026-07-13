@@ -145,6 +145,7 @@ export function VehicleProfitabilityPanel({ vehicleId, vehicleLabel }: VehiclePr
         </Card>
       </div>
 
+      <h2 className="font-display text-lg font-semibold">Total histórico</h2>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Card>
           <CardHeader className="p-3 pb-0">
