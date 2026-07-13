@@ -29,8 +29,11 @@ public class MaintenanceController {
 
     @GetMapping
     public ResponseEntity<PageResponse<MaintenanceResponse>> list(
+            @RequestParam(required = false) UUID vehicleId,
+            @RequestParam(required = false) Integer year,
+            @RequestParam(required = false) Integer month,
             @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
-        return ResponseEntity.ok(maintenanceService.list(pageable));
+        return ResponseEntity.ok(maintenanceService.list(vehicleId, year, month, pageable));
     }
 
     @PostMapping

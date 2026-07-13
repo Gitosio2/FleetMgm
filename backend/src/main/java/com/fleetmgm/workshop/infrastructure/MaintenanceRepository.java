@@ -17,8 +17,15 @@ public interface MaintenanceRepository extends JpaRepository<MaintenanceRecord, 
     // List query denormalizes vehicle/technician fields into MaintenanceResponse — JOIN FETCH
     // avoids N+1 (CLAUDE.md JPA rule). Safe with Pageable: these are to-one joins, not to-many collections.
     @Query("SELECT m FROM MaintenanceRecord m JOIN FETCH m.vehicle "
-            + "LEFT JOIN FETCH m.technician")
-    Page<MaintenanceRecord> findAllJoinFetch(Pageable pageable);
+            + "LEFT JOIN FETCH m.technician "
+            + "WHERE (:vehicleId IS NULL OR m.vehicle.id = :vehicleId) "
+            + "AND (:year IS NULL OR EXTRACT(YEAR FROM m.workshopEntryDate) = :year) "
+            + "AND (:month IS NULL OR EXTRACT(MONTH FROM m.workshopEntryDate) = :month)")
+    Page<MaintenanceRecord> findAllJoinFetch(
+            @Param("vehicleId") UUID vehicleId,
+            @Param("year") Integer year,
+            @Param("month") Integer month,
+            Pageable pageable);
 
     // Used by MaintenanceEventListener to decide whether a completed maintenance should return the
     // vehicle to ACTIVE — it must stay in the workshop while another maintenance is still IN_PROGRESS.

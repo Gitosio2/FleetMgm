@@ -71,8 +71,9 @@ public class MaintenanceService {
 
     @Transactional(readOnly = true)
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ADMINISTRATIVE', 'WORKSHOP_STAFF')")
-    public PageResponse<MaintenanceResponse> list(Pageable pageable) {
-        return PageResponse.from(maintenanceRepository.findAllJoinFetch(pageable).map(maintenanceMapper::toResponse));
+    public PageResponse<MaintenanceResponse> list(UUID vehicleId, Integer year, Integer month, Pageable pageable) {
+        return PageResponse.from(maintenanceRepository.findAllJoinFetch(vehicleId, year, month, pageable)
+                .map(maintenanceMapper::toResponse));
     }
 
     @Transactional

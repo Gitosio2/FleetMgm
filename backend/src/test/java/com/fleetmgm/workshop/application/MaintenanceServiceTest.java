@@ -488,14 +488,30 @@ class MaintenanceServiceTest {
         MaintenanceRecord record = new MaintenanceRecord();
         MaintenanceResponse expected = buildResponse(UUID.randomUUID());
 
-        when(maintenanceRepository.findAllJoinFetch(pageable))
+        when(maintenanceRepository.findAllJoinFetch(null, null, null, pageable))
                 .thenReturn(new PageImpl<>(List.of(record), pageable, 1));
         when(maintenanceMapper.toResponse(record)).thenReturn(expected);
 
-        PageResponse<MaintenanceResponse> result = maintenanceService.list(pageable);
+        PageResponse<MaintenanceResponse> result = maintenanceService.list(null, null, null, pageable);
 
         assertThat(result.content()).containsExactly(expected);
         assertThat(result.totalElements()).isEqualTo(1);
+    }
+
+    @Test
+    void list_forwardsVehicleIdYearAndMonthFilters() {
+        Pageable pageable = PageRequest.of(0, 20);
+        UUID vehicleId = UUID.randomUUID();
+        MaintenanceRecord record = new MaintenanceRecord();
+        MaintenanceResponse expected = buildResponse(UUID.randomUUID());
+
+        when(maintenanceRepository.findAllJoinFetch(vehicleId, 2026, 7, pageable))
+                .thenReturn(new PageImpl<>(List.of(record), pageable, 1));
+        when(maintenanceMapper.toResponse(record)).thenReturn(expected);
+
+        PageResponse<MaintenanceResponse> result = maintenanceService.list(vehicleId, 2026, 7, pageable);
+
+        assertThat(result.content()).containsExactly(expected);
     }
 
     // --- getById ---
