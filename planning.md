@@ -1649,10 +1649,10 @@ FleetMgm/
 - [x] **[RED]** Tests `DashboardControllerTest`/`DashboardServiceTest` + tests añadidos a `VehicleRepositoryTest`/`WorkshopScheduleRepositoryTest`/`MaintenanceRepositoryTest`/`SupplierInvoiceRepositoryTest`
 - [x] **[GREEN]** Nuevo feature `dashboard/` (`api`/`application`/`dto`, sin `domain`/`infrastructure` propios — compone lecturas de `vehicle`/`workshop`/`billing`) — `GET /api/v1/reports/fleet-summary`, `DashboardService` con `@PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ADMINISTRATIVE')")`
 - [x] **[GREEN]** Repositorios — `VehicleRepository.countByStatus/countByStatusNot`, `WorkshopScheduleRepository.countByStatus/countByStatusAndScheduledDateBetween`, `MaintenanceRepository.sumCostByWorkshopEntryDateBetween`, `SupplierInvoiceRepository.sumTotalByInvoiceDateBetween`
-- [ ] **[RED]** Handlers MSW — `GET /api/v1/reports/profitability`
+- [x] **[RED]** Handlers MSW — `GET /api/v1/reports/profitability`
 - [x] **[RED]** Tests `Dashboard.test.tsx` — 3 KPI cards de flota renderizan con los valores del resumen; DRIVER/WORKSHOP_STAFF en `/` redirigen a `/jobs`/`/workshop` en vez de ver el dashboard
-- [ ] **[GREEN]** `packages/hooks/src/useProfitability.ts` — lista paginada de rentabilidad por vehículo
-- [ ] **[GREEN]** `apps/web/src/components/` — `ProfitabilityChart` (Recharts), `ProfitabilitySummary`
+- [x] **[GREEN]** `packages/hooks/src/useProfitability.ts` — lista paginada de rentabilidad por vehículo
+- [x] **[GREEN]** `apps/web/src/components/` — `ProfitabilityChart` (Recharts), `ProfitabilitySummary`
 - [x] **[GREEN — slice parcial]** KPI cards del `Dashboard`, solo las 3 de flota (activos/en taller/mantenimiento pendiente) — `packages/hooks/src/useDashboard.ts` (`useFleetSummary`), `apps/web/src/components/dashboard/FleetKpiCards.tsx`, handler MSW `GET /api/v1/reports/fleet-summary`. El gráfico Recharts de rentabilidad queda pendiente como slice separado.
   > **Nota (decisión de landing page por rol):** el índice `/` es alcanzable por cualquier rol autenticado, pero el
   > contenido del dashboard solo es relevante para `MANAGEMENT_ROLES`. En vez de dejar que `ProtectedRoute` muestre
@@ -1673,6 +1673,18 @@ FleetMgm/
   > persistido. Decisión de producto: las facturas ya vencidas SÍ se incluyen en las listas (no se excluyen), el
   > flag `overdue` solo cambia cómo se pintan (badge rojo "Vencida", mismos tokens `bg-error-container/40
   > text-error` que `InvoiceStatusBadge`).
+- [x] **[GREEN — addendum]** Tercera sección "Ingresos y gastos" — rediseñada de comparación por vehículo a
+  tendencia mensual de flota completa, con selector 3/6/12 meses. `ProfitabilityChart` (barras agrupadas Recharts,
+  ingresos/gastos por mes) + `ProfitabilitySummary` (3 tiles con totales sumados sobre la MISMA ventana de N meses
+  que muestra el gráfico). `useFinancialTrend(months)`, nuevo endpoint `GET /api/v1/reports/profitability/trend`
+  (`ProfitabilityService.getFinancialTrend`, `months` clamped [1, 12] server-side), nueva query nativa
+  `ProfitabilityRepository.findMonthlyFinancialTrend` (mismo archivo que las queries per-vehículo — `generate_series`
+  + zero-fill de meses sin actividad). Los endpoints per-vehículo existentes (`GET /api/v1/reports/profitability` y
+  `/{vehicleId}`) NO se tocan — quedan reservados para una futura pieza de la tabla admin de Vehículos.
+  > **Nota (color del gráfico):** los 2 colores categóricos (`#3987e5` ingresos, `#199e70` gastos) se validaron con
+  > el validador de la skill dataviz contra la superficie oscura real de la app (`#0b1326`), no contra los tokens
+  > semánticos existentes (`--color-primary` etc.), que fallaron el check de banda de luminosidad para uso en
+  > gráficos — son tokens de UI chrome, no aptos para series categóricas.
 
 ---
 

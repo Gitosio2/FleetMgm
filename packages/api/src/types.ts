@@ -445,6 +445,22 @@ export type FinancialSummary = {
   upcomingPayables: UpcomingInvoice[]
 }
 
+export type Profitability = {
+  vehicleId: string
+  vehicleLicensePlate: string | null
+  vehicleMake: string
+  vehicleModel: string
+  revenue: number
+  costs: number
+  margin: number
+}
+
+export type MonthlyFinancial = {
+  month: string
+  revenue: number
+  costs: number
+}
+
 export type GpsSource = 'MOCK' | 'DEVICE'
 
 export type GpsPosition = {

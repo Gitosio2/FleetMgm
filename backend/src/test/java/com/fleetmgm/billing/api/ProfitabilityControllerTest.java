@@ -2,6 +2,7 @@ package com.fleetmgm.billing.api;
 
 import com.fleetmgm.auth.infrastructure.JwtAuthenticationFilter;
 import com.fleetmgm.billing.application.ProfitabilityService;
+import com.fleetmgm.billing.dto.MonthlyFinancialResponse;
 import com.fleetmgm.billing.dto.ProfitabilityResponse;
 import com.fleetmgm.shared.PageResponse;
 import com.fleetmgm.shared.exception.NotFoundException;
@@ -79,5 +80,29 @@ class ProfitabilityControllerTest {
         mockMvc.perform(get("/api/v1/reports/profitability/{vehicleId}", VEHICLE_ID))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("VEHICLE_NOT_FOUND"));
+    }
+
+    // --- GET /api/v1/reports/profitability/trend ---
+
+    @Test
+    void financialTrend_returns200_withMonthlyData() throws Exception {
+        MonthlyFinancialResponse response =
+                new MonthlyFinancialResponse("2026-06", new BigDecimal("1000.00"), new BigDecimal("400.00"));
+        when(profitabilityService.getFinancialTrend(3)).thenReturn(List.of(response));
+
+        mockMvc.perform(get("/api/v1/reports/profitability/trend").param("months", "3"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].month").value("2026-06"))
+                .andExpect(jsonPath("$[0].revenue").value(1000.00))
+                .andExpect(jsonPath("$[0].costs").value(400.00));
+    }
+
+    @Test
+    void financialTrend_defaultsToSixMonths_whenNoParamProvided() throws Exception {
+        when(profitabilityService.getFinancialTrend(6)).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/v1/reports/profitability/trend"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray());
     }
 }

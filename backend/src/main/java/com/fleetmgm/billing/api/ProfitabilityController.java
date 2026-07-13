@@ -1,6 +1,7 @@
 package com.fleetmgm.billing.api;
 
 import com.fleetmgm.billing.application.ProfitabilityService;
+import com.fleetmgm.billing.dto.MonthlyFinancialResponse;
 import com.fleetmgm.billing.dto.ProfitabilityResponse;
 import com.fleetmgm.shared.PageResponse;
 import org.springframework.data.domain.Pageable;
@@ -9,8 +10,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -33,5 +36,14 @@ public class ProfitabilityController {
     @GetMapping("/{vehicleId}")
     public ResponseEntity<ProfitabilityResponse> getByVehicleId(@PathVariable UUID vehicleId) {
         return ResponseEntity.ok(profitabilityService.getByVehicleId(vehicleId));
+    }
+
+    // Fleet-wide monthly Ingresos/Gastos trend backing the Dashboard chart (Hito 43 redesign).
+    // Declared after /{vehicleId} in source but Spring MVC still matches this static segment
+    // ahead of the path-variable mapping, so "/trend" never gets captured as a vehicleId.
+    @GetMapping("/trend")
+    public ResponseEntity<List<MonthlyFinancialResponse>> financialTrend(
+            @RequestParam(defaultValue = "6") int months) {
+        return ResponseEntity.ok(profitabilityService.getFinancialTrend(months));
     }
 }
