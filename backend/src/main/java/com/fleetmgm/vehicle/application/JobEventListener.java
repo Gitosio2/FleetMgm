@@ -11,6 +11,7 @@ import com.fleetmgm.vehicle.infrastructure.VehicleRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
@@ -33,7 +34,7 @@ public class JobEventListener {
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void onJobCompleted(JobCompletedEvent event) {
         // No usage value recorded at completion time -> nothing to update.
         if (event.endUsageValue() == null) {

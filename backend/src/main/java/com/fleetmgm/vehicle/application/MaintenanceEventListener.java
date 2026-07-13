@@ -12,6 +12,7 @@ import com.fleetmgm.workshop.infrastructure.MaintenanceRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
@@ -33,7 +34,7 @@ public class MaintenanceEventListener {
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void onVehicleEntersWorkshop(VehicleEntersWorkshopEvent event) {
         // AFTER_COMMIT: the triggering transaction already committed and the original HTTP call
         // already returned 200 OK, so an exception here can't roll anything back — it must be
@@ -47,7 +48,7 @@ public class MaintenanceEventListener {
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void onMaintenanceCompleted(MaintenanceCompletedEvent event) {
         try {
             reactivateVehicleIfNoOtherActiveMaintenance(event.vehicleId());
@@ -58,7 +59,7 @@ public class MaintenanceEventListener {
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void onMaintenanceCancelled(MaintenanceCancelledEvent event) {
         // MaintenanceService.cancel() publishes this event regardless of the cancelled record's prior
         // state (SCHEDULED or IN_PROGRESS) so ScheduleCancellationListener can always cascade to the

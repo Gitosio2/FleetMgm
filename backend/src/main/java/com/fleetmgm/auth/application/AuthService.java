@@ -52,7 +52,11 @@ public class AuthService {
         this.refreshTokenExpirationMs = refreshTokenExpirationMs;
     }
 
-    @Transactional
+    // noRollbackFor is load-bearing: on wrong credentials this method records the failed attempt
+    // (and locks the account on the 5th) via userRepository.save() *before* throwing
+    // BadCredentialsException — without this, Spring's default rollback-on-RuntimeException
+    // behavior would undo that save, and the lockout counter would never actually persist.
+    @Transactional(noRollbackFor = BadCredentialsException.class)
     public AuthResponse login(LoginRequest request) {
         User user = userRepository.findByEmail(request.email())
                 .orElseThrow(BadCredentialsException::new);

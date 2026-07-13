@@ -1,6 +1,8 @@
 package com.fleetmgm.shared.domain;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -37,9 +39,15 @@ public class AuditLog {
     @Column(name = "ip_address", length = 45)
     private String ipAddress;
 
+    // @JdbcTypeCode(SqlTypes.JSON) is load-bearing, not decorative: without it Hibernate binds
+    // this String field as a plain VARCHAR parameter, and PostgreSQL's extended query protocol
+    // rejects a VARCHAR-typed bind parameter against a jsonb column at prepare time — regardless
+    // of whether the actual value is null. columnDefinition alone only affects DDL generation.
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "old_values", columnDefinition = "jsonb")
     private String oldValues;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "new_values", columnDefinition = "jsonb")
     private String newValues;
 
