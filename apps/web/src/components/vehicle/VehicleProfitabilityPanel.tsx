@@ -54,35 +54,6 @@ export function VehicleProfitabilityPanel({ vehicleId, vehicleLabel }: VehiclePr
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-on-surface-variant">Ingresos</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-semibold">{profitability.revenue.toFixed(2)} €</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-on-surface-variant">Gastos</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-semibold">{profitability.costs.toFixed(2)} €</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-on-surface-variant">Margen</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-semibold">{profitability.margin.toFixed(2)} €</p>
-          </CardContent>
-        </Card>
-      </div>
-
       <div className="flex flex-wrap items-center gap-3">
         <select
           aria-label="Mes"
@@ -170,6 +141,35 @@ export function VehicleProfitabilityPanel({ vehicleId, vehicleLabel }: VehiclePr
                 ))}
               </ul>
             )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <Card>
+          <CardHeader className="p-3 pb-0">
+            <CardTitle className="text-xs font-medium text-on-surface-variant">Ingresos</CardTitle>
+          </CardHeader>
+          <CardContent className="px-3 pb-3">
+            <p className="text-lg font-semibold">{profitability.revenue.toFixed(2)} €</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="p-3 pb-0">
+            <CardTitle className="text-xs font-medium text-on-surface-variant">Gastos</CardTitle>
+          </CardHeader>
+          <CardContent className="px-3 pb-3">
+            <p className="text-lg font-semibold">{profitability.costs.toFixed(2)} €</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="p-3 pb-0">
+            <CardTitle className="text-xs font-medium text-on-surface-variant">Margen</CardTitle>
+          </CardHeader>
+          <CardContent className="px-3 pb-3">
+            <p className="text-lg font-semibold">{profitability.margin.toFixed(2)} €</p>
           </CardContent>
         </Card>
       </div>
