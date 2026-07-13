@@ -416,16 +416,19 @@ FleetMgm/
 ---
 
 ### Hito 12 — Monorepo: Scaffold Turborepo
-- [ ] `package.json` raíz — `workspaces: ["apps/*", "packages/*"]`, scripts `turbo dev/build/lint/test`
-- [ ] `turbo.json` — pipeline de tasks con caché: `build` (dependsOn `^build`), `dev` (persistent), `lint`, `test`
-- [ ] `tsconfig.base.json` — config TypeScript base compartida por todos los paquetes
-- [ ] `packages/api/` — `package.json` (`@fleetmgm/api`), `tsconfig.json`, `src/client.ts` (instancia Axios vacía), `src/types.ts` (`PageResponse<T>`, `ApiError`), `src/index.ts`
-- [ ] `packages/hooks/` — `package.json` (`@fleetmgm/hooks`, peerDep React), `tsconfig.json`, `src/index.ts` vacío
-- [ ] `packages/store/` — `package.json` (`@fleetmgm/store`), `tsconfig.json`, `src/index.ts` vacío
-- [ ] `apps/web/` — `package.json` con deps `@fleetmgm/api`, `@fleetmgm/hooks`, `@fleetmgm/store`; scaffold Vite (`npm create vite@latest`)
-- [ ] `apps/mobile/` — `package.json` placeholder con deps `@fleetmgm/api`, `@fleetmgm/hooks`, `@fleetmgm/store`
-- [ ] `npm install` en raíz — instala workspaces y verifica que los paquetes se resuelven entre sí
-- [ ] Ampliar `.github/workflows/ci.yml` con job `turbo test` (packages + apps/web) ahora que el monorepo existe
+> **Nota (revisión tardía, sesión Hito 43):** este checklist quedó sin marcar pese a que el scaffold lleva
+> implementado y en uso desde muy temprano en el plan — todos los hitos de frontend desde el Hito 13 en adelante
+> dependen de él. Hueco de documentación, no trabajo pendiente; verificado item por item antes de marcarlo.
+- [x] `package.json` raíz — `workspaces: ["apps/*", "packages/*"]`, scripts `turbo dev/build/lint/test`
+- [x] `turbo.json` — pipeline de tasks con caché: `build` (dependsOn `^build`), `dev` (persistent), `lint`, `test`
+- [x] `tsconfig.base.json` — config TypeScript base compartida por todos los paquetes
+- [x] `packages/api/` — `package.json` (`@fleetmgm/api`), `tsconfig.json`, `src/client.ts` (instancia Axios vacía), `src/types.ts` (`PageResponse<T>`, `ApiError`), `src/index.ts`
+- [x] `packages/hooks/` — `package.json` (`@fleetmgm/hooks`, peerDep React), `tsconfig.json`, `src/index.ts` vacío
+- [x] `packages/store/` — `package.json` (`@fleetmgm/store`), `tsconfig.json`, `src/index.ts` vacío
+- [x] `apps/web/` — `package.json` con deps `@fleetmgm/api`, `@fleetmgm/hooks`, `@fleetmgm/store`; scaffold Vite (`npm create vite@latest`)
+- [x] `apps/mobile/` — `package.json` placeholder con deps `@fleetmgm/api`, `@fleetmgm/hooks`, `@fleetmgm/store`
+- [x] `npm install` en raíz — instala workspaces y verifica que los paquetes se resuelven entre sí
+- [x] Ampliar `.github/workflows/ci.yml` con job `turbo test` (packages + apps/web) ahora que el monorepo existe
 
 ### Hito 13 — Frontend: Infraestructura base y auth
 > Requiere: Hito 12 (monorepo scaffold) + Hitos 1–4 (backend auth, ya implementados)
