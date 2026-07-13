@@ -1705,8 +1705,8 @@ FleetMgm/
 - [x] **[RED]** Tests `LineItemRepositoryTest` — nueva query de líneas de factura por vehículo+periodo
 - [x] **[GREEN]** `LineItemRepository.findAllByVehicleIdAndPeriod` — JPQL puro (no nativo — `InvoiceLineItem.linkedJob.vehicle` es una relación JPA real, a diferencia de la agregación de `ProfitabilityRepository`), filtrado por `linkedJob.vehicle.id` + año/mes de `invoice.issueDate`. `LineItemRepository` ya existía (`findAllByInvoiceId`/`findAllByInvoiceIdIn` para `InvoiceService`) — se agregó el método ahí, no un archivo nuevo.
 - [x] **[GREEN]** Nuevo `VehicleRevenueLineItemResponse` (record) + `GET /api/v1/reports/profitability/{vehicleId}/revenue?year=&month=` en `ProfitabilityController`/`ProfitabilityService`
-- [ ] **[RED]** Tests `Vehicles.test.tsx` — selector de mes/año filtra ambos listados dentro del diálogo de rentabilidad
-- [ ] **[GREEN]** `VehicleProfitabilityPanel` — selector mes (ene-dic) + año, dos listas ("Historial de mantenimientos", "Historial de ingresos") con total calculado del listado filtrado, hooks nuevos en `packages/hooks/src/useMaintenance.ts`/`useProfitability.ts`
+- [x] **[RED]** Tests `Vehicles.test.tsx` — selector de mes/año filtra ambos listados dentro del diálogo de rentabilidad
+- [x] **[GREEN]** `VehicleProfitabilityPanel` — selector mes (ene-dic) + año (nativo `<select>`, mismo patrón que `AuditLogFilters`), dos listas ("Historial de mantenimientos", "Historial de ingresos") con total calculado en el cliente sumando el listado filtrado, hooks nuevos `useVehicleMaintenanceHistory`/`useVehicleRevenue` en `packages/hooks/src/useMaintenance.ts`/`useProfitability.ts`. Selector por defecto al mes/año actuales.
 
 ### Hito 45 — Tests de integración (`@SpringBootTest` + Testcontainers)
 - [ ] `AuthFlowIT` — login correcto → JWT → endpoint protegido; 5 intentos fallidos → cuenta bloqueada → 401

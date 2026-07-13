@@ -7,7 +7,6 @@ import {
   Receipt,
   ShieldCheck,
   Store,
-  TrendingUp,
   Truck,
   Users,
   Wrench,
@@ -45,6 +44,5 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Proveedores', to: '/suppliers', icon: Contact2, allowedRoles: MANAGEMENT_ROLES },
   { label: 'Gastos de proveedor', to: '/supplier-invoices', icon: Store, allowedRoles: MANAGEMENT_ROLES },
   { label: 'Mapa GPS', to: '/gps', icon: MapPin, allowedRoles: MANAGEMENT_ROLES },
-  { label: 'Informes', to: '/reports', icon: TrendingUp, allowedRoles: MANAGEMENT_ROLES },
   { label: 'Registro de auditoría', to: '/audit', icon: ShieldCheck, allowedRoles: ['ADMIN', 'MANAGER'] },
 ]
