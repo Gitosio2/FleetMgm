@@ -1,4 +1,4 @@
-import type { AuditAction } from '@fleetmgm/api'
+import type { AuditAction, AuditLogPerformer } from '@fleetmgm/api'
 import { AUDIT_ACTION_LABEL, AUDIT_ENTITY_TYPE_LABEL } from './audit-log-shared'
 
 const selectClassName =
@@ -17,6 +17,7 @@ type AuditLogFiltersProps = {
   onToChange: (value: string) => void
   performedByEmail: string
   onPerformedByEmailChange: (value: string) => void
+  performers: AuditLogPerformer[]
 }
 
 export function AuditLogFilters({
@@ -30,17 +31,23 @@ export function AuditLogFilters({
   onToChange,
   performedByEmail,
   onPerformedByEmailChange,
+  performers,
 }: AuditLogFiltersProps) {
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <input
+      <select
         aria-label="Filtrar por usuario"
-        type="text"
-        placeholder="Buscar por usuario…"
-        className={inputClassName}
+        className={selectClassName}
         value={performedByEmail}
         onChange={(e) => onPerformedByEmailChange(e.target.value)}
-      />
+      >
+        <option value="">Todos los usuarios</option>
+        {performers.map((performer) => (
+          <option key={performer.email} value={performer.email}>
+            {performer.email}
+          </option>
+        ))}
+      </select>
       <select
         aria-label="Filtrar por tipo de entidad"
         className={selectClassName}

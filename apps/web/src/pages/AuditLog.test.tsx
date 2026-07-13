@@ -27,6 +27,15 @@ function loginAs(role: 'ADMIN' | 'MANAGER') {
   })
 }
 
+// The performer email now also appears as an <option> in the "Filtrar por usuario" select (see
+// AuditLogFilters), so text lookups must be scoped to the table — otherwise getByText/findByText
+// match both the table cell and the select option. The table also unmounts while a filter change
+// is loading (isLoading resets per distinct query key), so it must be re-queried fresh after each
+// interaction rather than reusing an element captured beforehand.
+function table() {
+  return screen.getByRole('table')
+}
+
 describe('AuditLog', () => {
   beforeEach(() => {
     loginAs('ADMIN')
@@ -40,16 +49,17 @@ describe('AuditLog', () => {
     renderAuditLog()
 
     const [first, second, third] = SEED_AUDIT_LOGS
+    await screen.findByRole('table')
 
-    const row1 = (await screen.findByText(first!.performedByEmail!)).closest('tr')!
+    const row1 = within(table()).getByText(first!.performedByEmail!).closest('tr')!
     expect(within(row1).getByText('Factura')).toBeInTheDocument()
     expect(within(row1).getByText('Creación')).toBeInTheDocument()
 
-    const row2 = screen.getByText(second!.performedByEmail!).closest('tr')!
+    const row2 = within(table()).getByText(second!.performedByEmail!).closest('tr')!
     expect(within(row2).getByText('Factura de proveedor')).toBeInTheDocument()
     expect(within(row2).getByText('Actualización')).toBeInTheDocument()
 
-    const row3 = screen.getAllByText(third!.performedByEmail!)[0]!.closest('tr')!
+    const row3 = within(table()).getAllByText(third!.performedByEmail!)[0]!.closest('tr')!
     expect(within(row3).getByText('Usuario')).toBeInTheDocument()
     expect(within(row3).getByText('Inicio de sesión')).toBeInTheDocument()
   })
@@ -59,14 +69,15 @@ describe('AuditLog', () => {
     renderAuditLog()
 
     const [first, second] = SEED_AUDIT_LOGS
-    await screen.findByText(first!.performedByEmail!)
+    await screen.findByRole('table')
+    within(table()).getByText(first!.performedByEmail!)
 
     await user.selectOptions(screen.getByLabelText(/tipo de entidad/i), second!.entityType)
 
     await waitFor(() => {
-      expect(screen.getByText(second!.performedByEmail!)).toBeInTheDocument()
+      expect(within(table()).getByText(second!.performedByEmail!)).toBeInTheDocument()
     })
-    expect(screen.queryByText(first!.performedByEmail!)).not.toBeInTheDocument()
+    expect(within(table()).queryByText(first!.performedByEmail!)).not.toBeInTheDocument()
   })
 
   it('narrows the list with the action filter', async () => {
@@ -74,15 +85,15 @@ describe('AuditLog', () => {
     renderAuditLog()
 
     const [first] = SEED_AUDIT_LOGS
-    await screen.findByText(first!.performedByEmail!)
+    await screen.findByRole('table')
+    within(table()).getByText(first!.performedByEmail!)
 
     await user.selectOptions(screen.getByLabelText(/acción/i), 'ACCESS_DENIED')
 
-    const table = screen.getByRole('table')
     await waitFor(() => {
-      expect(within(table).getByText('Acceso denegado')).toBeInTheDocument()
+      expect(within(table()).getByText('Acceso denegado')).toBeInTheDocument()
     })
-    expect(within(table).queryByText('Creación')).not.toBeInTheDocument()
+    expect(within(table()).queryByText('Creación')).not.toBeInTheDocument()
   })
 
   it('narrows the list with the date range filter', async () => {
@@ -90,12 +101,13 @@ describe('AuditLog', () => {
     renderAuditLog()
 
     const [first] = SEED_AUDIT_LOGS
-    await screen.findByText(first!.performedByEmail!)
+    await screen.findByRole('table')
+    within(table()).getByText(first!.performedByEmail!)
 
     await user.type(screen.getByLabelText(/desde/i), '2026-07-12')
 
     await waitFor(() => {
-      expect(screen.queryByText(first!.performedByEmail!)).not.toBeInTheDocument()
+      expect(within(table()).queryByText(first!.performedByEmail!)).not.toBeInTheDocument()
     })
   })
 
@@ -104,13 +116,14 @@ describe('AuditLog', () => {
     renderAuditLog()
 
     const [first, second] = SEED_AUDIT_LOGS
-    await screen.findByText(first!.performedByEmail!)
+    await screen.findByRole('table')
+    within(table()).getByText(first!.performedByEmail!)
 
-    await user.type(screen.getByLabelText(/filtrar por usuario/i), 'manager')
+    await user.selectOptions(screen.getByLabelText(/filtrar por usuario/i), second!.performedByEmail!)
 
     await waitFor(() => {
-      expect(screen.getByText(second!.performedByEmail!)).toBeInTheDocument()
+      expect(within(table()).getByText(second!.performedByEmail!)).toBeInTheDocument()
     })
-    expect(screen.queryByText(first!.performedByEmail!)).not.toBeInTheDocument()
+    expect(within(table()).queryByText(first!.performedByEmail!)).not.toBeInTheDocument()
   })
 })

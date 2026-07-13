@@ -4,6 +4,7 @@ import com.fleetmgm.shared.PageResponse;
 import com.fleetmgm.shared.domain.AuditAction;
 import com.fleetmgm.shared.domain.AuditLog;
 import com.fleetmgm.shared.dto.AuditLogMapper;
+import com.fleetmgm.shared.dto.AuditLogPerformerResponse;
 import com.fleetmgm.shared.dto.AuditLogResponse;
 import com.fleetmgm.shared.infrastructure.AuditLogRepository;
 import org.springframework.data.domain.Page;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.List;
 
 @Service
 public class AuditLogService {
@@ -37,5 +39,13 @@ public class AuditLogService {
         Page<AuditLog> page = auditLogRepository.findAllFiltered(entityType, action, from, to, performedByEmail,
                 pageable);
         return PageResponse.from(page.map(auditLogMapper::toResponse));
+    }
+
+    @Transactional(readOnly = true)
+    @PreAuthorize(ROLES)
+    public List<AuditLogPerformerResponse> listPerformers() {
+        return auditLogRepository.findDistinctPerformerEmails().stream()
+                .map(AuditLogPerformerResponse::new)
+                .toList();
     }
 }
