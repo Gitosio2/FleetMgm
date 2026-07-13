@@ -8,6 +8,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -17,6 +19,16 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
     // (CLAUDE.md JPA rule). Safe with Pageable: this is a to-one join, not a to-many collection.
     @Query("SELECT i FROM Invoice i JOIN FETCH i.client")
     Page<Invoice> findAllJoinFetch(Pageable pageable);
+
+    // Financial-summary KPI (dashboard) — top-N unpaid client invoices due soon. No lower bound on
+    // dueDate: already-overdue invoices (dueDate in the past) must be included too, not filtered
+    // out — the frontend flags them separately (see DashboardService.getFinancialSummary()). This
+    // mirrors InvoiceStatus.OVERDUE being dead in this codebase (nothing ever transitions to it);
+    // "overdue" is computed live from dueDate, never read from status.
+    @Query("SELECT i FROM Invoice i JOIN FETCH i.client "
+            + "WHERE i.status = com.fleetmgm.billing.domain.InvoiceStatus.ISSUED AND i.dueDate <= :to "
+            + "ORDER BY i.dueDate ASC")
+    List<Invoice> findUpcomingReceivables(@Param("to") LocalDate to, Pageable pageable);
 
     // Used by InvoiceJobCompletionListener to find the client's existing open DRAFT invoice to
     // append a line item to, instead of creating a new invoice per completed job. Oldest-first

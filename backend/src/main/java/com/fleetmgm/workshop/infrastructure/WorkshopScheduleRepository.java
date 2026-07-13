@@ -1,6 +1,7 @@
 package com.fleetmgm.workshop.infrastructure;
 
 import com.fleetmgm.workshop.domain.WorkshopSchedule;
+import com.fleetmgm.workshop.domain.WorkshopStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -24,4 +25,10 @@ public interface WorkshopScheduleRepository extends JpaRepository<WorkshopSchedu
 
     // Used by ScheduleCompletionListener to find the schedule (if any) linked to a completed maintenance.
     Optional<WorkshopSchedule> findByMaintenanceRecordId(UUID maintenanceRecordId);
+
+    // Fleet-summary KPIs (dashboard). Plain derived counts — no JOIN FETCH needed here since only
+    // the row count is returned, unlike findAllByScheduledDateBetween above which hydrates entities.
+    long countByStatus(WorkshopStatus status);
+
+    long countByStatusAndScheduledDateBetween(WorkshopStatus status, LocalDate from, LocalDate to);
 }

@@ -1265,6 +1265,86 @@ type AuditLogMock = {
   details: string | null
 }
 
+type FleetSummaryMock = {
+  activeVehicles: number
+  totalVehicles: number
+  inWorkshop: number
+  pendingMaintenance: number
+  pendingMaintenanceDueSoon: number
+}
+
+// Mirrors the actual SEED_VEHICLES/SEED_SCHEDULES counts instead of the Stitch design mockup's
+// enterprise-scale placeholder numbers: 2 vehicles (1 ACTIVE, 1 MAINTENANCE), 2 PENDING schedules
+// out of 3 (schedule-1, schedule-3 — schedule-2 is IN_PROGRESS). pendingMaintenanceDueSoon stays
+// illustrative (not literally derived from scheduledDate) — neither PENDING schedule's date
+// actually falls within 48h of "today" in this fixed seed, and shifting a shared schedule date to
+// force it would risk the Workshop feature's own tests that depend on those exact dates/rangeTags.
+export const SEED_FLEET_SUMMARY: FleetSummaryMock = {
+  activeVehicles: 1,
+  totalVehicles: 2,
+  inWorkshop: 1,
+  pendingMaintenance: 2,
+  pendingMaintenanceDueSoon: 1,
+}
+
+type UpcomingInvoiceMock = {
+  id: string
+  number: string
+  counterparty: string
+  amount: number
+  dueDate: string
+  overdue: boolean
+}
+
+type FinancialSummaryMock = {
+  monthlyCosts: number
+  upcomingReceivables: UpcomingInvoiceMock[]
+  upcomingPayables: UpcomingInvoiceMock[]
+}
+
+// Read-only feature (no dedicated CRUD screen) — mirrors SEED_FLEET_SUMMARY's scale, plus two
+// short invoice lists each containing one overdue and one not-yet-due row so Dashboard.test.tsx
+// can assert both the "Vencida" marker and its absence without depending on the current date.
+export const SEED_FINANCIAL_SUMMARY: FinancialSummaryMock = {
+  monthlyCosts: 8420.5,
+  upcomingReceivables: [
+    {
+      id: 'invoice-2',
+      number: 'INV-2026-00002',
+      counterparty: 'Transportes Ibérica',
+      amount: 605,
+      dueDate: '2026-07-10',
+      overdue: true,
+    },
+    {
+      id: 'invoice-5',
+      number: 'INV-2026-00005',
+      counterparty: 'Acme Logistics',
+      amount: 350,
+      dueDate: '2026-07-18',
+      overdue: false,
+    },
+  ],
+  upcomingPayables: [
+    {
+      id: 'supplier-invoice-1',
+      number: 'F-2026-0456',
+      counterparty: 'Taller Mecánico Norte',
+      amount: 121,
+      dueDate: '2026-07-05',
+      overdue: true,
+    },
+    {
+      id: 'supplier-invoice-2',
+      number: 'F-2026-0501',
+      counterparty: 'Estación de Servicio Sur',
+      amount: 60.5,
+      dueDate: '2026-07-20',
+      overdue: false,
+    },
+  ],
+}
+
 // Read-only feature (no create/update/delete) — a plain const seed is enough, no mutable copy or
 // reset function needed like the other mocks above.
 export const SEED_AUDIT_LOGS: AuditLogMock[] = [
@@ -3359,6 +3439,14 @@ export const handlers = [
     ].sort()
 
     return HttpResponse.json(emails.map((email) => ({ email })))
+  }),
+
+  http.get('/api/v1/reports/fleet-summary', () => {
+    return HttpResponse.json(SEED_FLEET_SUMMARY)
+  }),
+
+  http.get('/api/v1/reports/financial-summary', () => {
+    return HttpResponse.json(SEED_FINANCIAL_SUMMARY)
   }),
 
   http.post('/api/v1/auth/login', async ({ request }) => {

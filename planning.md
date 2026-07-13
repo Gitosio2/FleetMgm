@@ -1646,11 +1646,33 @@ FleetMgm/
 
 ### Hito 43 — Frontend: Dashboard y rentabilidad
 > Requiere: Hito 34 (backend profitability endpoint — incluye costes de mantenimiento y de proveedores)
+- [x] **[RED]** Tests `DashboardControllerTest`/`DashboardServiceTest` + tests añadidos a `VehicleRepositoryTest`/`WorkshopScheduleRepositoryTest`/`MaintenanceRepositoryTest`/`SupplierInvoiceRepositoryTest`
+- [x] **[GREEN]** Nuevo feature `dashboard/` (`api`/`application`/`dto`, sin `domain`/`infrastructure` propios — compone lecturas de `vehicle`/`workshop`/`billing`) — `GET /api/v1/reports/fleet-summary`, `DashboardService` con `@PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ADMINISTRATIVE')")`
+- [x] **[GREEN]** Repositorios — `VehicleRepository.countByStatus/countByStatusNot`, `WorkshopScheduleRepository.countByStatus/countByStatusAndScheduledDateBetween`, `MaintenanceRepository.sumCostByWorkshopEntryDateBetween`, `SupplierInvoiceRepository.sumTotalByInvoiceDateBetween`
 - [ ] **[RED]** Handlers MSW — `GET /api/v1/reports/profitability`
-- [ ] **[RED]** Tests `Dashboard.test.tsx` — gráfico Recharts renderiza barras por vehículo; totales de ingresos/costes/margen son correctos; solo ADMIN/MANAGER ven la sección
+- [x] **[RED]** Tests `Dashboard.test.tsx` — 3 KPI cards de flota renderizan con los valores del resumen; DRIVER/WORKSHOP_STAFF en `/` redirigen a `/jobs`/`/workshop` en vez de ver el dashboard
 - [ ] **[GREEN]** `packages/hooks/src/useProfitability.ts` — lista paginada de rentabilidad por vehículo
 - [ ] **[GREEN]** `apps/web/src/components/` — `ProfitabilityChart` (Recharts), `ProfitabilitySummary`
-- [ ] **[GREEN]** Página `Dashboard` — KPIs de flota + gráfico de rentabilidad
+- [x] **[GREEN — slice parcial]** KPI cards del `Dashboard`, solo las 3 de flota (activos/en taller/mantenimiento pendiente) — `packages/hooks/src/useDashboard.ts` (`useFleetSummary`), `apps/web/src/components/dashboard/FleetKpiCards.tsx`, handler MSW `GET /api/v1/reports/fleet-summary`. El gráfico Recharts de rentabilidad queda pendiente como slice separado.
+  > **Nota (decisión de landing page por rol):** el índice `/` es alcanzable por cualquier rol autenticado, pero el
+  > contenido del dashboard solo es relevante para `MANAGEMENT_ROLES`. En vez de dejar que `ProtectedRoute` muestre
+  > un 403 a DRIVER/WORKSHOP_STAFF en su página de aterrizaje tras el login, se introduce `DashboardHome` — lee el
+  > rol de `useAuthStore` y redirige silenciosamente a `/jobs` (DRIVER) o `/workshop` (WORKSHOP_STAFF); `App.tsx`
+  > monta `DashboardHome` en el índice en vez de `Dashboard` directamente. `ProtectedRoute` no se modifica.
+- [x] **[GREEN — addendum]** Dashboard partido en dos secciones — "Resumen de flota" (las 3 KPI de siempre) y
+  "Resumen económico" (nuevo). `monthlyCosts` sale de `FleetSummaryResponse`/`FleetKpiCards` y se traslada al nuevo
+  `GET /api/v1/reports/financial-summary` (`FinancialSummaryResponse`: `monthlyCosts` + `upcomingReceivables` +
+  `upcomingPayables`, top 5 cada una). `InvoiceRepository.findUpcomingReceivables`/
+  `SupplierInvoiceRepository.findUpcomingPayables` — `dueDate <= hoy + 7 días` sin cota inferior, `ORDER BY dueDate
+  ASC`. Frontend: `useFinancialSummary`, `FinancialSummary.tsx` (con `UpcomingInvoicesCard` reutilizado para ambas
+  listas), `Dashboard.tsx` ahora monta ambas secciones vía dos hooks independientes con loading/error por sección.
+  > **Descubrimiento (planificando el addendum):** `InvoiceStatus.OVERDUE` está declarado en el enum pero nunca se
+  > asigna en ningún punto del código (sin job programado, sin transición de servicio) — es un valor muerto.
+  > `SupplierInvoiceStatus` ni siquiera tiene un valor `OVERDUE` (solo `PENDING`/`PAID`). El campo `overdue` de
+  > `UpcomingInvoiceResponse` se calcula en vivo (`dueDate.isBefore(LocalDate.now())`), nunca leyendo el `status`
+  > persistido. Decisión de producto: las facturas ya vencidas SÍ se incluyen en las listas (no se excluyen), el
+  > flag `overdue` solo cambia cómo se pintan (badge rojo "Vencida", mismos tokens `bg-error-container/40
+  > text-error` que `InvoiceStatusBadge`).
 
 ---
 

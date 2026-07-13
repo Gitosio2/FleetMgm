@@ -21,7 +21,10 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -109,6 +112,86 @@ class InvoiceRepositoryTest {
         long second = invoiceRepository.nextInvoiceNumberSequenceValue();
 
         assertThat(second).isEqualTo(first + 1);
+    }
+
+    @Test
+    void findUpcomingReceivables_excludesDraftAndPaidInvoices() {
+        Client client = persistClient("55555555E");
+        persistInvoiceWithDueDate(client, "INV-2026-00006", InvoiceStatus.DRAFT, LocalDate.now().plusDays(1));
+        persistInvoiceWithDueDate(client, "INV-2026-00007", InvoiceStatus.PAID, LocalDate.now().plusDays(1));
+        Invoice issued = persistInvoiceWithDueDate(
+                client, "INV-2026-00008", InvoiceStatus.ISSUED, LocalDate.now().plusDays(1));
+        entityManager.getEntityManager().clear();
+
+        List<Invoice> result = invoiceRepository.findUpcomingReceivables(
+                LocalDate.now().plusDays(7), PageRequest.of(0, 5));
+
+        assertThat(result).extracting(Invoice::getId).containsExactly(issued.getId());
+    }
+
+    @Test
+    void findUpcomingReceivables_includesAlreadyOverdueInvoices() {
+        Client client = persistClient("66666666F");
+        Invoice overdue = persistInvoiceWithDueDate(
+                client, "INV-2026-00009", InvoiceStatus.ISSUED, LocalDate.now().minusDays(3));
+        entityManager.getEntityManager().clear();
+
+        List<Invoice> result = invoiceRepository.findUpcomingReceivables(
+                LocalDate.now().plusDays(7), PageRequest.of(0, 5));
+
+        assertThat(result).extracting(Invoice::getId).contains(overdue.getId());
+    }
+
+    @Test
+    void findUpcomingReceivables_excludesInvoicesDueBeyondTheCutoff() {
+        Client client = persistClient("77777777G");
+        persistInvoiceWithDueDate(client, "INV-2026-00010", InvoiceStatus.ISSUED, LocalDate.now().plusDays(8));
+        entityManager.getEntityManager().clear();
+
+        List<Invoice> result = invoiceRepository.findUpcomingReceivables(
+                LocalDate.now().plusDays(7), PageRequest.of(0, 5));
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void findUpcomingReceivables_respectsThePageableLimit() {
+        Client client = persistClient("88888888H");
+        for (int i = 0; i < 3; i++) {
+            persistInvoiceWithDueDate(
+                    client, "INV-2026-0001" + i, InvoiceStatus.ISSUED, LocalDate.now().plusDays(i));
+        }
+        entityManager.getEntityManager().clear();
+
+        List<Invoice> result = invoiceRepository.findUpcomingReceivables(
+                LocalDate.now().plusDays(7), PageRequest.of(0, 2));
+
+        assertThat(result).hasSize(2);
+    }
+
+    @Test
+    void findUpcomingReceivables_ordersByDueDateAscending() {
+        Client client = persistClient("99999999I");
+        Invoice later = persistInvoiceWithDueDate(
+                client, "INV-2026-00020", InvoiceStatus.ISSUED, LocalDate.now().plusDays(5));
+        Invoice earlier = persistInvoiceWithDueDate(
+                client, "INV-2026-00021", InvoiceStatus.ISSUED, LocalDate.now().minusDays(1));
+        entityManager.getEntityManager().clear();
+
+        List<Invoice> result = invoiceRepository.findUpcomingReceivables(
+                LocalDate.now().plusDays(7), PageRequest.of(0, 5));
+
+        assertThat(result).extracting(Invoice::getId).containsExactly(earlier.getId(), later.getId());
+    }
+
+    private Invoice persistInvoiceWithDueDate(Client client, String invoiceNumber, InvoiceStatus status, LocalDate dueDate) {
+        Invoice invoice = new Invoice();
+        invoice.setClient(client);
+        invoice.setInvoiceNumber(invoiceNumber);
+        invoice.setStatus(status);
+        invoice.setDueDate(dueDate);
+        invoice.setTotal(new BigDecimal("100.00"));
+        return entityManager.persistAndFlush(invoice);
     }
 
     private Client persistClient(String taxId) {

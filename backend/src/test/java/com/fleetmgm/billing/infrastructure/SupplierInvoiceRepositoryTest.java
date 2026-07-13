@@ -2,6 +2,7 @@ package com.fleetmgm.billing.infrastructure;
 
 import com.fleetmgm.billing.domain.ExpenseCategory;
 import com.fleetmgm.billing.domain.SupplierInvoice;
+import com.fleetmgm.billing.domain.SupplierInvoiceStatus;
 import com.fleetmgm.config.AuditorAwareImpl;
 import com.fleetmgm.config.JpaAuditingConfig;
 import com.fleetmgm.supplier.domain.Supplier;
@@ -27,6 +28,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase.Replace.NONE;
@@ -141,6 +143,116 @@ class SupplierInvoiceRepositoryTest {
         Page<SupplierInvoice> result = supplierInvoiceRepository.findAllJoinFetch(null, null, PageRequest.of(0, 20));
 
         assertThat(result.getContent()).isEmpty();
+    }
+
+    @Test
+    void sumTotalByInvoiceDateBetween_sumsOnlyInvoicesInRange() {
+        Supplier supplier = persistSupplier();
+        Vehicle vehicle = persistVehicle("9999III");
+        persistInvoiceWithTotal(supplier, vehicle, new BigDecimal("121.00"), LocalDate.now());
+        persistInvoiceWithTotal(supplier, vehicle, new BigDecimal("60.50"), LocalDate.now());
+        // Outside the queried range — must not be included in the sum.
+        persistInvoiceWithTotal(supplier, vehicle, new BigDecimal("999.00"), LocalDate.now().minusMonths(2));
+        entityManager.getEntityManager().clear();
+
+        BigDecimal total = supplierInvoiceRepository.sumTotalByInvoiceDateBetween(
+                LocalDate.now().withDayOfMonth(1), LocalDate.now().withDayOfMonth(LocalDate.now().lengthOfMonth()));
+
+        assertThat(total).isEqualByComparingTo("181.50");
+    }
+
+    @Test
+    void sumTotalByInvoiceDateBetween_returnsZero_whenNoInvoicesInRange() {
+        Supplier supplier = persistSupplier();
+        Vehicle vehicle = persistVehicle("0000JJJ");
+        persistInvoiceWithTotal(supplier, vehicle, new BigDecimal("121.00"), LocalDate.now().minusMonths(3));
+        entityManager.getEntityManager().clear();
+
+        BigDecimal total = supplierInvoiceRepository.sumTotalByInvoiceDateBetween(
+                LocalDate.now().withDayOfMonth(1), LocalDate.now().withDayOfMonth(LocalDate.now().lengthOfMonth()));
+
+        assertThat(total).isEqualByComparingTo(BigDecimal.ZERO);
+    }
+
+    @Test
+    void findUpcomingPayables_excludesPaidInvoices() {
+        Supplier supplier = persistSupplier();
+        persistInvoiceWithDueDate(supplier, "F-2026-0001", SupplierInvoiceStatus.PAID, LocalDate.now().plusDays(1));
+        SupplierInvoice pending = persistInvoiceWithDueDate(
+                supplier, "F-2026-0002", SupplierInvoiceStatus.PENDING, LocalDate.now().plusDays(1));
+        entityManager.getEntityManager().clear();
+
+        List<SupplierInvoice> result = supplierInvoiceRepository.findUpcomingPayables(
+                LocalDate.now().plusDays(7), PageRequest.of(0, 5));
+
+        assertThat(result).extracting(SupplierInvoice::getId).containsExactly(pending.getId());
+    }
+
+    @Test
+    void findUpcomingPayables_includesAlreadyOverdueInvoices() {
+        Supplier supplier = persistSupplier();
+        SupplierInvoice overdue = persistInvoiceWithDueDate(
+                supplier, "F-2026-0003", SupplierInvoiceStatus.PENDING, LocalDate.now().minusDays(3));
+        entityManager.getEntityManager().clear();
+
+        List<SupplierInvoice> result = supplierInvoiceRepository.findUpcomingPayables(
+                LocalDate.now().plusDays(7), PageRequest.of(0, 5));
+
+        assertThat(result).extracting(SupplierInvoice::getId).contains(overdue.getId());
+    }
+
+    @Test
+    void findUpcomingPayables_excludesInvoicesDueBeyondTheCutoff() {
+        Supplier supplier = persistSupplier();
+        persistInvoiceWithDueDate(supplier, "F-2026-0004", SupplierInvoiceStatus.PENDING, LocalDate.now().plusDays(8));
+        entityManager.getEntityManager().clear();
+
+        List<SupplierInvoice> result = supplierInvoiceRepository.findUpcomingPayables(
+                LocalDate.now().plusDays(7), PageRequest.of(0, 5));
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void findUpcomingPayables_respectsThePageableLimit() {
+        Supplier supplier = persistSupplier();
+        for (int i = 0; i < 3; i++) {
+            persistInvoiceWithDueDate(
+                    supplier, "F-2026-010" + i, SupplierInvoiceStatus.PENDING, LocalDate.now().plusDays(i));
+        }
+        entityManager.getEntityManager().clear();
+
+        List<SupplierInvoice> result = supplierInvoiceRepository.findUpcomingPayables(
+                LocalDate.now().plusDays(7), PageRequest.of(0, 2));
+
+        assertThat(result).hasSize(2);
+    }
+
+    private SupplierInvoice persistInvoiceWithDueDate(
+            Supplier supplier, String supplierInvoiceNumber, SupplierInvoiceStatus status, LocalDate dueDate) {
+        SupplierInvoice invoice = new SupplierInvoice();
+        invoice.setSupplier(supplier);
+        invoice.setSupplierInvoiceNumber(supplierInvoiceNumber);
+        invoice.setCategory(ExpenseCategory.MAINTENANCE);
+        invoice.setInvoiceDate(LocalDate.now());
+        invoice.setDueDate(dueDate);
+        invoice.setStatus(status);
+        invoice.setSubtotal(new BigDecimal("100.00"));
+        invoice.setTaxAmount(new BigDecimal("21.00"));
+        invoice.setTotal(new BigDecimal("121.00"));
+        return entityManager.persistAndFlush(invoice);
+    }
+
+    private SupplierInvoice persistInvoiceWithTotal(Supplier supplier, Vehicle vehicle, BigDecimal total, LocalDate invoiceDate) {
+        SupplierInvoice invoice = new SupplierInvoice();
+        invoice.setSupplier(supplier);
+        invoice.setCategory(ExpenseCategory.MAINTENANCE);
+        invoice.setInvoiceDate(invoiceDate);
+        invoice.setVehicle(vehicle);
+        invoice.setSubtotal(total);
+        invoice.setTaxAmount(BigDecimal.ZERO);
+        invoice.setTotal(total);
+        return entityManager.persistAndFlush(invoice);
     }
 
     private Supplier persistSupplier() {

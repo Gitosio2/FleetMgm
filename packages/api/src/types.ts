@@ -422,6 +422,29 @@ export type AuditLogPerformer = {
   email: string
 }
 
+export type FleetSummary = {
+  activeVehicles: number
+  totalVehicles: number
+  inWorkshop: number
+  pendingMaintenance: number
+  pendingMaintenanceDueSoon: number
+}
+
+export type UpcomingInvoice = {
+  id: string
+  number: string
+  counterparty: string
+  amount: number
+  dueDate: string
+  overdue: boolean
+}
+
+export type FinancialSummary = {
+  monthlyCosts: number
+  upcomingReceivables: UpcomingInvoice[]
+  upcomingPayables: UpcomingInvoice[]
+}
+
 export type GpsSource = 'MOCK' | 'DEVICE'
 
 export type GpsPosition = {

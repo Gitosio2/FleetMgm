@@ -6,7 +6,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.UUID;
 
 public interface MaintenanceRepository extends JpaRepository<MaintenanceRecord, UUID> {
@@ -20,4 +23,10 @@ public interface MaintenanceRepository extends JpaRepository<MaintenanceRecord, 
     // Used by MaintenanceEventListener to decide whether a completed maintenance should return the
     // vehicle to ACTIVE — it must stay in the workshop while another maintenance is still IN_PROGRESS.
     boolean existsByVehicleIdAndStatus(UUID vehicleId, MaintenanceStatus status);
+
+    // Fleet-summary KPI (dashboard) — monthly maintenance costs, summed alongside
+    // SupplierInvoiceRepository.sumTotalByInvoiceDateBetween. COALESCE guards against SUM
+    // returning null when no rows fall in the range.
+    @Query("SELECT COALESCE(SUM(m.cost), 0) FROM MaintenanceRecord m WHERE m.workshopEntryDate BETWEEN :from AND :to")
+    BigDecimal sumCostByWorkshopEntryDateBetween(@Param("from") LocalDate from, @Param("to") LocalDate to);
 }
