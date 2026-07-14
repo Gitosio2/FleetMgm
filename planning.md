@@ -1888,7 +1888,33 @@ FleetMgm/
 > inválidas → `401`, intento 11 y 12 → `429` con `Retry-After: 60`; la cuenta real (`admin@fleetmgm.demo`)
 > quedó sin tocar (`failed_login_attempts=0`) y el login legítimo siguió funcionando después.
 > Suite completa (`mvn verify -Pfailsafe`) → 520/520 en verde tras el cambio.
-- [ ] Structured JSON logging (`logstash-logback-encoder`, ya en `pom.xml`) con correlation ID en MDC en cada request
+- [x] Structured JSON logging (`logstash-logback-encoder`, ya en `pom.xml`) con correlation ID en MDC en cada request
+
+> **Nota (revisión Hito 46 — logging estructurado):**
+> `logback-spring.xml` nuevo (`LogstashEncoder` en el único appender de consola) — cada línea de
+> log sale como JSON (`@timestamp`, `level`, `logger_name`, `message`, y cualquier entrada de MDC
+> como campo propio). `logging.level.*` de `application.yml` (por perfil dev/prod) se sigue
+> aplicando sin cambios — Spring Boot fija los niveles programáticamente después de cargar la
+> config de logback.
+> `CorrelationIdFilter` nuevo (`shared/infrastructure/`) — genera un ID **siempre del lado del
+> servidor** (nunca confía en un `X-Correlation-Id` entrante del cliente: aceptar ese valor le
+> dejaría a cualquiera inyectar strings arbitrarios en sus propios logs), lo pone en MDC, lo
+> devuelve como header `X-Correlation-Id`, y loguea una línea de acceso (`GET /path -> 200
+> (12ms)`) en el `finally` — así el ID queda en el log de **toda** request, no solo de las que ya
+> logueaban algo por su cuenta. `MDC.remove()` en el `finally` es obligatorio: Tomcat reutiliza
+> threads entre requests, sin esto un ID podría filtrarse al log de una request distinta en el
+> mismo thread. Corre primero en la cadena de filtros (antes de `JwtAuthenticationFilter`), así que
+> hasta un `401`/`429` queda taggeado.
+> `GlobalExceptionHandler.correlationId()` y los handlers manuales de `SecurityConfig` (401/403)
+> ahora leen el ID del MDC en vez de generar uno random — el `correlationId` que ve el cliente en
+> el cuerpo del error **coincide exactamente** con el de las líneas de log de esa request (antes
+> eran dos IDs distintos sin relación).
+> Test nuevo (`CorrelationIdFilterTest`, 6 tests, sin contexto Spring) cubre: MDC seteado durante
+> la cadena, mismo ID en el header de respuesta, `MDC.clear()` tras completar (incluso si la cadena
+> tira excepción), IDs distintos por request, y la línea de acceso logueada. Verificado además
+> end-to-end corriendo el backend real localmente contra Postgres: el `X-Correlation-Id` de la
+> respuesta HTTP coincide byte a byte con el campo `correlationId` de la línea de log JSON
+> generada para esa misma request.
 - [ ] Métrica Micrometer — contador de intentos de login fallidos, expuesto en `/actuator/metrics`
 - [ ] Anclar `actions/checkout` / `actions/setup-java` en `ci.yml` y `security.yml` a SHA concreto (no tags mutables — supply chain)
 - [x] OWASP Dependency-Check — corregir cualquier CVE CVSS ≥ 7 pendiente
