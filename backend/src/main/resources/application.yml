@@ -78,6 +78,15 @@ springdoc:
   swagger-ui:
     enabled: false
 
+# Railway (and any TLS-terminating reverse proxy) forwards the original request as plain HTTP
+# with X-Forwarded-Proto: https — without this, Tomcat sees every request as insecure, and
+# Spring Security's HSTS header (gated on request.isSecure()) would never actually fire in prod.
+# Scoped to prod only, not global: honoring these headers means trusting whatever sits in front
+# of this process, which is only true for Railway's edge, not the local nginx passthrough used
+# for the docker-compose demo (that one is a real plain-HTTP hop, not a TLS-terminating proxy).
+server:
+  forward-headers-strategy: framework
+
 ---
 spring:
   config:
