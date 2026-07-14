@@ -411,7 +411,7 @@ FleetMgm/
 - [x] `.github/workflows/security.yml` — OWASP scan semanal programado (`schedule: cron`, lunes 06:00 UTC)
 - [x] Maven Wrapper (`mvnw`/`mvnw.cmd` + `.mvn/wrapper/`) añadido — no existía pese a estar documentado en `CLAUDE.md`
 - [x] Verificado localmente: `./mvnw test` (60/60) y `./mvnw dependency-check:check` (`BUILD SUCCESS`) tras subir `spring-boot-starter-parent` 3.3.5 → **3.5.16** (la línea 3.3.x llegó a su último patch con CVEs CVSS ≥ 7 sin resolver en Spring Core/Security/Tomcat) + overrides de `postgresql`, `log4j2`, `jackson-bom`, `tomcat.version`, y bump de `springdoc-openapi-starter-webmvc-ui` a 2.8.17
-- [ ] Anclar `actions/checkout` / `actions/setup-java` a SHA concreto — diferido al Hito 46 (hardening final); por ahora usan tag `@v4`
+- [x] Anclar `actions/checkout` / `actions/setup-java` a SHA concreto — diferido al Hito 46 (hardening final); hecho ahí, ver nota en esa sección
 
 ---
 
@@ -1937,7 +1937,21 @@ FleetMgm/
 > sin token → `401` en `/actuator/metrics/auth.login.failed`; dos intentos fallidos (uno por
 > password incorrecta, uno por email inexistente) + login válido como ADMIN → la métrica devuelve
 > `COUNT: 2.0` con `availableTags: reason: [user_not_found, invalid_credentials]`.
-- [ ] Anclar `actions/checkout` / `actions/setup-java` en `ci.yml` y `security.yml` a SHA concreto (no tags mutables — supply chain)
+- [x] Anclar `actions/checkout` / `actions/setup-java` en `ci.yml` y `security.yml` a SHA concreto (no tags mutables — supply chain)
+
+> **Nota (revisión Hito 46 — pin de SHA en CI):**
+> Se ampliό el alcance más allá de lo pedido literalmente (`checkout`/`setup-java`) — también se
+> pinnearon `actions/cache` y `actions/setup-node`, que usan el mismo tag mutable `@v4` en
+> `ci.yml` y quedaban con el mismo riesgo de supply chain si no se tocaban. SHA obtenido vía la API
+> de GitHub (`GET /repos/{owner}/{repo}/git/ref/tags/v4`, confirmando `object.type: commit` — no
+> son tags anotados que requieran un paso extra de dereferencia) y cruzado contra `GET
+> /repos/{owner}/{repo}/tags` para identificar la versión exacta detrás de cada SHA (para el
+> comentario `# vX.Y.Z` al lado, ya que un SHA de 40 caracteres no es legible por sí solo):
+> `actions/checkout` → `34e114876b0b11c390a56381ad16ebd13914f8d5` (v4.3.1), `actions/setup-java` →
+> `c1e323688fd81a25caa38c78aa6df2d33d3e20d9` (v4.8.0), `actions/cache` →
+> `0057852bfaa89a56745cba8c7296529d2fc39830` (v4.3.0), `actions/setup-node` →
+> `49933ea5288caeca8642d1e84afbd3f7d6820020` (v4.4.0). Validado con `python3 -c "import yaml;
+> yaml.safe_load(...)"` sobre ambos archivos — sintaxis correcta.
 - [x] OWASP Dependency-Check — corregir cualquier CVE CVSS ≥ 7 pendiente
 
 > **Nota (revisión Hito 46 — OWASP Dependency-Check):**
