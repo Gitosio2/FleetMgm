@@ -31,7 +31,7 @@
         <postgresql.version>42.7.12</postgresql.version>
         <log4j2.version>2.26.1</log4j2.version>
         <jackson-bom.version>2.22.0</jackson-bom.version>
-        <tomcat.version>10.1.56</tomcat.version>
+        <tomcat.version>10.1.57</tomcat.version>
     </properties>
 
     <dependencies>
