@@ -1720,10 +1720,174 @@ FleetMgm/
 - [x] `InvoiceFlowIT` — crear DRAFT → añadir línea → emitir → pagar → descargar PDF
 
 ### Hito 46 — Demo y hardening final
-- [ ] `docker-compose.yml` — postgres:16 + backend + apps/web (nginx), health checks, `depends_on`
-- [ ] `Flyway V18` — seed datos demo realistas (5 vehículos, 3 conductores, 10 trabajos completados, 3 facturas de cliente, facturas de proveedor de ejemplo)
-- [ ] Revisar headers HTTP en `SecurityConfig`: `X-Content-Type-Options`, `X-Frame-Options`, `HSTS` (prod)
-- [ ] Rate limiting en `/api/v1/auth/login` y `/api/v1/auth/refresh` (Bucket4j o filtro Spring Security) — control declarado en Security Model desde el inicio pero sin hito propio hasta esta revisión
+- [x] `docker-compose.yml` — postgres:16 + backend + apps/web (nginx), health checks, `depends_on`
+
+> **Nota (revisión Hito 46 — docker-compose):**
+> 1. `apiClient.baseURL` es `/api/v1` (relativa) — en dev esto funciona porque MSW intercepta las
+>    llamadas en el navegador sin salir del proceso, pero en el stack real de docker-compose no hay
+>    MSW. Se resolvió con **nginx como reverse proxy same-origin**: `apps/web/nginx.conf` reenvía
+>    `location /api/` a `http://backend:8080/api/`, así el navegador nunca hace una llamada
+>    cross-origin y no depende de la configuración de CORS del backend.
+> 2. `backend` corre con `SPRING_PROFILES_ACTIVE=prod` en el compose — el objetivo del hito es
+>    validar el hardening real (Swagger UI apagado, sin `show-sql`), no un modo dev disfrazado.
+> 3. `eclipse-temurin:21-jre` no trae `curl`/`wget` — se instaló `curl` en el stage de runtime del
+>    `backend/Dockerfile` solo para que el healthcheck de compose pueda golpear `/actuator/health`.
+> 4. `apps/web/Dockerfile` construye con `context: .` (raíz del repo), no `apps/web/` — es un
+>    workspace de Turborepo y `packages/api`/`hooks`/`store` no están publicados a ningún registry,
+>    así que la imagen necesita ver el repo completo para que `npm ci` resuelva los workspaces antes
+>    de `npx turbo run build --filter=./apps/web`.
+> 5. Validado con `docker compose up` real (los 3 servicios llegan a `healthy`, `GET /actuator/health`
+>    responde `UP`, y el proxy de nginx `/api/v1/...` llega hasta el backend). En el camino salieron
+>    dos bugs de entorno, ambos por diferencias Windows/Linux al construir la imagen:
+>    - `backend/mvnw` tiene finales de línea CRLF en el checkout de Windows — el shebang `#!/bin/sh\r`
+>      no resuelve dentro del contenedor Linux (exit 127). Corregido normalizando con
+>      `sed -i 's/\r$//' mvnw && chmod +x mvnw` como paso explícito del `Dockerfile`, en vez de confiar
+>      en el estado del checkout.
+>    - No existía `.dockerignore` — `COPY . .` en `apps/web/Dockerfile` copiaba el `node_modules` del
+>      host por encima del que `npm ci` ya había creado dentro del contenedor. En Windows, npm
+>      materializa los links de workspace (`@fleetmgm/api`, `hooks`, `store`) como symlinks
+>      **absolutos** (`/c/Desarrollo/...`), que quedan rotos al copiarse a un filesystem Linux —
+>      de ahí los `TS2307: Cannot find module '@fleetmgm/api'` en el build de `apps/web`. Se agregó
+>      `.dockerignore` en la raíz excluyendo `node_modules`, `dist`, `build`, `target`, `.turbo` y
+>      `*.tsbuildinfo`, para que el contenedor siempre use sus propios artefactos, nunca los del host.
+> 6. **Bug encontrado en pruebas reales de navegador (no por curl):** `apps/web/.env.local` tiene
+>    `VITE_ENABLE_MSW=true` para `npm run dev` local — Vite carga `.env.local` también en
+>    `vite build`, y como no estaba excluido del build context, quedó horneado en el bundle de
+>    "producción". El navegador registraba el Service Worker de MSW (`GET /mockServiceWorker.js`
+>    visible en los logs de nginx) e interceptaba `/api/v1/auth/login` con una respuesta mockeada,
+>    mientras que `curl` (sin ese service worker) sí llegaba al backend real — por eso el login
+>    fallaba solo en el navegador y no se detectó con las pruebas por API. Corregido agregando
+>    `**/.env.local` y `**/.env*.local` a `.dockerignore`. Nota operativa: un Service Worker ya
+>    registrado persiste del lado del navegador aunque el servidor cambie — hace falta
+>    desregistrarlo manualmente (DevTools → Application → Service Workers → Unregister) una vez.
+- [x] `Flyway V18` — seed datos demo realistas (5 vehículos, 3 conductores, 10 trabajos completados, 3 facturas de cliente, facturas de proveedor de ejemplo)
+
+> **Nota (revisión Hito 46 — seed demo data):**
+> 1. **Archivo real: `V20__seed_demo_data.sql`, no V18.** El nombre "V18" quedó reservado en este
+>    checklist desde que se documentó el plan original, pero el Hito 36 (`V19__create_suppliers.sql`)
+>    ocupó ese hueco de numeración antes de que el seed se llegara a escribir. Flyway ejecuta en
+>    orden estricto de versión — con el archivo nombrado V18, el seed corría *antes* que V19 y
+>    fallaba con `relation "suppliers" does not exist` (la tabla `suppliers` no existe hasta V19).
+>    Confirmado contra Postgres real: con el archivo como V18 el build fallaba; renombrado a V20
+>    (siguiente número libre), Flyway aplica V1→V20 limpio.
+> 2. **Alcance final, negociado con el usuario, mucho mayor que el original:** 28 vehículos (18
+>    camiones de marcas reales — Volvo FH16, Scania R450, Mercedes-Benz Actros, MAN TGX, Iveco
+>    Stralis, DAF XF105, Renault Trucks T480 —, 5 vehículos ligeros, 5 maquinaria pesada: 3
+>    excavadoras + 2 carretillas elevadoras; solo la Caterpillar 320 lleva matrícula, excepción
+>    pedida explícitamente), 10 clientes, 20 proveedores, 18 trabajadores (15 conductores + 3
+>    técnicos de taller), 10 usuarios de login, historial de asignaciones conductor↔vehículo (15
+>    activas + 3 cerradas para mostrar profundidad histórica), 100 jobs (89 completados con sus
+>    `usage_logs`, el resto `IN_PROGRESS`/`PENDING`), 59 registros de mantenimiento + agenda de
+>    taller, 30 facturas de cliente y 70 facturas de proveedor — todo distribuido entre enero y
+>    julio de 2026.
+> 3. **Credenciales demo** (todas con password `Demo1234!`, BCrypt cost 12): `admin@fleetmgm.demo`
+>    (ADMIN), `gerente@fleetmgm.demo` (MANAGER), `administrativo1/2@fleetmgm.demo`
+>    (ADMINISTRATIVE), `taller1/2/3@fleetmgm.demo` (WORKSHOP_STAFF), `conductor1/2/3@fleetmgm.demo`
+>    (DRIVER). Verificado con un login real contra el stack de docker-compose, no solo contra el
+>    hash aislado.
+> 4. **Sorpresa de esquema:** `WorkerRole` (tabla `workers`) es `DRIVER / TECHNICIAN / BOTH` — no
+>    tiene un valor `WORKSHOP_STAFF`. Es un enum distinto de `AppRole` (el de `users`, que sí tiene
+>    `WORKSHOP_STAFF`). Los 3 trabajadores de taller se sembraron como `worker_role = 'TECHNICIAN'`
+>    y sus cuentas de login correspondientes como `app_role = 'WORKSHOP_STAFF'` — son dos enums
+>    independientes que solo coinciden de nombre en 3 de sus 5 valores.
+> 5. Validado end-to-end contra el stack real: `docker compose down -v && up -d --build` (base
+>    limpia), Flyway aplica V1→V20 sin errores, conteos de filas dentro de los rangos pedidos,
+>    aritmética de todas las facturas (`subtotal + tax_amount = total`, `tax_amount = ROUND(subtotal
+>    * 0.21, 2)`) verificada en las 30 facturas de cliente sin ninguna discrepancia, y un login real
+>    (`POST /api/v1/auth/login`) + una llamada autenticada a `GET /api/v1/vehicles` confirmando los
+>    28 vehículos a través del proxy de nginx.
+> 6. **Bug encontrado al mirar el dashboard real (no por conteos agregados):** el gráfico de
+>    ingresos/gastos solo mostraba datos de enero y abril. Causa: la fórmula de mes para las
+>    facturas de cliente (`v_month := ((n - 1) * 2) + 1; v_month := LEAST(v_month + (n - 1), 7)`)
+>    daba el mismo resultado fijo (1, 4, 7) para **todos** los clientes sin ninguna variación — no
+>    dependía de `random()` como sugería el comentario original. El mes 7 además cae siempre en
+>    `DRAFT` (sin `issue_date`), así que en la práctica solo enero y abril llegaban a `PAID` con
+>    fecha real. Corregido a un sorteo uniforme por factura (`v_month := 1 + floor(random() * 7)`),
+>    verificado tras `down -v && up -d --build`: ingresos ahora repartidos en 6 meses (ene-jun,
+>    `PAID`/`ISSUED`), julio queda en `DRAFT` como es esperable para lo más reciente sin emitir.
+> 7. **Desbalance ingresos/gastos, pedido explícito de realismo por el usuario:** con los datos
+>    originales, el total de gastos (mantenimiento + facturas de proveedor, ~212.149€ en 7 meses)
+>    era ~6.5x el de ingresos (~32.686€) — no por reparto de meses sino por volumen/precio real.
+>    Causa: solo 3-5 trabajos por vehículo en 7 meses (< 1/mes, poco realista para una flota
+>    activa) con precio 250-1150€, y de los 68 trabajos con precio solo 48 terminaban facturados —
+>    la subconsulta de selección de trabajos por factura no excluía los ya facturados, con riesgo
+>    latente de doble facturación del mismo trabajo en dos facturas distintas. Corregido: 8-14
+>    trabajos/vehículo (antes 3-5), precio 400-1800€ (antes 250-1150€), 7 facturas/cliente (antes
+>    3) con muestra de 2-5 trabajos cada una (antes 1-3) y exclusión explícita de trabajos ya
+>    facturados (`NOT IN (SELECT linked_job_id FROM invoice_line_items ...)`). Verificado tras
+>    `down -v && up -d --build`: 218 líneas de factura = 218 trabajos distintos (cero doble
+>    facturación), ingresos e gastos ahora del mismo orden de magnitud y alternando mes a mes
+>    (ene-mar con ingresos por delante, abril con un pico de gastos real, may/jun equilibrados),
+>    login y aritmética de facturas siguen sin discrepancias.
+
+### Adenda — Bug preexistente en el visor de auditoría (Hito 41-42), encontrado durante la demo del Hito 46
+> `GET /api/v1/audit` devolvía `500` en el frontend real (no en `AuditLogControllerTest`, que mockea
+> el service y nunca toca SQL real — no existía ningún `AuditLogRepositoryTest` antes de este fix).
+> Causa: `AuditLogRepository.findAllFiltered` usa el idiom `(:param IS NULL OR ...)` para cada
+> filtro opcional; con un valor `null` y sin más contexto de tipo, PostgreSQL/pgjdbc no puede
+> inferir el tipo del bind parameter en la comparación `? IS NULL` "pelada" — Hibernate emite cada
+> aparición textual del mismo parámetro con nombre como un bind position JDBC separado, así que el
+> tipo no se propaga entre la comparación `IS NULL` y el uso tipado en otra parte de la query.
+> Síntoma real: `ERROR: function lower(bytea) does not exist` (para `performedByEmail`, envuelto en
+> `LOWER(CONCAT(...))`) y luego `ERROR: could not determine data type of parameter $N` (para
+> `entityType`/`action`/`from`/`to`, sin ninguna función alrededor). Fallaba en **toda** petición al
+> endpoint, incluso sin ningún filtro aplicado. Corregido envolviendo cada comparación pelada con
+> `CAST(:param AS string)` — válido para cualquier tipo Java real del parámetro (String/enum/Instant)
+> porque `IS NULL` no depende del tipo comparado. Se agregó `AuditLogRepositoryTest`
+> (`@DataJpaTest` + Testcontainers, antes inexistente) cubriendo los 5 filtros contra Postgres real,
+> para que este vacío de cobertura no se repita.
+
+- [x] Revisar headers HTTP en `SecurityConfig`: `X-Content-Type-Options`, `X-Frame-Options`, `HSTS` (prod)
+
+> **Nota (revisión Hito 46 — headers HTTP):**
+> 1. `X-Content-Type-Options: nosniff` y `X-Frame-Options: DENY` ya estaban desde antes
+>    (`SecurityConfig.headers().contentTypeOptions()`/`.frameOptions(frame -> frame.deny())`) —
+>    verificado con curl contra el backend real, sin cambios necesarios.
+> 2. **HSTS añadido explícitamente** (`httpStrictTransportSecurity`, `maxAgeInSeconds=31536000`,
+>    `includeSubDomains=true`). Spring Security ya lo activa por defecto, pero solo lo escribe
+>    cuando `request.isSecure()` es `true` — hacerlo explícito documenta la intención y evita que
+>    un lector futuro asuma que no existe. Sin más cambios, esto nunca se activaría detrás de
+>    Railway (o cualquier proxy que termine TLS): el proxy reenvía la request al contenedor como
+>    HTTP plano con `X-Forwarded-Proto: https`, y sin `server.forward-headers-strategy: framework`
+>    Tomcat ignora ese header y ve toda request como insegura. Se agregó ese flag **solo en el
+>    perfil `prod`** — confiarlo globalmente significaría confiar en cualquier proxy delante del
+>    proceso, y el nginx local del docker-compose demo no termina TLS de verdad. Verificado
+>    simulando el proxy (`curl -H "X-Forwarded-Proto: https"` directo al puerto 8080 del backend,
+>    sin pasar por nginx — nginx local sobreescribe ese header con `$scheme` real, que es `http`):
+>    sin el header, no aparece `Strict-Transport-Security`; con el header, aparece correctamente.
+> 3. **Regresión real encontrada al correr el suite completo tras este cambio** (no relacionada con
+>    HSTS): `./mvnw verify -Pfailsafe` pasaba con archivos individuales pero fallaba con 24
+>    failures/22 errors corriendo todo junto — `duplicate key value violates unique constraint
+>    uq_invoices_number` en `LineItemRepositoryTest`/`ProfitabilityRepositoryTest`, entre otros.
+>    Causa: `V20__seed_demo_data.sql` vivía en `db/migration/`, así que Flyway lo aplicaba también
+>    en **todo** `@DataJpaTest` (que corre la secuencia completa de migraciones contra Postgres
+>    real, por diseño — ver sección de Testing Strategy) — los 69 números de factura sembrados
+>    (`INV-2026-00001..00069`) chocaban con literales hardcodeados en fixtures de tests
+>    preexistentes que asumían una base vacía. Corregido moviendo el seed a `db/seed/` (fuera de
+>    `classpath:db/migration`) y agregando un perfil `demo` nuevo en `application.yml` que extiende
+>    `spring.flyway.locations` para incluirlo — activado solo en `docker-compose.yml`
+>    (`SPRING_PROFILES_ACTIVE=prod,demo`), nunca en tests/CI. Verificado: `mvn verify -Pfailsafe`
+>    completo → 515/515 tests en verde; `docker compose down -v && up -d --build` → Flyway sigue
+>    aplicando V20 correctamente en el stack de demo; login real sigue funcionando.
+- [x] Rate limiting en `/api/v1/auth/login` y `/api/v1/auth/refresh` (Bucket4j o filtro Spring Security) — control declarado en Security Model desde el inicio pero sin hito propio hasta esta revisión
+
+> **Nota (revisión Hito 46 — rate limiting):**
+> `RateLimitFilter` (nuevo, `auth/infrastructure/`) — Bucket4j en memoria (`ConcurrentHashMap<clave,
+> Bucket>`, no un store distribuido tipo Redis: esta app corre como instancia única para la escala
+> de este proyecto, un store externo sería complejidad sin beneficio real aquí), 10 requests/minuto
+> por combinación IP+endpoint. Complementa (no reemplaza) el bloqueo de cuenta ya existente en
+> `AuthService`: el lockout protege una cuenta puntual de fuerza bruta; esto protege el endpoint de
+> un cliente que prueba contra muchas cuentas distintas, algo que el lockout por sí solo no cubre.
+> Clave `path|ip` (no solo IP) para que agotar el cupo de `/login` no afecte el de `/refresh` —
+> tienen patrones de uso legítimo muy distintos (login: ocasional, manual; refresh: automático, una
+> vez por vida del access token). Devuelve `429` con el mismo `ErrorResponse` que usa
+> `GlobalExceptionHandler`, más header `Retry-After: 60`. Wireado en `SecurityConfig` antes de
+> `JwtAuthenticationFilter`. Test unitario nuevo (`RateLimitFilterTest`, sin contexto Spring, 5
+> tests) cubre: límite por IP, aislamiento entre IPs, aislamiento entre endpoints, no interferencia
+> con rutas no cubiertas. Verificado en vivo contra el stack de Docker: 10 intentos con credenciales
+> inválidas → `401`, intento 11 y 12 → `429` con `Retry-After: 60`; la cuenta real (`admin@fleetmgm.demo`)
+> quedó sin tocar (`failed_login_attempts=0`) y el login legítimo siguió funcionando después.
+> Suite completa (`mvn verify -Pfailsafe`) → 520/520 en verde tras el cambio.
 - [ ] Structured JSON logging (`logstash-logback-encoder`, ya en `pom.xml`) con correlation ID en MDC en cada request
 - [ ] Métrica Micrometer — contador de intentos de login fallidos, expuesto en `/actuator/metrics`
 - [ ] Anclar `actions/checkout` / `actions/setup-java` en `ci.yml` y `security.yml` a SHA concreto (no tags mutables — supply chain)
