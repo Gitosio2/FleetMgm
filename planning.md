@@ -411,7 +411,7 @@ FleetMgm/
 - [x] `.github/workflows/security.yml` — OWASP scan semanal programado (`schedule: cron`, lunes 06:00 UTC)
 - [x] Maven Wrapper (`mvnw`/`mvnw.cmd` + `.mvn/wrapper/`) añadido — no existía pese a estar documentado en `CLAUDE.md`
 - [x] Verificado localmente: `./mvnw test` (60/60) y `./mvnw dependency-check:check` (`BUILD SUCCESS`) tras subir `spring-boot-starter-parent` 3.3.5 → **3.5.16** (la línea 3.3.x llegó a su último patch con CVEs CVSS ≥ 7 sin resolver en Spring Core/Security/Tomcat) + overrides de `postgresql`, `log4j2`, `jackson-bom`, `tomcat.version`, y bump de `springdoc-openapi-starter-webmvc-ui` a 2.8.17
-- [ ] Anclar `actions/checkout` / `actions/setup-java` a SHA concreto — diferido al Hito 46 (hardening final); por ahora usan tag `@v4`
+- [x] Anclar `actions/checkout` / `actions/setup-java` a SHA concreto — diferido al Hito 46 (hardening final); hecho ahí, ver nota en esa sección
 
 ---
 
@@ -1888,9 +1888,70 @@ FleetMgm/
 > inválidas → `401`, intento 11 y 12 → `429` con `Retry-After: 60`; la cuenta real (`admin@fleetmgm.demo`)
 > quedó sin tocar (`failed_login_attempts=0`) y el login legítimo siguió funcionando después.
 > Suite completa (`mvn verify -Pfailsafe`) → 520/520 en verde tras el cambio.
-- [ ] Structured JSON logging (`logstash-logback-encoder`, ya en `pom.xml`) con correlation ID en MDC en cada request
-- [ ] Métrica Micrometer — contador de intentos de login fallidos, expuesto en `/actuator/metrics`
-- [ ] Anclar `actions/checkout` / `actions/setup-java` en `ci.yml` y `security.yml` a SHA concreto (no tags mutables — supply chain)
+- [x] Structured JSON logging (`logstash-logback-encoder`, ya en `pom.xml`) con correlation ID en MDC en cada request
+
+> **Nota (revisión Hito 46 — logging estructurado):**
+> `logback-spring.xml` nuevo (`LogstashEncoder` en el único appender de consola) — cada línea de
+> log sale como JSON (`@timestamp`, `level`, `logger_name`, `message`, y cualquier entrada de MDC
+> como campo propio). `logging.level.*` de `application.yml` (por perfil dev/prod) se sigue
+> aplicando sin cambios — Spring Boot fija los niveles programáticamente después de cargar la
+> config de logback.
+> `CorrelationIdFilter` nuevo (`shared/infrastructure/`) — genera un ID **siempre del lado del
+> servidor** (nunca confía en un `X-Correlation-Id` entrante del cliente: aceptar ese valor le
+> dejaría a cualquiera inyectar strings arbitrarios en sus propios logs), lo pone en MDC, lo
+> devuelve como header `X-Correlation-Id`, y loguea una línea de acceso (`GET /path -> 200
+> (12ms)`) en el `finally` — así el ID queda en el log de **toda** request, no solo de las que ya
+> logueaban algo por su cuenta. `MDC.remove()` en el `finally` es obligatorio: Tomcat reutiliza
+> threads entre requests, sin esto un ID podría filtrarse al log de una request distinta en el
+> mismo thread. Corre primero en la cadena de filtros (antes de `JwtAuthenticationFilter`), así que
+> hasta un `401`/`429` queda taggeado.
+> `GlobalExceptionHandler.correlationId()` y los handlers manuales de `SecurityConfig` (401/403)
+> ahora leen el ID del MDC en vez de generar uno random — el `correlationId` que ve el cliente en
+> el cuerpo del error **coincide exactamente** con el de las líneas de log de esa request (antes
+> eran dos IDs distintos sin relación).
+> Test nuevo (`CorrelationIdFilterTest`, 6 tests, sin contexto Spring) cubre: MDC seteado durante
+> la cadena, mismo ID en el header de respuesta, `MDC.clear()` tras completar (incluso si la cadena
+> tira excepción), IDs distintos por request, y la línea de acceso logueada. Verificado además
+> end-to-end corriendo el backend real localmente contra Postgres: el `X-Correlation-Id` de la
+> respuesta HTTP coincide byte a byte con el campo `correlationId` de la línea de log JSON
+> generada para esa misma request.
+- [x] Métrica Micrometer — contador de intentos de login fallidos, expuesto en `/actuator/metrics`
+
+> **Nota (revisión Hito 46 — métrica de logins fallidos):**
+> `AuthService.login()` incrementa un `Counter` (`auth.login.failed`, Micrometer, ya expuesto vía
+> `micrometer-registry-prometheus` que estaba en el `pom.xml`) en los 4 caminos que lanzan
+> `BadCredentialsException`, cada uno con un tag `reason` distinto (`user_not_found`, `locked`,
+> `disabled`, `invalid_credentials`) — así se puede distinguir un ataque de fuerza bruta contra una
+> cuenta real (`invalid_credentials`) de alguien probando emails al azar (`user_not_found`), sin
+> depender de leer logs. `Counter.builder(...).register(registry)` es idempotente (Micrometer
+> devuelve el mismo meter para el mismo nombre+tags en vez de duplicar), así que no hace falta un
+> campo `Counter` por razón.
+> **Gap de seguridad encontrado y corregido de paso:** `/actuator/metrics` (y el resto de
+> `/actuator/**` salvo `health`/`info`) caía en el `anyRequest().authenticated()` genérico —
+> accesible para **cualquier rol autenticado** (`DRIVER`, `WORKSHOP_STAFF`, etc.), no solo `ADMIN`
+> como pide la sección E del `CLAUDE.md`. Se agregó `.requestMatchers("/actuator/**").hasRole("ADMIN")`
+> explícito antes de la regla genérica.
+> Test (`AuthServiceTest`, usando `SimpleMeterRegistry` real en vez de un mock — necesario para
+> verificar el conteo real) — aserciones agregadas a los 5 tests de fallo de login existentes,
+> confirmando el tag correcto en cada uno. Verificado además end-to-end contra el backend real:
+> sin token → `401` en `/actuator/metrics/auth.login.failed`; dos intentos fallidos (uno por
+> password incorrecta, uno por email inexistente) + login válido como ADMIN → la métrica devuelve
+> `COUNT: 2.0` con `availableTags: reason: [user_not_found, invalid_credentials]`.
+- [x] Anclar `actions/checkout` / `actions/setup-java` en `ci.yml` y `security.yml` a SHA concreto (no tags mutables — supply chain)
+
+> **Nota (revisión Hito 46 — pin de SHA en CI):**
+> Se ampliό el alcance más allá de lo pedido literalmente (`checkout`/`setup-java`) — también se
+> pinnearon `actions/cache` y `actions/setup-node`, que usan el mismo tag mutable `@v4` en
+> `ci.yml` y quedaban con el mismo riesgo de supply chain si no se tocaban. SHA obtenido vía la API
+> de GitHub (`GET /repos/{owner}/{repo}/git/ref/tags/v4`, confirmando `object.type: commit` — no
+> son tags anotados que requieran un paso extra de dereferencia) y cruzado contra `GET
+> /repos/{owner}/{repo}/tags` para identificar la versión exacta detrás de cada SHA (para el
+> comentario `# vX.Y.Z` al lado, ya que un SHA de 40 caracteres no es legible por sí solo):
+> `actions/checkout` → `34e114876b0b11c390a56381ad16ebd13914f8d5` (v4.3.1), `actions/setup-java` →
+> `c1e323688fd81a25caa38c78aa6df2d33d3e20d9` (v4.8.0), `actions/cache` →
+> `0057852bfaa89a56745cba8c7296529d2fc39830` (v4.3.0), `actions/setup-node` →
+> `49933ea5288caeca8642d1e84afbd3f7d6820020` (v4.4.0). Validado con `python3 -c "import yaml;
+> yaml.safe_load(...)"` sobre ambos archivos — sintaxis correcta.
 - [x] OWASP Dependency-Check — corregir cualquier CVE CVSS ≥ 7 pendiente
 
 > **Nota (revisión Hito 46 — OWASP Dependency-Check):**
@@ -1902,7 +1963,22 @@ FleetMgm/
 > Quedan 3 CVEs de severidad media (CVSS 5.3, no bloquean el gate) sin acción por ahora:
 > `commons-lang3` 3.17.0 (`CVE-2025-48924`), `jackson-databind` 2.22.0 (`CVE-2026-54515`), y
 > `DOMPurify` 3.3.2 empaquetado dentro del jar de `springdoc` `swagger-ui-5.32.2`.
-- [ ] `README.md` — diagrama de arquitectura, capturas de pantalla, credenciales demo, instrucciones Railway y local
+- [x] `README.md` — diagrama de arquitectura, capturas de pantalla, credenciales demo, instrucciones Railway y local
+
+> **Nota (revisión Hito 46 — README):**
+> Reescrito con: tabla de stack, diagrama de arquitectura (Mermaid, se renderiza nativo en GitHub),
+> lista de funcionalidades, tabla de credenciales demo, arranque rápido con `docker compose`,
+> desarrollo local sin Docker (backend + frontend, MSW mockeado), variables de entorno para
+> Railway/Vercel. Verificado en vivo: `docker compose down -v && up -d --build` desde cero → 3
+> contenedores healthy, login demo (`admin@fleetmgm.demo`/`Demo1234!`) devuelve `200` — el arranque
+> rápido documentado funciona tal cual está escrito.
+> **Capturas de pantalla: pendientes.** No hay herramienta de browser/captura disponible en esta
+> sesión — se dejó un placeholder explícito en el README indicando qué capturar (Dashboard,
+> Vehículos, rentabilidad por vehículo, ciclo de vida de un trabajo, mapa GPS, visor de auditoría)
+> con el stack de demo ya corriendo y listo para eso.
+> Reescrito en español (pedido explícito del usuario) — coincide con la convención ya establecida
+> de texto en español para contenido que lee el jurado directamente (mismo criterio que la UI de
+> `apps/web`).
 
 ---
 

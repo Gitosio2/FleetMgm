@@ -3,7 +3,9 @@ package com.fleetmgm.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fleetmgm.auth.infrastructure.JwtAuthenticationFilter;
 import com.fleetmgm.auth.infrastructure.RateLimitFilter;
+import com.fleetmgm.shared.infrastructure.CorrelationIdFilter;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -29,15 +31,18 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final RateLimitFilter rateLimitFilter;
+    private final CorrelationIdFilter correlationIdFilter;
     private final ObjectMapper objectMapper;
 
     @Value("${FRONTEND_URL:http://localhost:5173}")
     private String frontendUrl;
 
     public SecurityConfig(
-            JwtAuthenticationFilter jwtAuthenticationFilter, RateLimitFilter rateLimitFilter, ObjectMapper objectMapper) {
+            JwtAuthenticationFilter jwtAuthenticationFilter, RateLimitFilter rateLimitFilter,
+            CorrelationIdFilter correlationIdFilter, ObjectMapper objectMapper) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.rateLimitFilter = rateLimitFilter;
+        this.correlationIdFilter = correlationIdFilter;
         this.objectMapper = objectMapper;
     }
 
@@ -56,6 +61,13 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/swagger-ui.html"
                         ).permitAll()
+                        // CLAUDE.md E: only /health and /info are public; every other actuator
+                        // endpoint requires ADMIN specifically, not just any authenticated role —
+                        // metrics/prometheus expose operational data (now including failed-login
+                        // counts) that a DRIVER or WORKSHOP_STAFF account has no business reading.
+                        // Without this explicit rule they'd fall through to the generic
+                        // anyRequest().authenticated() below, which accepts any authenticated role.
+                        .requestMatchers("/actuator/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(ex -> ex
@@ -64,7 +76,8 @@ public class SecurityConfig {
                             response.setContentType("application/json");
                             response.getWriter().write(objectMapper.writeValueAsString(
                                     Map.of("status", 401, "code", "UNAUTHORIZED",
-                                            "message", "Authentication required")
+                                            "message", "Authentication required",
+                                            "correlationId", correlationId())
                             ));
                         })
                         .accessDeniedHandler((request, response, accessDeniedException) -> {
@@ -72,7 +85,8 @@ public class SecurityConfig {
                             response.setContentType("application/json");
                             response.getWriter().write(objectMapper.writeValueAsString(
                                     Map.of("status", 403, "code", "ACCESS_DENIED",
-                                            "message", "Access denied")
+                                            "message", "Access denied",
+                                            "correlationId", correlationId())
                             ));
                         })
                 )
@@ -89,9 +103,20 @@ public class SecurityConfig {
                                 .maxAgeInSeconds(31536000))
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-                .addFilterBefore(rateLimitFilter, JwtAuthenticationFilter.class);
+                .addFilterBefore(rateLimitFilter, JwtAuthenticationFilter.class)
+                // Runs before rate limiting too, so even a 429 response is tagged and logged with
+                // a correlation ID — it needs to be the very first thing in the chain.
+                .addFilterBefore(correlationIdFilter, RateLimitFilter.class);
 
         return http.build();
+    }
+
+    // Matches GlobalExceptionHandler.correlationId()'s fallback — these two handlers run inside
+    // Spring Security's exception-handling filter, outside @RestControllerAdvice's reach, so they
+    // can't share that method directly, but must produce the same value for the same request.
+    private String correlationId() {
+        String fromRequest = MDC.get(CorrelationIdFilter.MDC_KEY);
+        return fromRequest != null ? fromRequest : java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 8);
     }
 
     @Bean

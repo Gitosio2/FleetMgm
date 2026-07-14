@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!-- logging.level.* in application.yml still applies on top of this — Spring Boot's
+         LoggingSystem sets logger levels programmatically at startup regardless of what's
+         configured here, so the dev/prod profile log-level differences keep working unchanged. -->
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <!-- LogstashEncoder serializes every MDC entry (just correlationId, from
+             CorrelationIdFilter, for now) as a top-level JSON field alongside timestamp, level,
+             logger, thread, message, and stack trace — no extra config needed for that. -->
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder"/>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="STDOUT"/>
+    </root>
+</configuration>
