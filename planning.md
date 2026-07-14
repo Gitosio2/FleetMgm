@@ -1891,7 +1891,17 @@ FleetMgm/
 - [ ] Structured JSON logging (`logstash-logback-encoder`, ya en `pom.xml`) con correlation ID en MDC en cada request
 - [ ] Métrica Micrometer — contador de intentos de login fallidos, expuesto en `/actuator/metrics`
 - [ ] Anclar `actions/checkout` / `actions/setup-java` en `ci.yml` y `security.yml` a SHA concreto (no tags mutables — supply chain)
-- [ ] OWASP Dependency-Check — corregir cualquier CVE CVSS ≥ 7 pendiente
+- [x] OWASP Dependency-Check — corregir cualquier CVE CVSS ≥ 7 pendiente
+
+> **Nota (revisión Hito 46 — OWASP Dependency-Check):**
+> `tomcat-embed-core-10.1.56.jar` traía `CVE-2026-59083`/`CVE-2026-59084` (CVSS 9.1 cada una) —
+> manejo indebido de paths con codificación hex en el rewrite valve de Tomcat, permite bypass de
+> restricciones de seguridad en ciertas configuraciones. Afecta Tomcat 10.1.0-M1 a 10.1.56 (nuestra
+> versión pinneada exacta); corregido en 10.1.57. Bump de `tomcat.version` en `pom.xml`. Verificado:
+> `mvn dependency-check:check` → `BUILD SUCCESS`, sin ningún CVE ≥ 7 restante.
+> Quedan 3 CVEs de severidad media (CVSS 5.3, no bloquean el gate) sin acción por ahora:
+> `commons-lang3` 3.17.0 (`CVE-2025-48924`), `jackson-databind` 2.22.0 (`CVE-2026-54515`), y
+> `DOMPurify` 3.3.2 empaquetado dentro del jar de `springdoc` `swagger-ui-5.32.2`.
 - [ ] `README.md` — diagrama de arquitectura, capturas de pantalla, credenciales demo, instrucciones Railway y local
 
 ---
