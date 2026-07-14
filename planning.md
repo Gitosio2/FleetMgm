@@ -1963,7 +1963,22 @@ FleetMgm/
 > Quedan 3 CVEs de severidad media (CVSS 5.3, no bloquean el gate) sin acción por ahora:
 > `commons-lang3` 3.17.0 (`CVE-2025-48924`), `jackson-databind` 2.22.0 (`CVE-2026-54515`), y
 > `DOMPurify` 3.3.2 empaquetado dentro del jar de `springdoc` `swagger-ui-5.32.2`.
-- [ ] `README.md` — diagrama de arquitectura, capturas de pantalla, credenciales demo, instrucciones Railway y local
+- [x] `README.md` — diagrama de arquitectura, capturas de pantalla, credenciales demo, instrucciones Railway y local
+
+> **Nota (revisión Hito 46 — README):**
+> Reescrito con: tabla de stack, diagrama de arquitectura (Mermaid, se renderiza nativo en GitHub),
+> lista de funcionalidades, tabla de credenciales demo, arranque rápido con `docker compose`,
+> desarrollo local sin Docker (backend + frontend, MSW mockeado), variables de entorno para
+> Railway/Vercel. Verificado en vivo: `docker compose down -v && up -d --build` desde cero → 3
+> contenedores healthy, login demo (`admin@fleetmgm.demo`/`Demo1234!`) devuelve `200` — el arranque
+> rápido documentado funciona tal cual está escrito.
+> **Capturas de pantalla: pendientes.** No hay herramienta de browser/captura disponible en esta
+> sesión — se dejó un placeholder explícito en el README indicando qué capturar (Dashboard,
+> Vehículos, rentabilidad por vehículo, ciclo de vida de un trabajo, mapa GPS, visor de auditoría)
+> con el stack de demo ya corriendo y listo para eso.
+> Reescrito en español (pedido explícito del usuario) — coincide con la convención ya establecida
+> de texto en español para contenido que lee el jurado directamente (mismo criterio que la UI de
+> `apps/web`).
 
 ---
 
