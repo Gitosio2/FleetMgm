@@ -19,11 +19,22 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, UUID> {
     // the dynamic-query SQL injection rule while still supporting Pageable. performedByEmail is a
     // case-insensitive substring match (LIKE on a bind parameter, not concatenated SQL) since the
     // admin types a partial email rather than picking from a user list.
-    @Query("SELECT a FROM AuditLog a WHERE (:entityType IS NULL OR a.entityType = :entityType) "
-            + "AND (:action IS NULL OR a.action = :action) "
-            + "AND (:from IS NULL OR a.performedAt >= :from) "
-            + "AND (:to IS NULL OR a.performedAt <= :to) "
-            + "AND (:performedByEmail IS NULL OR LOWER(a.performedByEmail) LIKE LOWER(CONCAT('%', :performedByEmail, '%')))")
+    // Every "(:param IS NULL OR ...)" check below casts the bare occurrence with CAST(:param AS
+    // string) — not cosmetic. Hibernate emits each textual occurrence of a named parameter as its
+    // OWN JDBC bind position (confirmed via the generated SQL), and a parameter that appears ONLY
+    // in a bare "? IS NULL" comparison gives PostgreSQL no column/function context to infer a type
+    // from. Left uncast, every request — even with zero filters — failed 500 with either
+    // "function lower(bytea) does not exist" (the email param, once wrapped in LOWER/CONCAT gave
+    // Postgres a conflicting type guess) or "could not determine data type of parameter $N" (the
+    // other params, entirely untyped). Casting to `string` is safe here regardless of the
+    // parameter's real Java type (String/enum/Instant): IS NULL doesn't care about the compared
+    // type, so CAST(x AS string) IS NULL is equivalent to x IS NULL for every input.
+    @Query("SELECT a FROM AuditLog a WHERE (CAST(:entityType AS string) IS NULL OR a.entityType = :entityType) "
+            + "AND (CAST(:action AS string) IS NULL OR a.action = :action) "
+            + "AND (CAST(:from AS string) IS NULL OR a.performedAt >= :from) "
+            + "AND (CAST(:to AS string) IS NULL OR a.performedAt <= :to) "
+            + "AND (CAST(:performedByEmail AS string) IS NULL OR LOWER(a.performedByEmail) "
+            + "LIKE LOWER(CONCAT('%', CAST(:performedByEmail AS string), '%')))")
     Page<AuditLog> findAllFiltered(
             @Param("entityType") String entityType, @Param("action") AuditAction action,
             @Param("from") Instant from, @Param("to") Instant to,
