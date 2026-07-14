@@ -77,3 +77,30 @@ spring:
 springdoc:
   swagger-ui:
     enabled: false
+
+# Railway (and any TLS-terminating reverse proxy) forwards the original request as plain HTTP
+# with X-Forwarded-Proto: https — without this, Tomcat sees every request as insecure, and
+# Spring Security's HSTS header (gated on request.isSecure()) would never actually fire in prod.
+# Scoped to prod only, not global: honoring these headers means trusting whatever sits in front
+# of this process, which is only true for Railway's edge, not the local nginx passthrough used
+# for the docker-compose demo (that one is a real plain-HTTP hop, not a TLS-terminating proxy).
+server:
+  forward-headers-strategy: framework
+
+---
+spring:
+  config:
+    activate:
+      on-profile: demo
+
+  # V20__seed_demo_data.sql lives in db/seed, NOT db/migration, precisely so it never runs for
+  # @DataJpaTest/@SpringBootTest (which apply classpath:db/migration only, per the default
+  # spring.flyway.locations at the top of this file). Discovered the hard way: with the seed file
+  # under db/migration, every @DataJpaTest got Flyway-seeded with 69 client invoices numbered
+  # INV-2026-00001..00069, colliding with repository tests that hardcode small literal invoice
+  # numbers as fixtures (LineItemRepositoryTest, ProfitabilityRepositoryTest, etc. all failed with
+  # "duplicate key value violates unique constraint uq_invoices_number"). This profile is additive
+  # (extends, not replaces, spring.flyway.locations) and is only activated for the docker-compose
+  # demo (SPRING_PROFILES_ACTIVE=prod,demo) — never in tests or CI.
+  flyway:
+    locations: classpath:db/migration,classpath:db/seed

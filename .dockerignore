@@ -1,0 +1,21 @@
+node_modules
+**/node_modules
+.git
+
+# Build outputs — regenerated inside the image, never trusted from the host
+**/dist
+**/build
+**/target
+**/.turbo
+**/*.tsbuildinfo
+
+# Host-only / editor artifacts
+apps/web/.atl
+Stitch
+
+# Local dev env overrides — Vite loads .env.local during `vite build` too, not just `vite dev`.
+# apps/web/.env.local sets VITE_ENABLE_MSW=true for local `npm run dev`; leaking it into the
+# Docker image bakes MSW's mock service worker into the "production" bundle, which then
+# intercepts every fetch (including /api/v1/auth/login) in the browser instead of hitting nginx.
+**/.env.local
+**/.env*.local

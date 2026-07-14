@@ -1,0 +1,54 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: fleetmgm
+      POSTGRES_USER: fleetmgm
+      POSTGRES_PASSWORD: fleetmgm
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fleetmgm"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/fleetmgm
+      SPRING_DATASOURCE_USERNAME: fleetmgm
+      SPRING_DATASOURCE_PASSWORD: fleetmgm
+      # `demo` adds db/seed to Flyway's locations (V20 demo seed data) on top of `prod`'s hardening
+      # (Swagger off, no SQL logging) — kept as a separate profile so tests/CI, which only ever
+      # activate `prod` or nothing, never see the seed migration. See application.yml's `demo`
+      # profile block for why this split exists.
+      SPRING_PROFILES_ACTIVE: prod,demo
+      FRONTEND_URL: http://localhost:8081
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    ports:
+      - "8081:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

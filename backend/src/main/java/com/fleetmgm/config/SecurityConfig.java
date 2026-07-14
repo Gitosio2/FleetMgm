@@ -2,6 +2,7 @@ package com.fleetmgm.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fleetmgm.auth.infrastructure.JwtAuthenticationFilter;
+import com.fleetmgm.auth.infrastructure.RateLimitFilter;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -27,13 +28,16 @@ import java.util.Map;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final RateLimitFilter rateLimitFilter;
     private final ObjectMapper objectMapper;
 
     @Value("${FRONTEND_URL:http://localhost:5173}")
     private String frontendUrl;
 
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter, ObjectMapper objectMapper) {
+    public SecurityConfig(
+            JwtAuthenticationFilter jwtAuthenticationFilter, RateLimitFilter rateLimitFilter, ObjectMapper objectMapper) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        this.rateLimitFilter = rateLimitFilter;
         this.objectMapper = objectMapper;
     }
 
@@ -75,8 +79,17 @@ public class SecurityConfig {
                 .headers(headers -> headers
                         .frameOptions(frame -> frame.deny())
                         .contentTypeOptions(ct -> {})
+                        // Spring Security's HstsHeaderWriter only ever writes this header when
+                        // request.isSecure() is true, so it's a no-op over plain HTTP (this local
+                        // docker-compose demo included) and only takes effect once deployed behind
+                        // real TLS — see application.yml's prod-profile forward-headers-strategy,
+                        // which is what makes isSecure() report correctly behind Railway's proxy.
+                        .httpStrictTransportSecurity(hsts -> hsts
+                                .includeSubDomains(true)
+                                .maxAgeInSeconds(31536000))
                 )
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(rateLimitFilter, JwtAuthenticationFilter.class);
 
         return http.build();
     }
