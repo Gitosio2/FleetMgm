@@ -61,6 +61,13 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/swagger-ui.html"
                         ).permitAll()
+                        // CLAUDE.md E: only /health and /info are public; every other actuator
+                        // endpoint requires ADMIN specifically, not just any authenticated role —
+                        // metrics/prometheus expose operational data (now including failed-login
+                        // counts) that a DRIVER or WORKSHOP_STAFF account has no business reading.
+                        // Without this explicit rule they'd fall through to the generic
+                        // anyRequest().authenticated() below, which accepts any authenticated role.
+                        .requestMatchers("/actuator/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(ex -> ex

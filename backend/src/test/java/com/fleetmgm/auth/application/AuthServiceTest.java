@@ -13,6 +13,7 @@ import com.fleetmgm.shared.domain.AuditAction;
 import com.fleetmgm.shared.domain.AuditLog;
 import com.fleetmgm.shared.exception.BadCredentialsException;
 import com.fleetmgm.shared.infrastructure.AuditLogRepository;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -42,13 +43,23 @@ class AuthServiceTest {
     @Mock PasswordEncoder passwordEncoder;
     @Mock AuditLogRepository auditLogRepository;
 
+    // A real registry, not a mock — the whole point of these tests is asserting an actual count,
+    // which a mocked MeterRegistry can't meaningfully verify (Counter.builder(...).register(mock)
+    // would need to be stubbed to return a working Counter, defeating the point).
+    SimpleMeterRegistry meterRegistry;
     AuthService authService;
 
     @BeforeEach
     void setUp() {
+        meterRegistry = new SimpleMeterRegistry();
         authService = new AuthService(
                 userRepository, refreshTokenRepository, jwtService,
-                passwordEncoder, auditLogRepository, 604_800_000L);
+                passwordEncoder, auditLogRepository, meterRegistry, 604_800_000L);
+    }
+
+    private double failedLoginCount(String reason) {
+        var counter = meterRegistry.find("auth.login.failed").tag("reason", reason).counter();
+        return counter != null ? counter.count() : 0;
     }
 
     // --- login() ---
@@ -66,6 +77,7 @@ class AuthServiceTest {
         assertThat(response.role()).isEqualTo(AppRole.DRIVER.name());
         verify(userRepository).save(user);
         assertThat(user.getFailedLoginAttempts()).isZero();
+        assertThat(failedLoginCount("invalid_credentials")).isZero();
 
         ArgumentCaptor<AuditLog> captor = ArgumentCaptor.forClass(AuditLog.class);
         verify(auditLogRepository).save(captor.capture());
@@ -79,6 +91,7 @@ class AuthServiceTest {
         assertThatThrownBy(() -> authService.login(new LoginRequest("unknown@x.com", "pass")))
                 .isInstanceOf(BadCredentialsException.class);
         verify(auditLogRepository, never()).save(any());
+        assertThat(failedLoginCount("user_not_found")).isEqualTo(1);
     }
 
     @Test
@@ -90,6 +103,7 @@ class AuthServiceTest {
         assertThatThrownBy(() -> authService.login(new LoginRequest("driver@fleetmgm.com", "secret")))
                 .isInstanceOf(BadCredentialsException.class);
         verify(auditLogRepository, never()).save(any());
+        assertThat(failedLoginCount("disabled")).isEqualTo(1);
     }
 
     @Test
@@ -101,6 +115,7 @@ class AuthServiceTest {
         assertThatThrownBy(() -> authService.login(new LoginRequest("driver@fleetmgm.com", "secret")))
                 .isInstanceOf(BadCredentialsException.class);
         verify(auditLogRepository, never()).save(any());
+        assertThat(failedLoginCount("locked")).isEqualTo(1);
     }
 
     @Test
@@ -113,6 +128,7 @@ class AuthServiceTest {
                 .isInstanceOf(BadCredentialsException.class);
 
         assertThat(user.getFailedLoginAttempts()).isEqualTo(1);
+        assertThat(failedLoginCount("invalid_credentials")).isEqualTo(1);
         assertThat(user.getLockedUntil()).isNull();
         verify(userRepository).save(user);
         verify(auditLogRepository, never()).save(any());
@@ -128,6 +144,7 @@ class AuthServiceTest {
         assertThatThrownBy(() -> authService.login(new LoginRequest("driver@fleetmgm.com", "wrong")))
                 .isInstanceOf(BadCredentialsException.class);
 
+        assertThat(failedLoginCount("invalid_credentials")).isEqualTo(1);
         assertThat(user.getFailedLoginAttempts()).isEqualTo(5);
         assertThat(user.getLockedUntil()).isNotNull();
         assertThat(user.isLocked()).isTrue();

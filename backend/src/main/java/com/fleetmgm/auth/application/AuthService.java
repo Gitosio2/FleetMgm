@@ -12,6 +12,8 @@ import com.fleetmgm.shared.domain.AuditAction;
 import com.fleetmgm.shared.domain.AuditLog;
 import com.fleetmgm.shared.exception.BadCredentialsException;
 import com.fleetmgm.shared.infrastructure.AuditLogRepository;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -35,6 +37,7 @@ public class AuthService {
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
     private final AuditLogRepository auditLogRepository;
+    private final MeterRegistry meterRegistry;
     private final long refreshTokenExpirationMs;
 
     public AuthService(
@@ -43,12 +46,14 @@ public class AuthService {
             JwtService jwtService,
             PasswordEncoder passwordEncoder,
             AuditLogRepository auditLogRepository,
+            MeterRegistry meterRegistry,
             @Value("${jwt.refresh-token-expiration-ms}") long refreshTokenExpirationMs) {
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.jwtService = jwtService;
         this.passwordEncoder = passwordEncoder;
         this.auditLogRepository = auditLogRepository;
+        this.meterRegistry = meterRegistry;
         this.refreshTokenExpirationMs = refreshTokenExpirationMs;
     }
 
@@ -59,14 +64,14 @@ public class AuthService {
     @Transactional(noRollbackFor = BadCredentialsException.class)
     public AuthResponse login(LoginRequest request) {
         User user = userRepository.findByEmail(request.email())
-                .orElseThrow(BadCredentialsException::new);
+                .orElseThrow(() -> failedLogin("user_not_found"));
 
         if (user.isLocked()) {
-            throw new BadCredentialsException();
+            throw failedLogin("locked");
         }
 
         if (!user.isEnabled()) {
-            throw new BadCredentialsException();
+            throw failedLogin("disabled");
         }
 
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
@@ -78,7 +83,7 @@ public class AuthService {
             } else {
                 userRepository.save(user);
             }
-            throw new BadCredentialsException();
+            throw failedLogin("invalid_credentials");
         }
 
         user.resetFailedLoginAttempts();
@@ -119,6 +124,20 @@ public class AuthService {
     public void logout(RefreshRequest request) {
         refreshTokenRepository.findByTokenHash(sha256(request.refreshToken()))
                 .ifPresent(refreshTokenRepository::delete);
+    }
+
+    // Returns rather than throws so it works both in orElseThrow(() -> ...) and a plain `throw`
+    // statement at the other call sites, without duplicating the Counter.builder(...).increment()
+    // call three times. Counter.builder(...).register(registry) is idempotent — Micrometer returns
+    // the existing meter for a given name+tags combination instead of creating a duplicate, so
+    // there's no need to pre-declare one Counter field per reason.
+    private BadCredentialsException failedLogin(String reason) {
+        Counter.builder("auth.login.failed")
+                .description("Failed login attempts")
+                .tag("reason", reason)
+                .register(meterRegistry)
+                .increment();
+        return new BadCredentialsException();
     }
 
     private void auditLog(User user, AuditAction action) {
