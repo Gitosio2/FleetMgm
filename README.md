@@ -42,7 +42,7 @@ El detalle completo — modelo de dominio, matriz de permisos, esquema de base d
 - RBAC de 5 roles (`ADMIN > MANAGER > ADMINISTRATIVE > WORKSHOP_STAFF > DRIVER`)
 - Gestión de flota de vehículos (ligeros, pesados, maquinaria pesada) con historial de asignación de conductores
 - Ciclo de vida de trabajos (crear → iniciar → completar) con actualización automática de uso y generación de facturas
-- Agenda y historial de mantenimiento de taller (preventivo/correctivo)
+- Agenda e historial de mantenimiento de taller (preventivo/correctivo)
 - Facturación a clientes y proveedores, con exportación a PDF
 - Reporte de rentabilidad por vehículo y dashboard financiero de toda la flota
 - Mapa GPS de flota en vivo (posiciones simuladas, renderizado real con Leaflet)
@@ -50,7 +50,7 @@ El detalle completo — modelo de dominio, matriz de permisos, esquema de base d
 
 ## Capturas de pantalla
 
-*(Agregar capturas acá — entrá a la demo corriendo en `http://localhost:8081` con las credenciales de abajo y capturá: Dashboard, listado de Vehículos, panel de rentabilidad por vehículo, ciclo de vida de un trabajo, mapa GPS, visor de auditoría.)*
+*(Agregar capturas aqui— entrá a la demo corriendo en `http://localhost:8081` con las credenciales de abajo y capturá: Dashboard, listado de Vehículos, panel de rentabilidad por vehículo, ciclo de vida de un trabajo, mapa GPS, visor de auditoría.)*
 
 ## Arranque rápido (demo local)
 
@@ -110,21 +110,21 @@ El servidor de desarrollo mockea la API con MSW (`VITE_ENABLE_MSW=true` en `apps
 
 `backend/pom.xml` corre `org.owasp:dependency-check-maven`, que descarga datos de CVEs desde el NVD. Sin una API key, el NVD limita mucho la velocidad de descarga y la primera vez puede tardar muchísimo.
 
-1. Pedí una key gratuita: https://nvd.nist.gov/developers/request-an-api-key
+1. Pide una key gratuita: https://nvd.nist.gov/developers/request-an-api-key
 2. Guardala en `.env` en la raíz del repo (ya está en `.gitignore`):
    ```
-   NVD_API_KEY=tu-key-aca
+   NVD_API_KEY=tu-key
    ```
 3. En cada sesión nueva de PowerShell, cargala en el entorno **antes** de correr Maven (la variable no persiste entre reinicios de terminal):
    ```powershell
    cd backend
    $env:NVD_API_KEY = (Get-Content ..\.env | Select-String '^NVD_API_KEY=(.*)').Matches.Groups[1].Value
    ```
-4. Verificá que cargó bien (debería imprimir tu key, no quedar en blanco):
+4. Verifica que cargó bien (debería imprimir tu key, no quedar en blanco):
    ```powershell
    $env:NVD_API_KEY
    ```
-5. Corré el chequeo:
+5. Corre el chequeo:
    ```powershell
    .\mvnw.cmd dependency-check:check
    ```
