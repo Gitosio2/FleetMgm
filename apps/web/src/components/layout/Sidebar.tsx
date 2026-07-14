@@ -3,6 +3,7 @@ import { Truck } from 'lucide-react'
 import { useAuthStore } from '@fleetmgm/store'
 import { cn } from '@/lib/utils'
 import { NAV_ITEMS } from './nav-items'
+import { ThemeToggle } from './ThemeToggle'
 
 export function Sidebar() {
   const role = useAuthStore((state) => state.role)
@@ -42,6 +43,10 @@ export function Sidebar() {
           </li>
         ))}
       </ul>
+
+      <div className="border-t border-outline-variant/40 px-3 py-3">
+        <ThemeToggle />
+      </div>
     </nav>
   )
 }

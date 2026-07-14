@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { useAuthStore } from '@fleetmgm/store'
+import { useAuthStore, useThemeStore } from '@fleetmgm/store'
 import { Login } from './Login'
 import { VALID_CREDENTIALS } from '@/mocks/handlers'
 
@@ -27,6 +27,7 @@ function renderLogin() {
 describe('Login', () => {
   beforeEach(() => {
     useAuthStore.getState().logout()
+    useThemeStore.getState().setTheme('light')
   })
 
   it('renders the sign-in form', () => {
@@ -57,5 +58,14 @@ describe('Login', () => {
     await user.click(screen.getByRole('button', { name: /iniciar sesión/i }))
 
     expect(await screen.findByText(/credenciales inválidas/i)).toBeInTheDocument()
+  })
+
+  it('toggles the theme when the switch is clicked', async () => {
+    const user = userEvent.setup()
+    renderLogin()
+
+    await user.click(screen.getByRole('switch', { name: /cambiar entre modo claro y oscuro/i }))
+
+    expect(useThemeStore.getState().theme).toBe('dark')
   })
 })
