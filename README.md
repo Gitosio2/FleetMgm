@@ -1,29 +1,29 @@
 # FleetMgm
 
-Fleet management system built as a Master's thesis project. Backend: Java 21 + Spring Boot 3.5. Frontend: React + Vite + TypeScript (monorepo, shared logic prepared for a future mobile app). Architectural decisions and their rationale live in [`planning.md`](planning.md).
+Sistema de gestión de flotas desarrollado como Trabajo Fin de Máster. Backend: Java 21 + Spring Boot 3.5. Frontend: React + Vite + TypeScript (monorepo, con lógica compartida preparada para una futura app móvil). Las decisiones de arquitectura y su justificación viven en [`planning.md`](planning.md).
 
-## Tech stack
+## Stack tecnológico
 
-| Layer | Technology |
+| Capa | Tecnología |
 |---|---|
 | Backend | Java 21, Spring Boot 3.5, Spring Security (JWT), Spring Data JPA, Flyway |
-| Database | PostgreSQL 16 |
+| Base de datos | PostgreSQL 16 |
 | Frontend | React 19, Vite, TypeScript, TanStack Query, Zustand, Tailwind CSS + shadcn/ui |
 | Monorepo | Turborepo + npm workspaces |
 | Rate limiting | Bucket4j |
-| Logging | Logstash Logback Encoder (structured JSON) |
-| Metrics | Micrometer + Prometheus |
-| CI/CD | GitHub Actions (tests, OWASP Dependency-Check, weekly security scan) |
+| Logging | Logstash Logback Encoder (JSON estructurado) |
+| Métricas | Micrometer + Prometheus |
+| CI/CD | GitHub Actions (tests, OWASP Dependency-Check, escaneo de seguridad semanal) |
 
-## Architecture
+## Arquitectura
 
 ```mermaid
 flowchart TB
-    Browser["Browser"]
+    Browser["Navegador"]
 
     subgraph Docker["docker-compose"]
-        Nginx["nginx (apps/web)\nserves the SPA build\nreverse-proxies /api/*"]
-        Backend["Spring Boot backend\npackage-by-feature monolith"]
+        Nginx["nginx (apps/web)\nsirve el build del SPA\nreverse-proxy de /api/*"]
+        Backend["Backend Spring Boot\nmonolito package-by-feature"]
         Postgres[("PostgreSQL 16")]
     end
 
@@ -32,43 +32,43 @@ flowchart TB
     Backend --> Postgres
 ```
 
-The backend is a **package-by-feature monolith** — each domain (`auth`, `vehicle`, `worker`, `client`, `job`, `billing`, `workshop`, `gps`, `supplier`, `dashboard`) owns its own `api/` (controllers), `application/` (services), `domain/` (entities), `infrastructure/` (repositories), and `dto/` sub-packages. Cross-cutting concerns (`GlobalExceptionHandler`, `AuditLog`, `CorrelationIdFilter`, `RateLimitFilter`, `PageResponse<T>`) live in `shared/`. Modules communicate via Spring Application Events, not direct calls, so e.g. completing a job can update vehicle mileage and generate an invoice line without `JobService` knowing either of those modules exists.
+El backend es un **monolito organizado por feature (package-by-feature)** — cada dominio (`auth`, `vehicle`, `worker`, `client`, `job`, `billing`, `workshop`, `gps`, `supplier`, `dashboard`) tiene sus propios sub-paquetes `api/` (controllers), `application/` (servicios), `domain/` (entidades), `infrastructure/` (repositorios) y `dto/`. Las responsabilidades transversales (`GlobalExceptionHandler`, `AuditLog`, `CorrelationIdFilter`, `RateLimitFilter`, `PageResponse<T>`) viven en `shared/`. Los módulos se comunican mediante Spring Application Events, no con llamadas directas — así, por ejemplo, completar un trabajo puede actualizar el kilometraje del vehículo y generar una línea de factura sin que `JobService` sepa que esos otros módulos existen.
 
-Full details — domain model, permission matrix, database schema, security model, and the reasoning behind every milestone — are in [`planning.md`](planning.md).
+El detalle completo — modelo de dominio, matriz de permisos, esquema de base de datos, modelo de seguridad, y el razonamiento detrás de cada hito — está en [`planning.md`](planning.md).
 
-## Features
+## Funcionalidades
 
-- JWT authentication (15 min access / 7 day refresh) with account lockout, rate limiting, and structured audit logging
-- 5-role RBAC (`ADMIN > MANAGER > ADMINISTRATIVE > WORKSHOP_STAFF > DRIVER`)
-- Vehicle fleet management (light vehicles, heavy vehicles, heavy machinery) with driver assignment history
-- Job lifecycle (create → start → complete) with automatic usage tracking and invoice generation
-- Workshop maintenance scheduling and history (preventive/corrective)
-- Client and supplier invoicing, with PDF export
-- Per-vehicle profitability reporting and a fleet-wide financial dashboard
-- Live GPS fleet map (mocked positions, real map rendering via Leaflet)
-- Full audit trail viewer with filtering
+- Autenticación JWT (access token 15 min / refresh token 7 días) con bloqueo de cuenta, rate limiting y auditoría estructurada
+- RBAC de 5 roles (`ADMIN > MANAGER > ADMINISTRATIVE > WORKSHOP_STAFF > DRIVER`)
+- Gestión de flota de vehículos (ligeros, pesados, maquinaria pesada) con historial de asignación de conductores
+- Ciclo de vida de trabajos (crear → iniciar → completar) con actualización automática de uso y generación de facturas
+- Agenda y historial de mantenimiento de taller (preventivo/correctivo)
+- Facturación a clientes y proveedores, con exportación a PDF
+- Reporte de rentabilidad por vehículo y dashboard financiero de toda la flota
+- Mapa GPS de flota en vivo (posiciones simuladas, renderizado real con Leaflet)
+- Visor completo de auditoría con filtros
 
-## Screenshots
+## Capturas de pantalla
 
-*(Add screenshots here — log in to the running demo at `http://localhost:8081` with the credentials below and capture: Dashboard, Vehicles list, Vehicle profitability panel, Job lifecycle, GPS map, Audit log viewer.)*
+*(Agregar capturas acá — entrá a la demo corriendo en `http://localhost:8081` con las credenciales de abajo y capturá: Dashboard, listado de Vehículos, panel de rentabilidad por vehículo, ciclo de vida de un trabajo, mapa GPS, visor de auditoría.)*
 
-## Quick start (local demo)
+## Arranque rápido (demo local)
 
-Requires Docker Desktop.
+Requiere Docker Desktop.
 
 ```bash
 docker compose up -d --build
 ```
 
-This builds and starts three containers — `postgres`, `backend`, and `web` (nginx serving the frontend build) — wired together with healthchecks. Flyway applies the schema and seeds realistic demo data (28 vehicles, 10 clients, 20 suppliers, ~100 jobs, invoices spanning January–July 2026) automatically.
+Esto construye y levanta tres contenedores — `postgres`, `backend` y `web` (nginx sirviendo el build del frontend) — conectados entre sí con healthchecks. Flyway aplica el esquema y siembra datos demo realistas automáticamente (28 vehículos, 10 clientes, 20 proveedores, ~100 trabajos, facturas repartidas entre enero y julio de 2026).
 
-Once `docker compose ps` shows all three as `healthy`, open **http://localhost:8081**.
+Cuando `docker compose ps` muestre los tres como `healthy`, abrí **http://localhost:8081**.
 
-### Demo credentials
+### Credenciales demo
 
-All accounts use the password `Demo1234!`.
+Todas las cuentas usan la contraseña `Demo1234!`.
 
-| Role | Email |
+| Rol | Email |
 |---|---|
 | ADMIN | `admin@fleetmgm.demo` |
 | MANAGER | `gerente@fleetmgm.demo` |
@@ -76,77 +76,77 @@ All accounts use the password `Demo1234!`.
 | WORKSHOP_STAFF | `taller1@fleetmgm.demo`, `taller2@fleetmgm.demo`, `taller3@fleetmgm.demo` |
 | DRIVER | `conductor1@fleetmgm.demo`, `conductor2@fleetmgm.demo`, `conductor3@fleetmgm.demo` |
 
-To reset the demo data to its original seeded state:
+Para reiniciar los datos demo a su estado original:
 
 ```bash
 docker compose down -v && docker compose up -d --build
 ```
 
-## Local development (without Docker)
+## Desarrollo local (sin Docker)
 
-Useful when actively developing rather than just running the demo — faster feedback loop, no image rebuilds.
+Útil cuando se está desarrollando activamente en vez de solo correr la demo — ciclo de feedback más rápido, sin reconstruir imágenes.
 
 ### Backend
 
 ```bash
 cd backend
-./mvnw spring-boot:run          # http://localhost:8080, needs a local Postgres (see below)
-./mvnw test                     # unit tests
-./mvnw verify -Pfailsafe        # + integration tests (Testcontainers — requires Docker)
+./mvnw spring-boot:run          # http://localhost:8080, necesita un Postgres local (ver abajo)
+./mvnw test                     # tests unitarios
+./mvnw verify -Pfailsafe        # + tests de integración (Testcontainers — requiere Docker)
 ```
 
-Needs a Postgres instance reachable at `jdbc:postgresql://localhost:5432/fleetmgm` (user/password `fleetmgm`), or override via `SPRING_DATASOURCE_URL`/`_USERNAME`/`_PASSWORD`. `docker run -d -e POSTGRES_DB=fleetmgm -e POSTGRES_USER=fleetmgm -e POSTGRES_PASSWORD=fleetmgm -p 5432:5432 postgres:16` is the fastest way to get one.
+Necesita una instancia de Postgres accesible en `jdbc:postgresql://localhost:5432/fleetmgm` (usuario/contraseña `fleetmgm`), o se puede sobreescribir vía `SPRING_DATASOURCE_URL`/`_USERNAME`/`_PASSWORD`. `docker run -d -e POSTGRES_DB=fleetmgm -e POSTGRES_USER=fleetmgm -e POSTGRES_PASSWORD=fleetmgm -p 5432:5432 postgres:16` es la forma más rápida de tener una.
 
 ### Frontend
 
 ```bash
-npm install                     # from the repo root — installs all workspaces
-turbo dev                       # starts every app in dev mode (web on :5173)
+npm install                     # desde la raíz del repo — instala todos los workspaces
+turbo dev                       # arranca todas las apps en modo dev (web en :5173)
 ```
 
-The dev server mocks the API via MSW (`VITE_ENABLE_MSW=true` in `apps/web/.env.local`) — no running backend required for frontend-only work.
+El servidor de desarrollo mockea la API con MSW (`VITE_ENABLE_MSW=true` en `apps/web/.env.local`) — no hace falta un backend corriendo para trabajar solo en el frontend.
 
-### NVD API key (OWASP Dependency-Check)
+### API key de NVD (OWASP Dependency-Check)
 
-`backend/pom.xml` runs `org.owasp:dependency-check-maven`, which downloads CVE data from NVD. Without an API key, NVD rate-limits requests heavily and the first download can take a very long time.
+`backend/pom.xml` corre `org.owasp:dependency-check-maven`, que descarga datos de CVEs desde el NVD. Sin una API key, el NVD limita mucho la velocidad de descarga y la primera vez puede tardar muchísimo.
 
-1. Request a free key: https://nvd.nist.gov/developers/request-an-api-key
-2. Store it in `.env` at the repo root (already gitignored):
+1. Pedí una key gratuita: https://nvd.nist.gov/developers/request-an-api-key
+2. Guardala en `.env` en la raíz del repo (ya está en `.gitignore`):
    ```
-   NVD_API_KEY=your-key-here
+   NVD_API_KEY=tu-key-aca
    ```
-3. Every new PowerShell session, load it into the environment **before** running Maven (the variable does not persist across terminal restarts):
+3. En cada sesión nueva de PowerShell, cargala en el entorno **antes** de correr Maven (la variable no persiste entre reinicios de terminal):
    ```powershell
    cd backend
    $env:NVD_API_KEY = (Get-Content ..\.env | Select-String '^NVD_API_KEY=(.*)').Matches.Groups[1].Value
    ```
-4. Verify it loaded (should print your key, not blank):
+4. Verificá que cargó bien (debería imprimir tu key, no quedar en blanco):
    ```powershell
    $env:NVD_API_KEY
    ```
-5. Run the check:
+5. Corré el chequeo:
    ```powershell
    .\mvnw.cmd dependency-check:check
    ```
 
-CI reads the same variable from the `NVD_API_KEY` GitHub Actions secret (already configured) — no `.env` needed there.
+El CI lee la misma variable desde el secret `NVD_API_KEY` de GitHub Actions (ya configurado) — ahí no hace falta ningún `.env`.
 
-## Production deployment
+## Despliegue a producción
 
-Zero-cost recommended setup: **frontend → Vercel**, **backend + database → Railway**.
+Configuración recomendada de costo cero: **frontend → Vercel**, **backend + base de datos → Railway**.
 
-Required backend environment variables:
+Variables de entorno requeridas para el backend:
 
 ```
-SPRING_DATASOURCE_URL       # Railway-provisioned Postgres connection string
-JWT_SECRET                  # min 64 chars — never reuse the dev default
-SPRING_PROFILES_ACTIVE=prod,demo   # `demo` is optional — only add it to also seed demo data
-FRONTEND_URL                # e.g. https://fleetmgm.vercel.app — used for CORS
+SPRING_DATASOURCE_URL       # connection string del Postgres provisto por Railway
+JWT_SECRET                  # mínimo 64 caracteres — nunca reutilizar el default de dev
+SPRING_PROFILES_ACTIVE=prod,demo   # `demo` es opcional — solo agregarlo para sembrar también los datos demo
+FRONTEND_URL                # ej. https://fleetmgm.vercel.app — usado para CORS
 ```
 
-The `prod` profile disables Swagger UI and verbose SQL logging, and enables `server.forward-headers-strategy=framework` so HSTS is correctly emitted behind Railway's TLS-terminating edge. See `planning.md`'s Hito 46 notes for the reasoning behind each of these.
+El perfil `prod` desactiva Swagger UI y el logging verboso de SQL, y activa `server.forward-headers-strategy=framework` para que el header HSTS se emita correctamente detrás del proxy TLS de Railway. Ver las notas del Hito 46 en `planning.md` para el razonamiento detrás de cada una de estas decisiones.
 
-Local demo over a temporary public URL (no real deployment):
+Demo local expuesta con una URL pública temporal (no es un despliegue real):
 
 ```bash
 docker compose up -d --build
