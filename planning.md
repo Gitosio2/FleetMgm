@@ -1915,7 +1915,28 @@ FleetMgm/
 > end-to-end corriendo el backend real localmente contra Postgres: el `X-Correlation-Id` de la
 > respuesta HTTP coincide byte a byte con el campo `correlationId` de la línea de log JSON
 > generada para esa misma request.
-- [ ] Métrica Micrometer — contador de intentos de login fallidos, expuesto en `/actuator/metrics`
+- [x] Métrica Micrometer — contador de intentos de login fallidos, expuesto en `/actuator/metrics`
+
+> **Nota (revisión Hito 46 — métrica de logins fallidos):**
+> `AuthService.login()` incrementa un `Counter` (`auth.login.failed`, Micrometer, ya expuesto vía
+> `micrometer-registry-prometheus` que estaba en el `pom.xml`) en los 4 caminos que lanzan
+> `BadCredentialsException`, cada uno con un tag `reason` distinto (`user_not_found`, `locked`,
+> `disabled`, `invalid_credentials`) — así se puede distinguir un ataque de fuerza bruta contra una
+> cuenta real (`invalid_credentials`) de alguien probando emails al azar (`user_not_found`), sin
+> depender de leer logs. `Counter.builder(...).register(registry)` es idempotente (Micrometer
+> devuelve el mismo meter para el mismo nombre+tags en vez de duplicar), así que no hace falta un
+> campo `Counter` por razón.
+> **Gap de seguridad encontrado y corregido de paso:** `/actuator/metrics` (y el resto de
+> `/actuator/**` salvo `health`/`info`) caía en el `anyRequest().authenticated()` genérico —
+> accesible para **cualquier rol autenticado** (`DRIVER`, `WORKSHOP_STAFF`, etc.), no solo `ADMIN`
+> como pide la sección E del `CLAUDE.md`. Se agregó `.requestMatchers("/actuator/**").hasRole("ADMIN")`
+> explícito antes de la regla genérica.
+> Test (`AuthServiceTest`, usando `SimpleMeterRegistry` real en vez de un mock — necesario para
+> verificar el conteo real) — aserciones agregadas a los 5 tests de fallo de login existentes,
+> confirmando el tag correcto en cada uno. Verificado además end-to-end contra el backend real:
+> sin token → `401` en `/actuator/metrics/auth.login.failed`; dos intentos fallidos (uno por
+> password incorrecta, uno por email inexistente) + login válido como ADMIN → la métrica devuelve
+> `COUNT: 2.0` con `availableTags: reason: [user_not_found, invalid_credentials]`.
 - [ ] Anclar `actions/checkout` / `actions/setup-java` en `ci.yml` y `security.yml` a SHA concreto (no tags mutables — supply chain)
 - [x] OWASP Dependency-Check — corregir cualquier CVE CVSS ≥ 7 pendiente
 
