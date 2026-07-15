@@ -491,6 +491,7 @@ FleetMgm/
 - [x] **[GREEN]** `AssignmentService.endAssignment()` — `endDate = now()` en la asignación
 - [x] **[GREEN]** `@PreAuthorize` — solo ADMIN/MANAGER/ADMINISTRATIVE pueden asignar/finalizar/ver historial
   > **Nota (revisión Hito 18):** al correr `AssignmentRepositoryTest` con Docker se detectó que ningún `*RepositoryTest` del proyecto corría nunca (ni local ni en CI) — `pom.xml` tenía `excludedGroups=integration` hardcodeado como texto literal, no overrideable por el profile `failsafe`. Arreglado en PR aparte (`fix-backend-integration-test-execution`, base de esta rama) junto con un segundo bug que ese fix destapó: `@DataJpaTest` no escaneaba `JpaAuditingConfig`, así que `createdAt` nunca se poblaba vía `TestEntityManager`. Esta rama depende de esa PR — mergear esa primero.
+  > **Nota (revisión Hito 18, 2026-07-15):** cerrado el gap señalado en la línea de `AssignmentRepository` de arriba — "el índice único solo protege un vehículo activo por conductor, no al revés". `AssignmentService.assign()` ahora también lanza 409 `ASSIGNMENT_VEHICLE_ALREADY_ACTIVE` si el vehículo ya tiene una asignación activa con otro conductor, simétrico al check existente del lado del conductor. `Flyway V21` añade el índice único parcial equivalente sobre `vehicle_id` como respaldo a nivel de BBDD ante condiciones de carrera. Confirmado contra el seed de V20: ningún vehículo tenía ya dos asignaciones activas simultáneas, así que la migración no requirió limpieza de datos previa.
 
 ### Hito 19 — Frontend: Assignments
 > Requiere: Hitos 17–18 (backend assignments)

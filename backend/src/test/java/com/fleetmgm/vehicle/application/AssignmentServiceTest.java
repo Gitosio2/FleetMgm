@@ -106,6 +106,25 @@ class AssignmentServiceTest {
     }
 
     @Test
+    void assign_throwsConflict_whenVehicleAlreadyHasActiveAssignment() {
+        UUID driverId = UUID.randomUUID();
+        UUID vehicleId = UUID.randomUUID();
+        CreateAssignmentRequest request = new CreateAssignmentRequest(driverId, vehicleId, LocalDate.now(), null);
+
+        when(workerRepository.findById(driverId)).thenReturn(Optional.of(new Worker()));
+        when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(new Vehicle()));
+        when(assignmentRepository.findActiveByDriverId(driverId)).thenReturn(Optional.empty());
+        when(assignmentRepository.findActiveByVehicleId(vehicleId)).thenReturn(Optional.of(new DriverVehicleAssignment()));
+
+        assertThatThrownBy(() -> assignmentService.assign(request))
+                .isInstanceOf(ConflictException.class)
+                .satisfies(ex -> assertThat(((ConflictException) ex).getCode())
+                        .isEqualTo("ASSIGNMENT_VEHICLE_ALREADY_ACTIVE"));
+
+        verify(assignmentRepository, never()).save(any());
+    }
+
+    @Test
     void assign_throwsNotFound_whenDriverMissing() {
         UUID driverId = UUID.randomUUID();
         UUID vehicleId = UUID.randomUUID();
