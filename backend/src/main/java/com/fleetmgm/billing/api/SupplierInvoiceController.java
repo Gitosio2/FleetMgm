@@ -34,7 +34,7 @@ public class SupplierInvoiceController {
     public ResponseEntity<PageResponse<SupplierInvoiceResponse>> list(
             @RequestParam(required = false) UUID vehicleId,
             @RequestParam(required = false) ExpenseCategory category,
-            @PageableDefault(size = 20, sort = "invoiceDate") Pageable pageable) {
+            @PageableDefault(size = 20) Pageable pageable) {
         return ResponseEntity.ok(supplierInvoiceService.list(vehicleId, category, pageable));
     }
 

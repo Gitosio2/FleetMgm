@@ -27,6 +27,7 @@ import com.fleetmgm.vehicle.infrastructure.VehicleRepository;
 import com.fleetmgm.workshop.domain.MaintenanceRecord;
 import com.fleetmgm.workshop.infrastructure.MaintenanceRepository;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -82,7 +83,10 @@ public class SupplierInvoiceService {
     @Transactional(readOnly = true)
     @PreAuthorize(ROLES)
     public PageResponse<SupplierInvoiceResponse> list(UUID vehicleId, ExpenseCategory category, Pageable pageable) {
-        Page<SupplierInvoice> page = supplierInvoiceRepository.findAllJoinFetch(vehicleId, category, pageable);
+        // Same rationale as InvoiceService.list(): the repository's own ORDER BY (pending-first,
+        // then newest-first) is authoritative, so any caller-supplied Sort is stripped here.
+        Pageable pageOnly = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
+        Page<SupplierInvoice> page = supplierInvoiceRepository.findAllJoinFetch(vehicleId, category, pageOnly);
         List<UUID> invoiceIds = page.getContent().stream().map(SupplierInvoice::getId).toList();
         // Single batched query for the whole page — grouping in memory here, instead of calling
         // supplierInvoiceLineItemRepository.findAllByInvoiceId() once per invoice inside the loop

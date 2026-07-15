@@ -21,9 +21,14 @@ public interface SupplierInvoiceRepository extends JpaRepository<SupplierInvoice
     // standard "(:param IS NULL OR ...)" JPQL idiom keeps the query fully parameterized (no string
     // concatenation), satisfying the dynamic-query SQL injection rule while still supporting
     // Pageable on a to-one join.
+    // PENDING sorts before PAID, newest invoiceDate first within each group — invoiceDate is
+    // NOT NULL for every row (no DRAFT concept here), so unlike Invoice it's a safe sort key
+    // directly, no createdAt fallback needed. Callers must pass an unsorted Pageable.
     @Query("SELECT si FROM SupplierInvoice si JOIN FETCH si.supplier LEFT JOIN FETCH si.vehicle "
             + "WHERE (:vehicleId IS NULL OR si.vehicle.id = :vehicleId) "
-            + "AND (:category IS NULL OR si.category = :category)")
+            + "AND (:category IS NULL OR si.category = :category) "
+            + "ORDER BY CASE WHEN si.status = com.fleetmgm.billing.domain.SupplierInvoiceStatus.PAID THEN 1 ELSE 0 END, "
+            + "si.invoiceDate DESC")
     Page<SupplierInvoice> findAllJoinFetch(
             @Param("vehicleId") UUID vehicleId, @Param("category") ExpenseCategory category, Pageable pageable);
 

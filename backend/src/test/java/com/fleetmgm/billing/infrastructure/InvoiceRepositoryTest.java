@@ -81,6 +81,21 @@ class InvoiceRepositoryTest {
     }
 
     @Test
+    void findAllJoinFetch_ordersPendingBeforePaid_thenNewestFirstWithinEachGroup() {
+        Client client = persistClient("10101010J");
+        Invoice oldestPaid = persistInvoice(client, "INV-2026-00030", InvoiceStatus.PAID);
+        Invoice oldestPending = persistInvoice(client, "INV-2026-00031", InvoiceStatus.DRAFT);
+        Invoice newestPending = persistInvoice(client, "INV-2026-00032", InvoiceStatus.ISSUED);
+        Invoice newestPaid = persistInvoice(client, "INV-2026-00033", InvoiceStatus.PAID);
+        entityManager.getEntityManager().clear();
+
+        Page<Invoice> result = invoiceRepository.findAllJoinFetch(PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).extracting(Invoice::getId).containsExactly(
+                newestPending.getId(), oldestPending.getId(), newestPaid.getId(), oldestPaid.getId());
+    }
+
+    @Test
     void findFirstByClientIdAndStatusOrderByCreatedAtAsc_returnsOldestOpenDraft_whenMultipleExist() {
         Client client = persistClient("33333333C");
         Invoice older = persistInvoice(client, "INV-2026-00003", InvoiceStatus.DRAFT);

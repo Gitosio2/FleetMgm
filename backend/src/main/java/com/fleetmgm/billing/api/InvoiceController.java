@@ -37,7 +37,7 @@ public class InvoiceController {
 
     @GetMapping
     public ResponseEntity<PageResponse<InvoiceResponse>> list(
-            @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
+            @PageableDefault(size = 20) Pageable pageable) {
         return ResponseEntity.ok(invoiceService.list(pageable));
     }
 

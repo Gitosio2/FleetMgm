@@ -132,6 +132,25 @@ class SupplierInvoiceRepositoryTest {
     }
 
     @Test
+    void findAllJoinFetch_ordersPendingBeforePaid_thenNewestFirstWithinEachGroup() {
+        Supplier supplier = persistSupplier();
+        SupplierInvoice oldestPaid = persistInvoiceWithInvoiceDate(
+                supplier, SupplierInvoiceStatus.PAID, LocalDate.now().minusDays(10));
+        SupplierInvoice oldestPending = persistInvoiceWithInvoiceDate(
+                supplier, SupplierInvoiceStatus.PENDING, LocalDate.now().minusDays(5));
+        SupplierInvoice newestPending = persistInvoiceWithInvoiceDate(
+                supplier, SupplierInvoiceStatus.PENDING, LocalDate.now());
+        SupplierInvoice newestPaid = persistInvoiceWithInvoiceDate(
+                supplier, SupplierInvoiceStatus.PAID, LocalDate.now().minusDays(1));
+        entityManager.getEntityManager().clear();
+
+        Page<SupplierInvoice> result = supplierInvoiceRepository.findAllJoinFetch(null, null, PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).extracting(SupplierInvoice::getId).containsExactly(
+                newestPending.getId(), oldestPending.getId(), newestPaid.getId(), oldestPaid.getId());
+    }
+
+    @Test
     void findAllJoinFetch_excludesSoftDeleted() {
         Supplier supplier = persistSupplier();
         Vehicle vehicle = persistVehicle("8888HHH");
@@ -270,6 +289,19 @@ class SupplierInvoiceRepositoryTest {
         vehicle.setYear(2020);
         vehicle.setLicensePlate(licensePlate);
         return entityManager.persistAndFlush(vehicle);
+    }
+
+    private SupplierInvoice persistInvoiceWithInvoiceDate(
+            Supplier supplier, SupplierInvoiceStatus status, LocalDate invoiceDate) {
+        SupplierInvoice invoice = new SupplierInvoice();
+        invoice.setSupplier(supplier);
+        invoice.setCategory(ExpenseCategory.MAINTENANCE);
+        invoice.setInvoiceDate(invoiceDate);
+        invoice.setStatus(status);
+        invoice.setSubtotal(new BigDecimal("100.00"));
+        invoice.setTaxAmount(new BigDecimal("21.00"));
+        invoice.setTotal(new BigDecimal("121.00"));
+        return entityManager.persistAndFlush(invoice);
     }
 
     private SupplierInvoice persistInvoice(Supplier supplier, Vehicle vehicle, ExpenseCategory category) {
