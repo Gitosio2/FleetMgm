@@ -5,6 +5,7 @@ import { FleetKpiCards } from '@/components/dashboard/FleetKpiCards'
 import { FinancialSummary } from '@/components/dashboard/FinancialSummary'
 import { ProfitabilityChart } from '@/components/dashboard/ProfitabilityChart'
 import { ProfitabilitySummary } from '@/components/dashboard/ProfitabilitySummary'
+import { Card, CardContent } from '@/components/ui/card'
 
 const TREND_MONTHS_OPTIONS = [3, 6, 12] as const
 
@@ -85,7 +86,11 @@ export function Dashboard() {
           financialTrend && (
             <>
               <ProfitabilitySummary data={financialTrend} />
-              <ProfitabilityChart data={financialTrend} />
+              <Card>
+                <CardContent className="pt-6">
+                  <ProfitabilityChart data={financialTrend} />
+                </CardContent>
+              </Card>
             </>
           )
         )}
