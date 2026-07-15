@@ -433,6 +433,7 @@ export type FleetSummary = {
 export type UpcomingInvoice = {
   id: string
   number: string
+  counterpartyId: string
   counterparty: string
   amount: number
   dueDate: string

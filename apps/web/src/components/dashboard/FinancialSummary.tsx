@@ -1,5 +1,7 @@
 import type { FinancialSummary as FinancialSummaryData, UpcomingInvoice } from '@fleetmgm/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { ClientInfoLink } from '@/components/client/ClientInfoLink'
+import { SupplierInfoLink } from '@/components/supplier/SupplierInfoLink'
 
 type FinancialSummaryProps = {
   summary: FinancialSummaryData
@@ -8,9 +10,10 @@ type FinancialSummaryProps = {
 type UpcomingInvoicesCardProps = {
   title: string
   invoices: UpcomingInvoice[]
+  counterpartyType: 'CLIENT' | 'SUPPLIER'
 }
 
-function UpcomingInvoicesCard({ title, invoices }: UpcomingInvoicesCardProps) {
+function UpcomingInvoicesCard({ title, invoices, counterpartyType }: UpcomingInvoicesCardProps) {
   return (
     <Card>
       <CardHeader>
@@ -25,7 +28,11 @@ function UpcomingInvoicesCard({ title, invoices }: UpcomingInvoicesCardProps) {
               <li key={invoice.id} className="flex items-center justify-between gap-2 text-sm">
                 <div className="flex flex-col">
                   <span className="font-medium">{invoice.number}</span>
-                  <span className="text-on-surface-variant">{invoice.counterparty}</span>
+                  {counterpartyType === 'CLIENT' ? (
+                    <ClientInfoLink clientId={invoice.counterpartyId} clientName={invoice.counterparty} />
+                  ) : (
+                    <SupplierInfoLink supplierId={invoice.counterpartyId} supplierName={invoice.counterparty} />
+                  )}
                 </div>
                 <div className="flex flex-col items-end">
                   <span className="font-medium">{invoice.amount.toFixed(2)} €</span>
@@ -59,8 +66,16 @@ export function FinancialSummary({ summary }: FinancialSummaryProps) {
         </CardContent>
       </Card>
 
-      <UpcomingInvoicesCard title="Facturas por cobrar" invoices={summary.upcomingReceivables} />
-      <UpcomingInvoicesCard title="Facturas por pagar" invoices={summary.upcomingPayables} />
+      <UpcomingInvoicesCard
+        title="Facturas por cobrar"
+        invoices={summary.upcomingReceivables}
+        counterpartyType="CLIENT"
+      />
+      <UpcomingInvoicesCard
+        title="Facturas por pagar"
+        invoices={summary.upcomingPayables}
+        counterpartyType="SUPPLIER"
+      />
     </div>
   )
 }

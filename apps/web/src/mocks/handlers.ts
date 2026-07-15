@@ -1290,6 +1290,7 @@ export const SEED_FLEET_SUMMARY: FleetSummaryMock = {
 type UpcomingInvoiceMock = {
   id: string
   number: string
+  counterpartyId: string
   counterparty: string
   amount: number
   dueDate: string
@@ -1311,6 +1312,7 @@ export const SEED_FINANCIAL_SUMMARY: FinancialSummaryMock = {
     {
       id: 'invoice-2',
       number: 'INV-2026-00002',
+      counterpartyId: 'client-2',
       counterparty: 'Transportes Ibérica',
       amount: 605,
       dueDate: '2026-07-10',
@@ -1319,6 +1321,7 @@ export const SEED_FINANCIAL_SUMMARY: FinancialSummaryMock = {
     {
       id: 'invoice-5',
       number: 'INV-2026-00005',
+      counterpartyId: 'client-1',
       counterparty: 'Acme Logistics',
       amount: 350,
       dueDate: '2026-07-18',
@@ -1329,6 +1332,7 @@ export const SEED_FINANCIAL_SUMMARY: FinancialSummaryMock = {
     {
       id: 'supplier-invoice-1',
       number: 'F-2026-0456',
+      counterpartyId: 'supplier-1',
       counterparty: 'Taller Mecánico Norte',
       amount: 121,
       dueDate: '2026-07-05',
@@ -1337,6 +1341,7 @@ export const SEED_FINANCIAL_SUMMARY: FinancialSummaryMock = {
     {
       id: 'supplier-invoice-2',
       number: 'F-2026-0501',
+      counterpartyId: 'supplier-2',
       counterparty: 'Estación de Servicio Sur',
       amount: 60.5,
       dueDate: '2026-07-20',

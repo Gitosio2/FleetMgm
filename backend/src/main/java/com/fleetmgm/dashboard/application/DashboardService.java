@@ -88,6 +88,7 @@ public class DashboardService {
                 .map(invoice -> new UpcomingInvoiceResponse(
                         invoice.getId(),
                         invoice.getInvoiceNumber(),
+                        invoice.getClient().getId(),
                         invoice.getClient().getName(),
                         invoice.getTotal(),
                         invoice.getDueDate(),
@@ -98,6 +99,7 @@ public class DashboardService {
                 .map(supplierInvoice -> new UpcomingInvoiceResponse(
                         supplierInvoice.getId(),
                         supplierInvoice.getSupplierInvoiceNumber(),
+                        supplierInvoice.getSupplier().getId(),
                         supplierInvoice.getSupplier().getName(),
                         supplierInvoice.getTotal(),
                         supplierInvoice.getDueDate(),
