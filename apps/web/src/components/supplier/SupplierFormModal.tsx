@@ -16,9 +16,10 @@ type SupplierFormModalProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   supplier?: Supplier
+  readOnly?: boolean
 }
 
-export function SupplierFormModal({ open, onOpenChange, supplier }: SupplierFormModalProps) {
+export function SupplierFormModal({ open, onOpenChange, supplier, readOnly = false }: SupplierFormModalProps) {
   const isEditing = supplier != null
   const createSupplier = useCreateSupplier()
   const updateSupplier = useUpdateSupplier()
@@ -57,18 +58,18 @@ export function SupplierFormModal({ open, onOpenChange, supplier }: SupplierForm
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{isEditing ? 'Editar proveedor' : 'Nuevo proveedor'}</DialogTitle>
+          <DialogTitle>{readOnly ? 'Datos del proveedor' : isEditing ? 'Editar proveedor' : 'Nuevo proveedor'}</DialogTitle>
         </DialogHeader>
 
         <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="supplier-name">Nombre</Label>
-            <Input id="supplier-name" value={name} onChange={(e) => setName(e.target.value)} required />
+            <Input id="supplier-name" value={name} onChange={(e) => setName(e.target.value)} required disabled={readOnly} />
           </div>
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="supplier-tax-id">NIF</Label>
-            <Input id="supplier-tax-id" value={taxId} onChange={(e) => setTaxId(e.target.value)} />
+            <Input id="supplier-tax-id" value={taxId} onChange={(e) => setTaxId(e.target.value)} disabled={readOnly} />
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -78,23 +79,30 @@ export function SupplierFormModal({ open, onOpenChange, supplier }: SupplierForm
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              disabled={readOnly}
             />
           </div>
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="supplier-phone">Teléfono</Label>
-            <Input id="supplier-phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
+            <Input id="supplier-phone" value={phone} onChange={(e) => setPhone(e.target.value)} disabled={readOnly} />
           </div>
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="supplier-address">Dirección</Label>
-            <Input id="supplier-address" value={address} onChange={(e) => setAddress(e.target.value)} />
+            <Input id="supplier-address" value={address} onChange={(e) => setAddress(e.target.value)} disabled={readOnly} />
           </div>
 
           <DialogFooter>
-            <Button type="submit" disabled={isPending}>
-              {isEditing ? 'Guardar cambios' : 'Crear proveedor'}
-            </Button>
+            {readOnly ? (
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                Cerrar
+              </Button>
+            ) : (
+              <Button type="submit" disabled={isPending}>
+                {isEditing ? 'Guardar cambios' : 'Crear proveedor'}
+              </Button>
+            )}
           </DialogFooter>
         </form>
       </DialogContent>

@@ -1,5 +1,6 @@
 import type { SupplierInvoice } from '@fleetmgm/api'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { SupplierInfoLink } from '@/components/supplier/SupplierInfoLink'
 import { SupplierInvoiceStatusBadge } from './SupplierInvoiceStatusBadge'
 import { SupplierInvoiceActionButtons } from './SupplierInvoiceActionButtons'
 import { EXPENSE_CATEGORY_LABEL } from './supplier-invoice-shared'
@@ -27,7 +28,9 @@ export function SupplierInvoiceTable({ invoices, onEdit }: SupplierInvoiceTableP
       <TableBody>
         {invoices.map((invoice) => (
           <TableRow key={invoice.id}>
-            <TableCell>{invoice.supplierName}</TableCell>
+            <TableCell>
+              <SupplierInfoLink supplierId={invoice.supplierId} supplierName={invoice.supplierName} />
+            </TableCell>
             <TableCell>{EXPENSE_CATEGORY_LABEL[invoice.category]}</TableCell>
             <TableCell>{invoice.vehicleLicensePlate ?? '—'}</TableCell>
             <TableCell>

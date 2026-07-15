@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAuthStore } from '@fleetmgm/store'
-import { resetClientsMock, resetInvoicesMock, SEED_INVOICES } from '@/mocks/handlers'
+import { resetClientsMock, resetInvoicesMock, SEED_CLIENTS, SEED_INVOICES } from '@/mocks/handlers'
 import { Billing } from './Billing'
 
 function renderBilling() {
@@ -65,6 +65,27 @@ describe('Billing', () => {
 
     const paidRow = screen.getByText(paid!.invoiceNumber).closest('tr')!
     expect(within(paidRow).getByText(paid!.issueDate!)).toBeInTheDocument()
+  })
+
+  it('opens a read-only client modal from the invoice table, with no save button', async () => {
+    const user = userEvent.setup()
+    renderBilling()
+
+    const client = SEED_CLIENTS[0]!
+    const draft = SEED_INVOICES[0]!
+    const row = (await screen.findByText(draft.invoiceNumber)).closest('tr')!
+
+    await user.click(within(row).getByRole('button', { name: client.name }))
+
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByRole('heading', { name: 'Datos del cliente' })).toBeInTheDocument()
+    expect(within(dialog).getByLabelText(/teléfono/i)).toHaveValue(client.phone)
+    expect(within(dialog).getByLabelText(/correo electrónico/i)).toHaveValue(client.email)
+    expect(within(dialog).getByLabelText(/teléfono/i)).toBeDisabled()
+    expect(within(dialog).queryByRole('button', { name: /guardar cambios/i })).not.toBeInTheDocument()
+
+    await user.click(within(dialog).getByRole('button', { name: /cerrar/i }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
   it('creates a new DRAFT invoice via the modal', async () => {
