@@ -1,5 +1,6 @@
 import type { Invoice } from '@fleetmgm/api'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { ClientInfoLink } from '@/components/client/ClientInfoLink'
 import { InvoiceStatusBadge } from './InvoiceStatusBadge'
 import { InvoiceActionButtons } from './InvoiceActionButtons'
 
@@ -26,7 +27,9 @@ export function InvoiceTable({ invoices, onEdit }: InvoiceTableProps) {
         {invoices.map((invoice) => (
           <TableRow key={invoice.id}>
             <TableCell>{invoice.invoiceNumber}</TableCell>
-            <TableCell>{invoice.clientName}</TableCell>
+            <TableCell>
+              <ClientInfoLink clientId={invoice.clientId} clientName={invoice.clientName} />
+            </TableCell>
             <TableCell>
               <InvoiceStatusBadge status={invoice.status} />
             </TableCell>

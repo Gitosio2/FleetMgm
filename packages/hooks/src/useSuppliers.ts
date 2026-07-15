@@ -7,6 +7,7 @@ const supplierHooks = createCrudHooks<Supplier, CreateSupplierRequest, UpdateSup
 )
 
 export const useSuppliers = supplierHooks.useList
+export const useSupplier = supplierHooks.useDetail
 export const useCreateSupplier = supplierHooks.useCreate
 export const useUpdateSupplier = supplierHooks.useUpdate
 export const useDeleteSupplier = supplierHooks.useDelete

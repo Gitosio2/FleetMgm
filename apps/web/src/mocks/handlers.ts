@@ -1576,6 +1576,24 @@ export const handlers = [
     return new HttpResponse(null, { status: 204 })
   }),
 
+  http.get('/api/v1/clients/:id', ({ params }) => {
+    const client = clients.find((c) => c.id === params.id)
+
+    if (!client) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'CLIENT_NOT_FOUND',
+          message: `Client ${params.id} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    return HttpResponse.json(client)
+  }),
+
   http.get('/api/v1/suppliers', ({ request }) => {
     const url = new URL(request.url)
     const page = Number(url.searchParams.get('page') ?? 0)
