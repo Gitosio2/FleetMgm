@@ -2,6 +2,13 @@
 
 Sistema de gestión de flotas desarrollado como Trabajo Fin de Máster. Backend: Java 21 + Spring Boot 3.5. Frontend: React + Vite + TypeScript (monorepo, con lógica compartida preparada para una futura app móvil). Las decisiones de arquitectura y su justificación viven en [`planning.md`](planning.md).
 
+## Demo en vivo
+
+- **Frontend**: https://fleet-mgm-web.vercel.app
+- **Backend**: https://fleetmgm-production.up.railway.app (`/actuator/health` para confirmar que está activo)
+
+Credenciales de acceso: ver la tabla en [Credenciales demo](#credenciales-demo) más abajo — son las mismas tanto en este despliegue como en el demo local con `docker compose`.
+
 ## Stack tecnológico
 
 | Capa | Tecnología |
