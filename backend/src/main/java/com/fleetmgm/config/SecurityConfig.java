@@ -21,6 +21,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -36,6 +37,10 @@ public class SecurityConfig {
 
     @Value("${FRONTEND_URL:http://localhost:5173}")
     private String frontendUrl;
+
+    private List<String> allowedOrigins() {
+        return Arrays.stream(frontendUrl.split(",")).map(String::trim).toList();
+    }
 
     public SecurityConfig(
             JwtAuthenticationFilter jwtAuthenticationFilter, RateLimitFilter rateLimitFilter,
@@ -122,7 +127,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of(frontendUrl));
+        config.setAllowedOrigins(allowedOrigins());
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type"));
         config.setAllowCredentials(false);

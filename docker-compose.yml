@@ -27,7 +27,7 @@ services:
       # activate `prod` or nothing, never see the seed migration. See application.yml's `demo`
       # profile block for why this split exists.
       SPRING_PROFILES_ACTIVE: prod,demo
-      FRONTEND_URL: http://localhost:8081
+      FRONTEND_URL: http://localhost:8081,http://localhost:5173
     ports:
       - "8080:8080"
     depends_on:
