@@ -58,6 +58,10 @@ public class AssignmentService {
             throw new ConflictException("ASSIGNMENT_DRIVER_ALREADY_ACTIVE",
                     "Driver " + request.driverId() + " already has an active assignment");
         }
+        if (assignmentRepository.findActiveByVehicleId(request.vehicleId()).isPresent()) {
+            throw new ConflictException("ASSIGNMENT_VEHICLE_ALREADY_ACTIVE",
+                    "Vehicle " + request.vehicleId() + " already has an active assignment");
+        }
 
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         var assignedByUser = userRepository.findByEmail(email)
