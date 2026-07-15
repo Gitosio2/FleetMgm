@@ -64,7 +64,7 @@ class SupplierInvoiceRepositoryTest {
         persistInvoice(supplier, vehicle, ExpenseCategory.FUEL);
         entityManager.getEntityManager().clear();
 
-        Page<SupplierInvoice> result = supplierInvoiceRepository.findAllJoinFetch(null, null, PageRequest.of(0, 20));
+        Page<SupplierInvoice> result = supplierInvoiceRepository.findAllJoinFetch(null, null, null, null, null, null, null, null, null, null, PageRequest.of(0, 20));
 
         assertThat(result.getContent()).hasSize(2);
     }
@@ -79,7 +79,7 @@ class SupplierInvoiceRepositoryTest {
         entityManager.getEntityManager().clear();
 
         Page<SupplierInvoice> result = supplierInvoiceRepository
-                .findAllJoinFetch(vehicleA.getId(), null, PageRequest.of(0, 20));
+                .findAllJoinFetch(vehicleA.getId(), null, null, null, null, null, null, null, null, null, PageRequest.of(0, 20));
 
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getContent().get(0).getId()).isEqualTo(invoiceA.getId());
@@ -94,7 +94,7 @@ class SupplierInvoiceRepositoryTest {
         entityManager.getEntityManager().clear();
 
         Page<SupplierInvoice> result = supplierInvoiceRepository
-                .findAllJoinFetch(null, ExpenseCategory.FUEL, PageRequest.of(0, 20));
+                .findAllJoinFetch(null, ExpenseCategory.FUEL, null, null, null, null, null, null, null, null, PageRequest.of(0, 20));
 
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getContent().get(0).getId()).isEqualTo(fuelInvoice.getId());
@@ -111,7 +111,7 @@ class SupplierInvoiceRepositoryTest {
         entityManager.getEntityManager().clear();
 
         Page<SupplierInvoice> result = supplierInvoiceRepository
-                .findAllJoinFetch(vehicleA.getId(), ExpenseCategory.FUEL, PageRequest.of(0, 20));
+                .findAllJoinFetch(vehicleA.getId(), ExpenseCategory.FUEL, null, null, null, null, null, null, null, null, PageRequest.of(0, 20));
 
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getContent().get(0).getId()).isEqualTo(match.getId());
@@ -124,7 +124,7 @@ class SupplierInvoiceRepositoryTest {
         persistInvoice(supplier, vehicle, ExpenseCategory.MAINTENANCE);
         entityManager.getEntityManager().clear();
 
-        Page<SupplierInvoice> result = supplierInvoiceRepository.findAllJoinFetch(null, null, PageRequest.of(0, 20));
+        Page<SupplierInvoice> result = supplierInvoiceRepository.findAllJoinFetch(null, null, null, null, null, null, null, null, null, null, PageRequest.of(0, 20));
 
         SupplierInvoice fetched = result.getContent().get(0);
         assertThat(Hibernate.isInitialized(fetched.getVehicle())).isTrue();
@@ -144,7 +144,7 @@ class SupplierInvoiceRepositoryTest {
                 supplier, SupplierInvoiceStatus.PAID, LocalDate.now().minusDays(1));
         entityManager.getEntityManager().clear();
 
-        Page<SupplierInvoice> result = supplierInvoiceRepository.findAllJoinFetch(null, null, PageRequest.of(0, 20));
+        Page<SupplierInvoice> result = supplierInvoiceRepository.findAllJoinFetch(null, null, null, null, null, null, null, null, null, null, PageRequest.of(0, 20));
 
         assertThat(result.getContent()).extracting(SupplierInvoice::getId).containsExactly(
                 newestPending.getId(), oldestPending.getId(), newestPaid.getId(), oldestPaid.getId());
@@ -159,9 +159,148 @@ class SupplierInvoiceRepositoryTest {
         entityManager.persistAndFlush(invoice);
         entityManager.getEntityManager().clear();
 
-        Page<SupplierInvoice> result = supplierInvoiceRepository.findAllJoinFetch(null, null, PageRequest.of(0, 20));
+        Page<SupplierInvoice> result = supplierInvoiceRepository.findAllJoinFetch(null, null, null, null, null, null, null, null, null, null, PageRequest.of(0, 20));
 
         assertThat(result.getContent()).isEmpty();
+    }
+
+    @Test
+    void findAllJoinFetch_narrowsBySupplierId_whenProvided() {
+        Supplier supplierA = persistSupplier();
+        Supplier supplierB = persistSupplier();
+        SupplierInvoice match = persistInvoiceFull(supplierA, SupplierInvoiceStatus.PENDING, LocalDate.now(),
+                LocalDate.now().plusDays(30), new BigDecimal("100.00"));
+        persistInvoiceFull(supplierB, SupplierInvoiceStatus.PENDING, LocalDate.now(),
+                LocalDate.now().plusDays(30), new BigDecimal("100.00"));
+        entityManager.getEntityManager().clear();
+
+        Page<SupplierInvoice> result = supplierInvoiceRepository.findAllJoinFetch(
+                null, null, supplierA.getId(), null, null, null, null, null, null, null, PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).extracting(SupplierInvoice::getId).containsExactly(match.getId());
+    }
+
+    @Test
+    void findAllJoinFetch_narrowsByStatus_whenProvided() {
+        Supplier supplier = persistSupplier();
+        SupplierInvoice pending = persistInvoiceFull(supplier, SupplierInvoiceStatus.PENDING, LocalDate.now(),
+                LocalDate.now().plusDays(30), new BigDecimal("100.00"));
+        persistInvoiceFull(supplier, SupplierInvoiceStatus.PAID, LocalDate.now(),
+                LocalDate.now().plusDays(30), new BigDecimal("100.00"));
+        entityManager.getEntityManager().clear();
+
+        Page<SupplierInvoice> result = supplierInvoiceRepository.findAllJoinFetch(null, null, null,
+                SupplierInvoiceStatus.PENDING, null, null, null, null, null, null, PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).extracting(SupplierInvoice::getId).containsExactly(pending.getId());
+    }
+
+    @Test
+    void findAllJoinFetch_narrowsByInvoiceDateRange_whenBothBoundsProvided() {
+        Supplier supplier = persistSupplier();
+        SupplierInvoice inRange = persistInvoiceFull(supplier, SupplierInvoiceStatus.PENDING, LocalDate.now(),
+                LocalDate.now().plusDays(30), new BigDecimal("100.00"));
+        persistInvoiceFull(supplier, SupplierInvoiceStatus.PENDING, LocalDate.now().minusDays(10),
+                LocalDate.now().plusDays(20), new BigDecimal("100.00"));
+        entityManager.getEntityManager().clear();
+
+        Page<SupplierInvoice> result = supplierInvoiceRepository.findAllJoinFetch(null, null, null, null,
+                LocalDate.now().minusDays(5), LocalDate.now().plusDays(5), null, null, null, null,
+                PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).extracting(SupplierInvoice::getId).containsExactly(inRange.getId());
+    }
+
+    @Test
+    void findAllJoinFetch_narrowsByDueDateRange_whenBothBoundsProvided() {
+        Supplier supplier = persistSupplier();
+        SupplierInvoice inRange = persistInvoiceFull(supplier, SupplierInvoiceStatus.PENDING, LocalDate.now(),
+                LocalDate.now().plusDays(5), new BigDecimal("100.00"));
+        persistInvoiceFull(supplier, SupplierInvoiceStatus.PENDING, LocalDate.now(),
+                LocalDate.now().plusDays(20), new BigDecimal("100.00"));
+        entityManager.getEntityManager().clear();
+
+        Page<SupplierInvoice> result = supplierInvoiceRepository.findAllJoinFetch(null, null, null, null,
+                null, null, LocalDate.now(), LocalDate.now().plusDays(10), null, null, PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).extracting(SupplierInvoice::getId).containsExactly(inRange.getId());
+    }
+
+    @Test
+    void findAllJoinFetch_narrowsByTotalRange_whenBothBoundsProvided() {
+        Supplier supplier = persistSupplier();
+        SupplierInvoice inRange = persistInvoiceFull(supplier, SupplierInvoiceStatus.PENDING, LocalDate.now(),
+                LocalDate.now().plusDays(30), new BigDecimal("150.00"));
+        persistInvoiceFull(supplier, SupplierInvoiceStatus.PENDING, LocalDate.now(),
+                LocalDate.now().plusDays(30), new BigDecimal("50.00"));
+        entityManager.getEntityManager().clear();
+
+        Page<SupplierInvoice> result = supplierInvoiceRepository.findAllJoinFetch(null, null, null, null,
+                null, null, null, null, new BigDecimal("100.00"), new BigDecimal("200.00"), PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).extracting(SupplierInvoice::getId).containsExactly(inRange.getId());
+    }
+
+    @Test
+    void findAllJoinFetch_combinesNewAndExistingFilters_whenAllProvided() {
+        Supplier supplier = persistSupplier();
+        Supplier otherSupplier = persistSupplier();
+        Vehicle vehicle = persistVehicle("1010KKK");
+        Vehicle otherVehicle = persistVehicle("2020LLL");
+
+        SupplierInvoice match = persistInvoiceFull(supplier, SupplierInvoiceStatus.PENDING, LocalDate.now(),
+                LocalDate.now().plusDays(15), new BigDecimal("150.00"));
+        match.setVehicle(vehicle);
+        match.setCategory(ExpenseCategory.FUEL);
+        entityManager.persistAndFlush(match);
+
+        // Each sibling violates exactly one of the filters below.
+        SupplierInvoice wrongSupplier = persistInvoiceFull(otherSupplier, SupplierInvoiceStatus.PENDING,
+                LocalDate.now(), LocalDate.now().plusDays(15), new BigDecimal("150.00"));
+        wrongSupplier.setVehicle(vehicle);
+        wrongSupplier.setCategory(ExpenseCategory.FUEL);
+        entityManager.persistAndFlush(wrongSupplier);
+
+        SupplierInvoice wrongVehicle = persistInvoiceFull(supplier, SupplierInvoiceStatus.PENDING,
+                LocalDate.now(), LocalDate.now().plusDays(15), new BigDecimal("150.00"));
+        wrongVehicle.setVehicle(otherVehicle);
+        wrongVehicle.setCategory(ExpenseCategory.FUEL);
+        entityManager.persistAndFlush(wrongVehicle);
+
+        SupplierInvoice wrongStatus = persistInvoiceFull(supplier, SupplierInvoiceStatus.PAID,
+                LocalDate.now(), LocalDate.now().plusDays(15), new BigDecimal("150.00"));
+        wrongStatus.setVehicle(vehicle);
+        wrongStatus.setCategory(ExpenseCategory.FUEL);
+        entityManager.persistAndFlush(wrongStatus);
+
+        SupplierInvoice wrongTotal = persistInvoiceFull(supplier, SupplierInvoiceStatus.PENDING,
+                LocalDate.now(), LocalDate.now().plusDays(15), new BigDecimal("999.00"));
+        wrongTotal.setVehicle(vehicle);
+        wrongTotal.setCategory(ExpenseCategory.FUEL);
+        entityManager.persistAndFlush(wrongTotal);
+        entityManager.getEntityManager().clear();
+
+        Page<SupplierInvoice> result = supplierInvoiceRepository.findAllJoinFetch(
+                vehicle.getId(), ExpenseCategory.FUEL, supplier.getId(), SupplierInvoiceStatus.PENDING,
+                LocalDate.now().minusDays(1), LocalDate.now().plusDays(1),
+                LocalDate.now().plusDays(10), LocalDate.now().plusDays(20),
+                new BigDecimal("100.00"), new BigDecimal("200.00"), PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).extracting(SupplierInvoice::getId).containsExactly(match.getId());
+    }
+
+    private SupplierInvoice persistInvoiceFull(Supplier supplier, SupplierInvoiceStatus status,
+            LocalDate invoiceDate, LocalDate dueDate, BigDecimal total) {
+        SupplierInvoice invoice = new SupplierInvoice();
+        invoice.setSupplier(supplier);
+        invoice.setCategory(ExpenseCategory.MAINTENANCE);
+        invoice.setInvoiceDate(invoiceDate);
+        invoice.setDueDate(dueDate);
+        invoice.setStatus(status);
+        invoice.setSubtotal(total);
+        invoice.setTaxAmount(BigDecimal.ZERO);
+        invoice.setTotal(total);
+        return entityManager.persistAndFlush(invoice);
     }
 
     @Test

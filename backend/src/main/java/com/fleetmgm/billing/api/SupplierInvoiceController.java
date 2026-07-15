@@ -2,6 +2,7 @@ package com.fleetmgm.billing.api;
 
 import com.fleetmgm.billing.application.SupplierInvoiceService;
 import com.fleetmgm.billing.domain.ExpenseCategory;
+import com.fleetmgm.billing.domain.SupplierInvoiceStatus;
 import com.fleetmgm.billing.dto.CreateSupplierInvoiceRequest;
 import com.fleetmgm.billing.dto.PayInvoiceRequest;
 import com.fleetmgm.billing.dto.SupplierInvoiceResponse;
@@ -17,7 +18,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import java.math.BigDecimal;
 import java.net.URI;
+import java.time.LocalDate;
 import java.util.UUID;
 
 @RestController
@@ -34,8 +37,17 @@ public class SupplierInvoiceController {
     public ResponseEntity<PageResponse<SupplierInvoiceResponse>> list(
             @RequestParam(required = false) UUID vehicleId,
             @RequestParam(required = false) ExpenseCategory category,
+            @RequestParam(required = false) UUID supplierId,
+            @RequestParam(required = false) SupplierInvoiceStatus status,
+            @RequestParam(required = false) LocalDate invoiceDateFrom,
+            @RequestParam(required = false) LocalDate invoiceDateTo,
+            @RequestParam(required = false) LocalDate dueDateFrom,
+            @RequestParam(required = false) LocalDate dueDateTo,
+            @RequestParam(required = false) BigDecimal totalMin,
+            @RequestParam(required = false) BigDecimal totalMax,
             @PageableDefault(size = 20) Pageable pageable) {
-        return ResponseEntity.ok(supplierInvoiceService.list(vehicleId, category, pageable));
+        return ResponseEntity.ok(supplierInvoiceService.list(vehicleId, category, supplierId, status,
+                invoiceDateFrom, invoiceDateTo, dueDateFrom, dueDateTo, totalMin, totalMax, pageable));
     }
 
     @PostMapping

@@ -55,11 +55,38 @@ class SupplierInvoiceControllerTest {
     @Test
     void list_returns200_withPage() throws Exception {
         PageResponse<SupplierInvoiceResponse> page = new PageResponse<>(List.of(sampleResponse()), 0, 20, 1, 1);
-        when(supplierInvoiceService.list(any(), any(), any(Pageable.class))).thenReturn(page);
+        when(supplierInvoiceService.list(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
+                any(Pageable.class))).thenReturn(page);
 
         mockMvc.perform(get("/api/v1/supplier-invoices"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    @Test
+    void list_forwardsQueryParams_toService() throws Exception {
+        PageResponse<SupplierInvoiceResponse> page = new PageResponse<>(List.of(sampleResponse()), 0, 20, 1, 1);
+        UUID vehicleId = UUID.randomUUID();
+        when(supplierInvoiceService.list(
+                eq(vehicleId), eq(ExpenseCategory.FUEL), eq(SUPPLIER_ID), eq(SupplierInvoiceStatus.PENDING),
+                eq(LocalDate.parse("2026-01-01")), eq(LocalDate.parse("2026-12-31")),
+                eq(LocalDate.parse("2026-02-01")), eq(LocalDate.parse("2026-11-30")),
+                eq(new BigDecimal("50")), eq(new BigDecimal("200")), any(Pageable.class)))
+                .thenReturn(page);
+
+        mockMvc.perform(get("/api/v1/supplier-invoices")
+                        .param("vehicleId", vehicleId.toString())
+                        .param("category", "FUEL")
+                        .param("supplierId", SUPPLIER_ID.toString())
+                        .param("status", "PENDING")
+                        .param("invoiceDateFrom", "2026-01-01")
+                        .param("invoiceDateTo", "2026-12-31")
+                        .param("dueDateFrom", "2026-02-01")
+                        .param("dueDateTo", "2026-11-30")
+                        .param("totalMin", "50")
+                        .param("totalMax", "200"))
+                .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(1));
     }
 
