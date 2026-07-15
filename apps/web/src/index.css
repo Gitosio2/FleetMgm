@@ -54,6 +54,12 @@
   --color-error-container: #ffdad6;
   --color-on-error-container: #410002;
 
+  /* Financial delta text only (e.g. total margin) — not a full status/container pair like
+     error above, since it's used the same lightweight way --color-tertiary already is: a
+     single text-ink token. Contrast-validated per the dataviz skill against this app's own
+     surfaces (not the skill's generic ones): 7.54:1 on light card bg #ffffff. */
+  --color-success: #006300;
+
   --color-background: #f1f5f9;
   --color-on-background: #0f172a;
 
@@ -107,6 +113,9 @@
   --color-on-error: #690005;
   --color-error-container: #93000a;
   --color-on-error-container: #ffdad6;
+
+  /* 6.61:1 on dark card bg #31394d (see the light-mode declaration above for the full note). */
+  --color-success: #4ade80;
 
   --color-background: #0b1326;
   --color-on-background: #dae2fd;

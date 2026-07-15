@@ -1,5 +1,6 @@
 import type { MonthlyFinancial } from '@fleetmgm/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { cn } from '@/lib/utils'
 
 type ProfitabilitySummaryProps = {
   data: MonthlyFinancial[]
@@ -35,7 +36,9 @@ export function ProfitabilitySummary({ data }: ProfitabilitySummaryProps) {
           <CardTitle className="text-sm font-medium text-on-surface-variant">Margen total</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-3xl font-semibold">{totalMargin.toFixed(2)} €</p>
+          <p className={cn('text-3xl font-semibold', totalMargin > 0 ? 'text-success' : 'text-error')}>
+            {totalMargin.toFixed(2)} €
+          </p>
         </CardContent>
       </Card>
     </div>
