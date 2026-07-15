@@ -1,29 +1,55 @@
 import { useState } from 'react'
 import { Plus } from 'lucide-react'
-import type { ExpenseCategory, SupplierInvoice } from '@fleetmgm/api'
-import { useSupplierInvoices } from '@fleetmgm/hooks'
+import type { ExpenseCategory, SupplierInvoice, SupplierInvoiceStatus } from '@fleetmgm/api'
+import { useSupplierInvoices, useSuppliers, useVehicles } from '@fleetmgm/hooks'
 import { Button } from '@/components/ui/button'
 import { SupplierInvoiceTable } from '@/components/billing/SupplierInvoiceTable'
 import { SupplierInvoiceFormModal } from '@/components/billing/SupplierInvoiceFormModal'
-import { EXPENSE_CATEGORY_LABEL } from '@/components/billing/supplier-invoice-shared'
+import { SupplierInvoiceFilters } from '@/components/billing/SupplierInvoiceFilters'
 
 const PAGE_SIZE = 20
 
-const selectClassName =
-  'flex h-9 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary-container'
-
 export function SupplierInvoices() {
   const [page, setPage] = useState(0)
+  const [supplierId, setSupplierId] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<ExpenseCategory | ''>('')
+  const [vehicleId, setVehicleId] = useState('')
+  const [status, setStatus] = useState<SupplierInvoiceStatus | ''>('')
+  const [invoiceDateFrom, setInvoiceDateFrom] = useState('')
+  const [invoiceDateTo, setInvoiceDateTo] = useState('')
+  const [dueDateFrom, setDueDateFrom] = useState('')
+  const [dueDateTo, setDueDateTo] = useState('')
+  const [totalMin, setTotalMin] = useState('')
+  const [totalMax, setTotalMax] = useState('')
   const [formOpen, setFormOpen] = useState(false)
   const [editingInvoiceId, setEditingInvoiceId] = useState<string | undefined>(undefined)
 
+  const { data: suppliersPage } = useSuppliers(0, 100)
+  const { data: vehiclesPage } = useVehicles(0, 100)
+
   const { data, isLoading, isError } = useSupplierInvoices(
-    undefined,
-    categoryFilter === '' ? undefined : categoryFilter,
+    {
+      supplierId: supplierId === '' ? undefined : supplierId,
+      category: categoryFilter === '' ? undefined : categoryFilter,
+      vehicleId: vehicleId === '' ? undefined : vehicleId,
+      status: status === '' ? undefined : status,
+      invoiceDateFrom: invoiceDateFrom === '' ? undefined : invoiceDateFrom,
+      invoiceDateTo: invoiceDateTo === '' ? undefined : invoiceDateTo,
+      dueDateFrom: dueDateFrom === '' ? undefined : dueDateFrom,
+      dueDateTo: dueDateTo === '' ? undefined : dueDateTo,
+      totalMin: totalMin === '' ? undefined : Number(totalMin),
+      totalMax: totalMax === '' ? undefined : Number(totalMax),
+    },
     page,
     PAGE_SIZE,
   )
+
+  function resetPageAnd<T>(setter: (value: T) => void) {
+    return (value: T) => {
+      setter(value)
+      setPage(0)
+    }
+  }
 
   // Derived from the live query data (not a captured snapshot) so that mutations made while the
   // modal is open are reflected immediately instead of showing stale data.
@@ -46,29 +72,36 @@ export function SupplierInvoices() {
           <h1 className="font-display text-2xl font-semibold">Facturas de proveedor</h1>
           <p className="text-on-surface-variant">Gestiona los gastos operativos y sus proveedores.</p>
         </div>
-        <div className="flex items-center gap-3">
-          <select
-            aria-label="Filtrar por categoría"
-            className={selectClassName}
-            value={categoryFilter}
-            onChange={(e) => {
-              setCategoryFilter(e.target.value as ExpenseCategory | '')
-              setPage(0)
-            }}
-          >
-            <option value="">Todas las categorías</option>
-            {(Object.keys(EXPENSE_CATEGORY_LABEL) as ExpenseCategory[]).map((value) => (
-              <option key={value} value={value}>
-                {EXPENSE_CATEGORY_LABEL[value]}
-              </option>
-            ))}
-          </select>
-          <Button onClick={openCreateForm}>
-            <Plus className="size-4" />
-            Nueva factura de proveedor
-          </Button>
-        </div>
+        <Button onClick={openCreateForm}>
+          <Plus className="size-4" />
+          Nueva factura de proveedor
+        </Button>
       </div>
+
+      <SupplierInvoiceFilters
+        supplierId={supplierId}
+        onSupplierIdChange={resetPageAnd(setSupplierId)}
+        category={categoryFilter}
+        onCategoryChange={resetPageAnd(setCategoryFilter)}
+        vehicleId={vehicleId}
+        onVehicleIdChange={resetPageAnd(setVehicleId)}
+        status={status}
+        onStatusChange={resetPageAnd(setStatus)}
+        invoiceDateFrom={invoiceDateFrom}
+        onInvoiceDateFromChange={resetPageAnd(setInvoiceDateFrom)}
+        invoiceDateTo={invoiceDateTo}
+        onInvoiceDateToChange={resetPageAnd(setInvoiceDateTo)}
+        dueDateFrom={dueDateFrom}
+        onDueDateFromChange={resetPageAnd(setDueDateFrom)}
+        dueDateTo={dueDateTo}
+        onDueDateToChange={resetPageAnd(setDueDateTo)}
+        totalMin={totalMin}
+        onTotalMinChange={resetPageAnd(setTotalMin)}
+        totalMax={totalMax}
+        onTotalMaxChange={resetPageAnd(setTotalMax)}
+        suppliers={suppliersPage?.content ?? []}
+        vehicles={vehiclesPage?.content ?? []}
+      />
 
       {isLoading ? (
         <p className="text-on-surface-variant">Cargando facturas de proveedores…</p>

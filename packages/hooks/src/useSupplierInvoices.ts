@@ -5,6 +5,7 @@ import type {
   ExpenseCategory,
   PageResponse,
   SupplierInvoice,
+  SupplierInvoiceStatus,
   SupplierLineItemRequest,
   SupplierLineItemResponse,
   UpdateSupplierInvoiceRequest,
@@ -12,12 +13,51 @@ import type {
 
 export const SUPPLIER_INVOICE_KEY = 'supplier-invoices'
 
-export function useSupplierInvoices(vehicleId?: string, category?: ExpenseCategory, page = 0, size = 20) {
+export type SupplierInvoiceFilters = {
+  vehicleId?: string
+  category?: ExpenseCategory
+  supplierId?: string
+  status?: SupplierInvoiceStatus
+  invoiceDateFrom?: string
+  invoiceDateTo?: string
+  dueDateFrom?: string
+  dueDateTo?: string
+  totalMin?: number
+  totalMax?: number
+}
+
+export function useSupplierInvoices(filters: SupplierInvoiceFilters = {}, page = 0, size = 20) {
+  const {
+    vehicleId,
+    category,
+    supplierId,
+    status,
+    invoiceDateFrom,
+    invoiceDateTo,
+    dueDateFrom,
+    dueDateTo,
+    totalMin,
+    totalMax,
+  } = filters
+
   return useQuery({
-    queryKey: [SUPPLIER_INVOICE_KEY, { vehicleId, category, page, size }],
+    queryKey: [SUPPLIER_INVOICE_KEY, { ...filters, page, size }],
     queryFn: async () => {
       const { data } = await apiClient.get<PageResponse<SupplierInvoice>>('/supplier-invoices', {
-        params: { vehicleId, category, page, size },
+        params: {
+          vehicleId,
+          category,
+          supplierId,
+          status,
+          invoiceDateFrom,
+          invoiceDateTo,
+          dueDateFrom,
+          dueDateTo,
+          totalMin,
+          totalMax,
+          page,
+          size,
+        },
       })
       return data
     },

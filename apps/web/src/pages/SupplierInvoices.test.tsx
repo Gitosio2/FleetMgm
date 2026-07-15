@@ -50,15 +50,15 @@ describe('SupplierInvoices', () => {
 
     const [withVehicle, withoutVehicle, paid] = SEED_SUPPLIER_INVOICES
 
-    const row1 = (await screen.findByText(withVehicle!.supplierName)).closest('tr')!
+    const row1 = (await screen.findByRole('button', { name: withVehicle!.supplierName })).closest('tr')!
     expect(within(row1).getByText('Pendiente')).toBeInTheDocument()
     expect(within(row1).getByText(withVehicle!.vehicleLicensePlate!)).toBeInTheDocument()
 
-    const row2 = screen.getByText(withoutVehicle!.supplierName).closest('tr')!
+    const row2 = screen.getByRole('button', { name: withoutVehicle!.supplierName }).closest('tr')!
     expect(within(row2).getByText('Pendiente')).toBeInTheDocument()
     expect(within(row2).getByText('—')).toBeInTheDocument()
 
-    const row3 = screen.getByText(paid!.supplierName).closest('tr')!
+    const row3 = screen.getByRole('button', { name: paid!.supplierName }).closest('tr')!
     expect(within(row3).getByText('Pagada')).toBeInTheDocument()
   })
 
@@ -66,7 +66,7 @@ describe('SupplierInvoices', () => {
     const user = userEvent.setup()
     renderSupplierInvoices()
 
-    await screen.findByText(SEED_SUPPLIER_INVOICES[0]!.supplierName)
+    await screen.findByRole('button', { name: SEED_SUPPLIER_INVOICES[0]!.supplierName })
 
     const newSupplier = SEED_SUPPLIERS.find((supplier) => supplier.name === 'Ferretería Central')!
 
@@ -81,9 +81,9 @@ describe('SupplierInvoices', () => {
     await user.click(screen.getByRole('button', { name: /crear factura/i }))
 
     await waitFor(() => {
-      expect(screen.getByText('Ferretería Central')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Ferretería Central' })).toBeInTheDocument()
     })
-    const row = screen.getByText('Ferretería Central').closest('tr')!
+    const row = screen.getByRole('button', { name: 'Ferretería Central' }).closest('tr')!
     expect(within(row).getByText('Pendiente')).toBeInTheDocument()
     // Both the "Vehículo" and "Vencimiento" columns fall back to the placeholder here, since
     // neither a vehicle nor a due date was entered in this test.
@@ -95,7 +95,7 @@ describe('SupplierInvoices', () => {
     const user = userEvent.setup()
     renderSupplierInvoices()
 
-    await screen.findByText(SEED_SUPPLIER_INVOICES[0]!.supplierName)
+    await screen.findByRole('button', { name: SEED_SUPPLIER_INVOICES[0]!.supplierName })
 
     const newSupplier = SEED_SUPPLIERS.find((supplier) => supplier.name === 'Taller Rápido')!
 
@@ -110,9 +110,9 @@ describe('SupplierInvoices', () => {
     await user.click(screen.getByRole('button', { name: /crear factura/i }))
 
     await waitFor(() => {
-      expect(screen.getByText('Taller Rápido')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Taller Rápido' })).toBeInTheDocument()
     })
-    const row = screen.getByText('Taller Rápido').closest('tr')!
+    const row = screen.getByRole('button', { name: 'Taller Rápido' }).closest('tr')!
     expect(within(row).getByText('1234ABC')).toBeInTheDocument()
   })
 
@@ -121,7 +121,7 @@ describe('SupplierInvoices', () => {
     renderSupplierInvoices()
 
     const withVehicle = SEED_SUPPLIER_INVOICES[0]!
-    const row = (await screen.findByText(withVehicle.supplierName)).closest('tr')!
+    const row = (await screen.findByRole('button', { name: withVehicle.supplierName })).closest('tr')!
     await user.click(within(row).getByRole('button', { name: /editar/i }))
 
     expect(await screen.findByRole('heading', { name: 'Editar factura de proveedor' })).toBeInTheDocument()
@@ -132,7 +132,7 @@ describe('SupplierInvoices', () => {
     await user.click(screen.getByRole('button', { name: /guardar cambios/i }))
 
     await waitFor(() => {
-      const updatedRow = screen.getByText(withVehicle.supplierName).closest('tr')!
+      const updatedRow = screen.getByRole('button', { name: withVehicle.supplierName }).closest('tr')!
       expect(within(updatedRow).getByText('999.00')).toBeInTheDocument()
     })
   })
@@ -142,7 +142,7 @@ describe('SupplierInvoices', () => {
     renderSupplierInvoices()
 
     const withoutVehicle = SEED_SUPPLIER_INVOICES[1]!
-    const row = (await screen.findByText(withoutVehicle.supplierName)).closest('tr')!
+    const row = (await screen.findByRole('button', { name: withoutVehicle.supplierName })).closest('tr')!
     expect(within(row).getByText('Pendiente')).toBeInTheDocument()
 
     await user.click(within(row).getByRole('button', { name: /marcar pagada/i }))
@@ -155,7 +155,7 @@ describe('SupplierInvoices', () => {
     renderSupplierInvoices()
 
     const paid = SEED_SUPPLIER_INVOICES[2]!
-    const row = (await screen.findByText(paid.supplierName)).closest('tr')!
+    const row = (await screen.findByRole('button', { name: paid.supplierName })).closest('tr')!
 
     expect(within(row).queryByRole('button', { name: /marcar pagada/i })).not.toBeInTheDocument()
   })
@@ -165,7 +165,7 @@ describe('SupplierInvoices', () => {
     renderSupplierInvoices()
 
     const paid = SEED_SUPPLIER_INVOICES[2]!
-    const row = (await screen.findByText(paid.supplierName)).closest('tr')!
+    const row = (await screen.findByRole('button', { name: paid.supplierName })).closest('tr')!
     expect(within(row).getByRole('button', { name: /^ver$/i })).toBeInTheDocument()
 
     await user.click(within(row).getByRole('button', { name: /^ver$/i }))
@@ -184,7 +184,7 @@ describe('SupplierInvoices', () => {
     renderSupplierInvoices()
 
     const withoutVehicle = SEED_SUPPLIER_INVOICES[1]!
-    const row = (await screen.findByText(withoutVehicle.supplierName)).closest('tr')!
+    const row = (await screen.findByRole('button', { name: withoutVehicle.supplierName })).closest('tr')!
     await user.click(within(row).getByRole('button', { name: /editar/i }))
 
     expect(await screen.findByRole('heading', { name: 'Editar factura de proveedor' })).toBeInTheDocument()
@@ -212,7 +212,7 @@ describe('SupplierInvoices', () => {
     renderSupplierInvoices()
 
     const alreadySplit = SEED_SUPPLIER_INVOICES[3]!
-    const row = (await screen.findByText(alreadySplit.supplierName)).closest('tr')!
+    const row = (await screen.findByRole('button', { name: alreadySplit.supplierName })).closest('tr')!
     await user.click(within(row).getByRole('button', { name: /editar/i }))
 
     expect(await screen.findByRole('heading', { name: 'Editar factura de proveedor' })).toBeInTheDocument()
@@ -227,7 +227,7 @@ describe('SupplierInvoices', () => {
     renderSupplierInvoices()
 
     const alreadySplit = SEED_SUPPLIER_INVOICES[3]!
-    const row = (await screen.findByText(alreadySplit.supplierName)).closest('tr')!
+    const row = (await screen.findByRole('button', { name: alreadySplit.supplierName })).closest('tr')!
     await user.click(within(row).getByRole('button', { name: /editar/i }))
 
     expect(await screen.findByRole('heading', { name: 'Editar factura de proveedor' })).toBeInTheDocument()
@@ -242,7 +242,7 @@ describe('SupplierInvoices', () => {
     renderSupplierInvoices()
 
     const alreadySplit = SEED_SUPPLIER_INVOICES[3]!
-    const row = (await screen.findByText(alreadySplit.supplierName)).closest('tr')!
+    const row = (await screen.findByRole('button', { name: alreadySplit.supplierName })).closest('tr')!
     await user.click(within(row).getByRole('button', { name: /editar/i }))
 
     expect(await screen.findByRole('heading', { name: 'Editar factura de proveedor' })).toBeInTheDocument()
@@ -269,7 +269,7 @@ describe('SupplierInvoices', () => {
     renderSupplierInvoices()
 
     const alreadySplit = SEED_SUPPLIER_INVOICES[3]!
-    const row = (await screen.findByText(alreadySplit.supplierName)).closest('tr')!
+    const row = (await screen.findByRole('button', { name: alreadySplit.supplierName })).closest('tr')!
     await user.click(within(row).getByRole('button', { name: /editar/i }))
 
     expect(await screen.findByRole('heading', { name: 'Editar factura de proveedor' })).toBeInTheDocument()
@@ -292,14 +292,123 @@ describe('SupplierInvoices', () => {
     renderSupplierInvoices()
 
     const [withVehicle, withoutVehicle, paid] = SEED_SUPPLIER_INVOICES
-    await screen.findByText(withVehicle!.supplierName)
+    await screen.findByRole('button', { name: withVehicle!.supplierName })
 
     await user.selectOptions(screen.getByLabelText(/filtrar por categoría/i), withoutVehicle!.category)
 
     await waitFor(() => {
-      expect(screen.getByText(withoutVehicle!.supplierName)).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: withoutVehicle!.supplierName })).toBeInTheDocument()
     })
-    expect(screen.queryByText(withVehicle!.supplierName)).not.toBeInTheDocument()
-    expect(screen.queryByText(paid!.supplierName)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: withVehicle!.supplierName })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: paid!.supplierName })).not.toBeInTheDocument()
+  })
+
+  it('narrows the supplier invoice list with the supplier filter', async () => {
+    const user = userEvent.setup()
+    renderSupplierInvoices()
+
+    const [withVehicle, , paid] = SEED_SUPPLIER_INVOICES
+    await screen.findByRole('button', { name: withVehicle!.supplierName })
+
+    await user.selectOptions(screen.getByLabelText(/filtrar por proveedor/i), paid!.supplierId)
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: paid!.supplierName })).toBeInTheDocument()
+    })
+    expect(screen.queryByRole('button', { name: withVehicle!.supplierName })).not.toBeInTheDocument()
+  })
+
+  it('narrows the supplier invoice list with the vehicle filter', async () => {
+    const user = userEvent.setup()
+    renderSupplierInvoices()
+
+    const [withVehicle, withoutVehicle] = SEED_SUPPLIER_INVOICES
+    await screen.findByRole('button', { name: withVehicle!.supplierName })
+
+    await user.selectOptions(screen.getByLabelText(/filtrar por vehículo/i), withVehicle!.vehicleId!)
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: withVehicle!.supplierName })).toBeInTheDocument()
+    })
+    expect(screen.queryByRole('button', { name: withoutVehicle!.supplierName })).not.toBeInTheDocument()
+  })
+
+  it('narrows the supplier invoice list with the status filter', async () => {
+    const user = userEvent.setup()
+    renderSupplierInvoices()
+
+    const [withVehicle, , paid] = SEED_SUPPLIER_INVOICES
+    await screen.findByRole('button', { name: withVehicle!.supplierName })
+
+    await user.selectOptions(screen.getByLabelText(/filtrar por estado/i), 'PAID')
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: paid!.supplierName })).toBeInTheDocument()
+    })
+    expect(screen.queryByRole('button', { name: withVehicle!.supplierName })).not.toBeInTheDocument()
+  })
+
+  it('narrows the supplier invoice list with the invoice date range filter', async () => {
+    const user = userEvent.setup()
+    renderSupplierInvoices()
+
+    const [withVehicle, , paid] = SEED_SUPPLIER_INVOICES
+    await screen.findByRole('button', { name: withVehicle!.supplierName })
+
+    await user.type(screen.getByLabelText(/^fecha desde$/i), '2026-06-01')
+    await user.type(screen.getByLabelText(/^fecha hasta$/i), '2026-06-30')
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: paid!.supplierName })).toBeInTheDocument()
+    })
+    expect(screen.queryByRole('button', { name: withVehicle!.supplierName })).not.toBeInTheDocument()
+  })
+
+  it('narrows the supplier invoice list with the due date range filter', async () => {
+    const user = userEvent.setup()
+    renderSupplierInvoices()
+
+    const [withVehicle, , , alreadySplit] = SEED_SUPPLIER_INVOICES
+    await screen.findByRole('button', { name: withVehicle!.supplierName })
+
+    await user.type(screen.getByLabelText(/^vencimiento desde$/i), '2026-08-06')
+    await user.type(screen.getByLabelText(/^vencimiento hasta$/i), '2026-08-31')
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: alreadySplit!.supplierName })).toBeInTheDocument()
+    })
+    expect(screen.queryByRole('button', { name: withVehicle!.supplierName })).not.toBeInTheDocument()
+  })
+
+  it('narrows the supplier invoice list with the total amount range filter', async () => {
+    const user = userEvent.setup()
+    renderSupplierInvoices()
+
+    const [withVehicle] = SEED_SUPPLIER_INVOICES
+    await screen.findByRole('button', { name: withVehicle!.supplierName })
+
+    await user.type(screen.getByLabelText(/^total mínimo$/i), '115')
+    await user.type(screen.getByLabelText(/^total máximo$/i), '130')
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: withVehicle!.supplierName })).toBeInTheDocument()
+    })
+    expect(screen.getAllByRole('row')).toHaveLength(2) // header row + the one matching invoice
+  })
+
+  it('collapses and expands the filter panel when the trigger is clicked', async () => {
+    const user = userEvent.setup()
+    renderSupplierInvoices()
+
+    await screen.findByRole('button', { name: SEED_SUPPLIER_INVOICES[0]!.supplierName })
+
+    const trigger = screen.getByRole('button', { name: /mostrar u ocultar filtros/i })
+    expect(trigger).toHaveAttribute('data-state', 'open')
+    expect(screen.getByLabelText(/filtrar por categoría/i)).toBeInTheDocument()
+
+    await user.click(trigger)
+
+    expect(trigger).toHaveAttribute('data-state', 'closed')
+    expect(screen.queryByLabelText(/filtrar por categoría/i)).not.toBeInTheDocument()
   })
 })
