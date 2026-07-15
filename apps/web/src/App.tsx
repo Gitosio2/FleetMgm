@@ -1,4 +1,6 @@
+import { useEffect } from 'react'
 import { Route, Routes } from 'react-router-dom'
+import { useThemeStore } from '@fleetmgm/store'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { Layout } from '@/components/layout/Layout'
 import { Login } from '@/pages/Login'
@@ -17,6 +19,12 @@ import { NotImplemented } from '@/pages/NotImplemented'
 import { NAV_ITEMS, MANAGEMENT_ROLES } from '@/components/layout/nav-items'
 
 function App() {
+  const theme = useThemeStore((state) => state.theme)
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme
+  }, [theme])
+
   return (
     <Routes>
       <Route path="/login" element={<Login />} />

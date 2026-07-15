@@ -1,4 +1,5 @@
 import type { FleetSummary } from '@fleetmgm/api'
+import { BellRing, Truck, Wrench } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 type FleetKpiCardsProps = {
@@ -15,7 +16,10 @@ export function FleetKpiCards({ summary }: FleetKpiCardsProps) {
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm font-medium text-on-surface-variant">Vehículos activos</CardTitle>
+          <CardTitle className="flex items-start gap-2 text-sm font-medium text-on-surface-variant">
+            <Truck className="size-4" />
+            Vehículos activos
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-3xl font-semibold">
@@ -30,7 +34,10 @@ export function FleetKpiCards({ summary }: FleetKpiCardsProps) {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm font-medium text-on-surface-variant">En taller</CardTitle>
+          <CardTitle className="flex items-start gap-2 text-sm font-medium text-on-surface-variant">
+            <Wrench className="size-4" />
+            En taller
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-3xl font-semibold">{summary.inWorkshop}</p>
@@ -39,7 +46,10 @@ export function FleetKpiCards({ summary }: FleetKpiCardsProps) {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm font-medium text-on-surface-variant">Mantenimiento pendiente</CardTitle>
+          <CardTitle className="flex items-start gap-2 text-sm font-medium text-on-surface-variant">
+            <BellRing className="size-4" />
+            Mantenimiento pendiente
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-3xl font-semibold">{summary.pendingMaintenance}</p>
