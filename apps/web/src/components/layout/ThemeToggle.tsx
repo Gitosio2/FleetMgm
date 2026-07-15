@@ -16,7 +16,7 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
     <div className={cn('flex items-center justify-between gap-2', className)}>
       <span className="flex items-center gap-2 text-sm font-medium text-on-surface-variant">
         {isDark ? <Moon className="size-4" /> : <Sun className="size-4" />}
-        Modo oscuro
+        {isDark ? 'Modo oscuro' : 'Modo claro'}
       </span>
       <Switch
         checked={isDark}
