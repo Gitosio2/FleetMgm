@@ -400,9 +400,13 @@ BEGIN
                 v_tax := round(v_subtotal * 0.2100, 2);
                 v_total := v_subtotal + v_tax;
 
-                INSERT INTO invoices (id, invoice_number, client_id, status, issue_date, payment_date, tax_rate,
-                                       subtotal, tax_amount, total, created_at, updated_at)
+                INSERT INTO invoices (id, invoice_number, client_id, status, issue_date, due_date, payment_date,
+                                       tax_rate, subtotal, tax_amount, total, created_at, updated_at)
                 VALUES (v_invoice_id, v_invoice_number, v_client.id, v_status, v_issue_date,
+                        -- Every non-DRAFT invoice must carry a due date in the data (net-30 from
+                        -- issuance, standard term) — DRAFT is the only status exempt, since it
+                        -- hasn't been issued yet and has no issue_date either.
+                        v_issue_date + 30,
                         CASE WHEN v_status = 'PAID' THEN v_issue_date + (5 + floor(random() * 20))::int * INTERVAL '1 day' ELSE NULL END,
                         0.2100, v_subtotal, v_tax, v_total, v_issue_date::timestamptz, v_issue_date::timestamptz);
             END IF;
@@ -454,10 +458,13 @@ BEGIN
             v_invoice_id := gen_random_uuid();
 
             INSERT INTO supplier_invoices (id, supplier_id, supplier_invoice_number, category, invoice_date,
-                                           payment_date, status, subtotal, tax_amount, total, vehicle_id,
+                                           due_date, payment_date, status, subtotal, tax_amount, total, vehicle_id,
                                            created_at, updated_at)
             VALUES (v_invoice_id, v_supplier.id, 'FC-' || to_char(v_invoice_date, 'YYYYMMDD') || '-' || substr(v_invoice_id::text, 1, 6),
                     v_category, v_invoice_date,
+                    -- SupplierInvoiceStatus has no DRAFT concept — every row is either PENDING or
+                    -- PAID, so every row must carry a due date (net-30 from the invoice date).
+                    v_invoice_date + 30,
                     CASE WHEN v_status = 'PAID' THEN v_invoice_date + (3 + floor(random() * 15))::int * INTERVAL '1 day' ELSE NULL END,
                     v_status, v_subtotal, v_tax, v_total, v_vehicle_id,
                     v_invoice_date::timestamptz, v_invoice_date::timestamptz);
