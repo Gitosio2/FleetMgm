@@ -7,6 +7,7 @@ const clientHooks = createCrudHooks<Client, CreateClientRequest, UpdateClientReq
 )
 
 export const useClients = clientHooks.useList
+export const useClient = clientHooks.useDetail
 export const useCreateClient = clientHooks.useCreate
 export const useUpdateClient = clientHooks.useUpdate
 export const useDeleteClient = clientHooks.useDelete

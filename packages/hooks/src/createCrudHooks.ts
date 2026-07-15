@@ -15,6 +15,17 @@ export function createCrudHooks<T, TCreate, TUpdate = TCreate>(key: string, base
     })
   }
 
+  function useDetail(id: string | undefined) {
+    return useQuery({
+      queryKey: [key, id],
+      queryFn: async () => {
+        const { data } = await apiClient.get<T>(`${basePath}/${id}`)
+        return data
+      },
+      enabled: id != null,
+    })
+  }
+
   function useCreate() {
     const queryClient = useQueryClient()
 
@@ -50,5 +61,5 @@ export function createCrudHooks<T, TCreate, TUpdate = TCreate>(key: string, base
     })
   }
 
-  return { useList, useCreate, useUpdate, useDelete }
+  return { useList, useDetail, useCreate, useUpdate, useDelete }
 }
