@@ -21,7 +21,7 @@ export function VehiclePopover({ position }: VehiclePopoverProps) {
       <div data-testid="vehicle-popover" className="flex flex-col gap-1 text-sm">
         <span className="font-semibold">{vehicleLabel}</span>
         {showMakeModel && <span>{vehicleMakeModel}</span>}
-        <span>{position.speed ?? 0} km/h</span>
+        <span>{Math.round(position.speed ?? 0)} km/h</span>
       </div>
     </Popup>
   )
