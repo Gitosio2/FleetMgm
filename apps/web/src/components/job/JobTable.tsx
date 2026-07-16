@@ -22,6 +22,8 @@ export function JobTable({ jobs, canManage, onEdit }: JobTableProps) {
           <TableHead>Vehículo</TableHead>
           <TableHead>Conductor</TableHead>
           <TableHead>Estado</TableHead>
+          <TableHead>Inicio real</TableHead>
+          <TableHead>Fin real</TableHead>
           <TableHead>Acciones</TableHead>
         </TableRow>
       </TableHeader>
@@ -36,6 +38,12 @@ export function JobTable({ jobs, canManage, onEdit }: JobTableProps) {
             <TableCell>{job.assignedDriverName ?? '—'}</TableCell>
             <TableCell>
               <JobStatusBadge status={job.status} />
+            </TableCell>
+            <TableCell>
+              {job.actualStart ? new Date(job.actualStart).toLocaleDateString('es-ES') : '—'}
+            </TableCell>
+            <TableCell>
+              {job.actualEnd ? new Date(job.actualEnd).toLocaleDateString('es-ES') : '—'}
             </TableCell>
             <TableCell>
               <div className="flex items-center gap-1">

@@ -200,6 +200,8 @@ export type CreateJobRequest = {
   notes?: string | null
   scheduledStart?: string | null
   scheduledEnd?: string | null
+  actualStart?: string | null
+  actualEnd?: string | null
 }
 
 export type UpdateJobRequest = CreateJobRequest

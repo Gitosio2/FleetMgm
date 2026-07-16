@@ -2,9 +2,9 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { http, HttpResponse } from 'msw'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { useAuthStore } from '@fleetmgm/store'
-import { resetJobsMock, resetVehiclesMock, resetWorkersMock, SEED_VEHICLES } from '@/mocks/handlers'
+import { resetJobsMock, resetVehiclesMock, resetWorkersMock, SEED_JOBS, SEED_VEHICLES } from '@/mocks/handlers'
 import { server } from '@/mocks/server'
 import { Jobs } from './Jobs'
 
@@ -147,6 +147,118 @@ describe('Jobs', () => {
 
     await screen.findByText('Entrega urgente')
     expect(screen.queryByRole('button', { name: /nuevo trabajo/i })).not.toBeInTheDocument()
+  })
+
+  it('editing a job to set actual start/end dates shows them in the table', async () => {
+    loginAs('ADMIN')
+    const user = userEvent.setup()
+    renderJobs()
+
+    const row = (await screen.findByText('Traslado de excavadora')).closest('tr')!
+    await user.click(within(row).getByRole('button', { name: /editar trabajo/i }))
+
+    const dialog = await screen.findByRole('dialog')
+    await user.type(within(dialog).getByLabelText('Inicio real'), '2026-07-10T12:00')
+    await user.type(within(dialog).getByLabelText('Fin real'), '2026-07-12T09:00')
+    await user.click(within(dialog).getByRole('button', { name: /guardar cambios/i }))
+
+    const expectedStartDate = new Date('2026-07-10T12:00').toLocaleDateString('es-ES')
+    const expectedEndDate = new Date('2026-07-12T09:00').toLocaleDateString('es-ES')
+    await waitFor(() => expect(within(row).getByText(expectedStartDate)).toBeInTheDocument())
+    expect(within(row).getByText(expectedEndDate)).toBeInTheDocument()
+  })
+
+  it('starting a job with a manually-set actualStart preserves the original date', async () => {
+    loginAs('ADMIN')
+    const user = userEvent.setup()
+    renderJobs()
+
+    const row = (await screen.findByText('Traslado programado')).closest('tr')!
+    const seedJob = SEED_JOBS.find((job) => job.id === 'job-5')!
+    const expectedDate = new Date(seedJob.actualStart!).toLocaleDateString('es-ES')
+    expect(within(row).getByText(expectedDate)).toBeInTheDocument()
+
+    await user.click(within(row).getByRole('button', { name: /iniciar/i }))
+
+    await waitFor(() => expect(within(row).getByText('En curso')).toBeInTheDocument())
+    expect(within(row).getByText(expectedDate)).toBeInTheDocument()
+  })
+
+  it('lists jobs with no actual start first, then most recently started first', async () => {
+    loginAs('ADMIN')
+    renderJobs()
+
+    await screen.findByText('Entrega urgente')
+    const titles = screen.getAllByRole('row').slice(1).map((row) => within(row).getAllByRole('cell')[0]!.textContent)
+
+    expect(titles).toEqual([
+      'Entrega urgente',
+      'Traslado de excavadora',
+      'Traslado programado',
+      'Reparto semanal',
+      'Entrega finalizada',
+    ])
+  })
+
+  describe('actual date timezone round-trip', () => {
+    // This frontend project has no @types/node in its ambient scope (see src/test/setup.ts) —
+    // `process` still exists at runtime under vitest/Node, just untyped here, so it's cast locally
+    // rather than widening the project's ambient types just for this one test.
+    const nodeProcess = (globalThis as unknown as { process: { env: Record<string, string | undefined> } }).process
+    const ORIGINAL_TZ = nodeProcess.env.TZ
+
+    beforeEach(() => {
+      nodeProcess.env.TZ = 'Europe/Madrid'
+    })
+
+    afterEach(() => {
+      nodeProcess.env.TZ = ORIGINAL_TZ
+    })
+
+    it('keeps actualStart stable when the form is saved without touching it', async () => {
+      loginAs('ADMIN')
+      const user = userEvent.setup()
+
+      let capturedActualStart: string | null | undefined
+      server.use(
+        http.put('/api/v1/jobs/:id', async ({ request, params }) => {
+          const body = (await request.json()) as { actualStart?: string | null }
+          capturedActualStart = body.actualStart
+          const seedJob = SEED_JOBS.find((job) => job.id === params.id)!
+          return HttpResponse.json({ ...seedJob, actualStart: body.actualStart ?? null })
+        }),
+      )
+
+      renderJobs()
+
+      const row = (await screen.findByText('Traslado programado')).closest('tr')!
+      await user.click(within(row).getByRole('button', { name: /editar trabajo/i }))
+
+      const dialog = await screen.findByRole('dialog')
+      await user.click(within(dialog).getByRole('button', { name: /guardar cambios/i }))
+
+      await waitFor(() => expect(capturedActualStart).not.toBeUndefined())
+
+      const seedJob = SEED_JOBS.find((job) => job.id === 'job-5')!
+      expect(new Date(capturedActualStart!).getTime()).toBe(new Date(seedJob.actualStart!).getTime())
+    })
+  })
+
+  it('shows an explicit error message when actualStart is set in the future', async () => {
+    loginAs('ADMIN')
+    const user = userEvent.setup()
+    renderJobs()
+
+    const row = (await screen.findByText('Entrega urgente')).closest('tr')!
+    await user.click(within(row).getByRole('button', { name: /editar trabajo/i }))
+
+    const dialog = await screen.findByRole('dialog')
+    await user.type(within(dialog).getByLabelText(/inicio real/i), '2099-01-01T10:00')
+    await user.click(within(dialog).getByRole('button', { name: /guardar cambios/i }))
+
+    expect(
+      await screen.findByText('El inicio o el fin real no pueden ser una fecha futura.'),
+    ).toBeInTheDocument()
   })
 
   it('shows an error message when the job list query fails', async () => {

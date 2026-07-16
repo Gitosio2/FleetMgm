@@ -12,6 +12,7 @@ import com.fleetmgm.job.dto.JobResponse;
 import com.fleetmgm.job.dto.UpdateJobRequest;
 import com.fleetmgm.job.infrastructure.JobRepository;
 import com.fleetmgm.shared.PageResponse;
+import com.fleetmgm.shared.exception.BadRequestException;
 import com.fleetmgm.shared.exception.ConflictException;
 import com.fleetmgm.shared.exception.NotFoundException;
 import com.fleetmgm.vehicle.domain.Vehicle;
@@ -19,6 +20,7 @@ import com.fleetmgm.vehicle.infrastructure.VehicleRepository;
 import com.fleetmgm.worker.domain.Worker;
 import com.fleetmgm.worker.infrastructure.WorkerRepository;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -62,10 +64,14 @@ public class JobService {
     @Transactional(readOnly = true)
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ADMINISTRATIVE', 'DRIVER')")
     public PageResponse<JobResponse> list(Pageable pageable) {
+        // The repository query's own ORDER BY (not-started-first, then most recently started) is the
+        // whole point — a caller-supplied Sort would just get appended after it, so it's stripped
+        // here rather than trusted from the controller.
+        Pageable pageOnly = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
         if (isCurrentUserDriver()) {
-            return listForCurrentDriver(pageable);
+            return listForCurrentDriver(pageOnly);
         }
-        return PageResponse.from(jobRepository.findAllJoinFetch(pageable).map(jobMapper::toResponse));
+        return PageResponse.from(jobRepository.findAllJoinFetch(pageOnly).map(jobMapper::toResponse));
     }
 
     @Transactional
@@ -81,6 +87,7 @@ public class JobService {
         job.setVehicle(vehicle);
         job.setAssignedDriver(assignedDriver);
         job.setClient(client);
+        validateActualDates(job);
         return jobMapper.toResponse(jobRepository.save(job));
     }
 
@@ -111,6 +118,7 @@ public class JobService {
         job.setVehicle(vehicle);
         job.setAssignedDriver(assignedDriver);
         job.setClient(client);
+        validateActualDates(job);
         return jobMapper.toResponse(jobRepository.save(job));
     }
 
@@ -136,7 +144,11 @@ public class JobService {
                     "Job " + id + " cannot be started from state " + job.getStatus());
         }
         job.setStatus(JobStatus.IN_PROGRESS);
-        job.setActualStart(Instant.now());
+        // A manually-set actualStart (from the create/edit form) must survive a subsequent
+        // start() call — only stamp "now" when nobody has recorded one yet.
+        if (job.getActualStart() == null) {
+            job.setActualStart(Instant.now());
+        }
         if (startUsageValue != null) {
             job.setStartUsageValue(startUsageValue);
         }
@@ -160,7 +172,10 @@ public class JobService {
             job.setEndUsageValue(endUsageValue);
         }
         job.setStatus(JobStatus.COMPLETED);
-        job.setActualEnd(Instant.now());
+        // Same rationale as start(): don't overwrite a manually-set actualEnd.
+        if (job.getActualEnd() == null) {
+            job.setActualEnd(Instant.now());
+        }
         Job saved = jobRepository.save(job);
         eventPublisher.publishEvent(new JobCompletedEvent(
                 saved.getId(), saved.getVehicle().getId(),
@@ -184,6 +199,30 @@ public class JobService {
         }
         job.setStatus(JobStatus.CANCELLED);
         return jobMapper.toResponse(jobRepository.save(job));
+    }
+
+    // actualStart/actualEnd represent things that already happened (unlike scheduledStart/scheduledEnd,
+    // which are legitimately future-facing) — a manually-set actualEnd flows straight into
+    // JobCompletedEvent.completedAt() and from there into UsageLog.recordedAt with no further
+    // clamping, so bad values must be rejected here at the source.
+    private void validateActualDates(Job job) {
+        Instant actualStart = job.getActualStart();
+        Instant actualEnd = job.getActualEnd();
+        if (actualEnd != null && actualStart == null) {
+            throw new BadRequestException("JOB_ACTUAL_END_WITHOUT_START",
+                    "actualEnd cannot be set without actualStart");
+        }
+        if (actualStart != null && actualEnd != null && actualEnd.isBefore(actualStart)) {
+            throw new BadRequestException("JOB_ACTUAL_END_BEFORE_START",
+                    "actualEnd must not be before actualStart");
+        }
+        Instant now = Instant.now();
+        if (actualStart != null && actualStart.isAfter(now)) {
+            throw new BadRequestException("JOB_ACTUAL_DATE_IN_FUTURE", "actualStart cannot be in the future");
+        }
+        if (actualEnd != null && actualEnd.isAfter(now)) {
+            throw new BadRequestException("JOB_ACTUAL_DATE_IN_FUTURE", "actualEnd cannot be in the future");
+        }
     }
 
     // --- relation resolution helpers ---

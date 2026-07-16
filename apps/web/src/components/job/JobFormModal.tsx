@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import type { CreateJobRequest, Job } from '@fleetmgm/api'
+import { isAxiosError } from 'axios'
+import type { ApiError, CreateJobRequest, Job } from '@fleetmgm/api'
 import { useClients, useCreateJob, useUpdateJob, useVehicles, useWorkers } from '@fleetmgm/hooks'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -15,6 +16,21 @@ import {
 const selectClassName =
   'flex h-11 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary-container disabled:cursor-not-allowed disabled:opacity-50'
 
+const JOB_ERROR_MESSAGES: Record<string, string> = {
+  JOB_ACTUAL_END_WITHOUT_START: 'No puedes indicar un fin real sin haber indicado también un inicio real.',
+  JOB_ACTUAL_END_BEFORE_START: 'El fin real no puede ser anterior al inicio real.',
+  JOB_ACTUAL_DATE_IN_FUTURE: 'El inicio o el fin real no pueden ser una fecha futura.',
+}
+
+const DEFAULT_JOB_ERROR_MESSAGE = 'No se pudo completar la acción.'
+
+function resolveJobErrorMessage(error: unknown): string {
+  if (isAxiosError<ApiError>(error) && error.response?.data.code) {
+    return JOB_ERROR_MESSAGES[error.response.data.code] ?? DEFAULT_JOB_ERROR_MESSAGE
+  }
+  return DEFAULT_JOB_ERROR_MESSAGE
+}
+
 type JobFormModalProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -27,6 +43,18 @@ function toNullableString(value: string): string | null {
 
 function toIsoOrNull(value: string): string | null {
   return value === '' ? null : new Date(value).toISOString()
+}
+
+// datetime-local represents local wall-clock time with no timezone — slicing a UTC ISO string
+// puts the UTC digits in there mislabeled as local, so this shifts the instant by the browser's
+// UTC offset before re-parsing it back through toIsoOrNull.
+function toDatetimeLocalValue(isoString: string | null | undefined): string {
+  if (isoString == null) {
+    return ''
+  }
+  const date = new Date(isoString)
+  const localOffsetMs = date.getTimezoneOffset() * 60000
+  return new Date(date.getTime() - localOffsetMs).toISOString().slice(0, 16)
 }
 
 export function JobFormModal({ open, onOpenChange, job }: JobFormModalProps) {
@@ -52,6 +80,8 @@ export function JobFormModal({ open, onOpenChange, job }: JobFormModalProps) {
   const [notes, setNotes] = useState('')
   const [scheduledStart, setScheduledStart] = useState('')
   const [scheduledEnd, setScheduledEnd] = useState('')
+  const [actualStart, setActualStart] = useState('')
+  const [actualEnd, setActualEnd] = useState('')
 
   useEffect(() => {
     if (!open) {
@@ -65,8 +95,10 @@ export function JobFormModal({ open, onOpenChange, job }: JobFormModalProps) {
     setOriginLocation(job?.originLocation ?? '')
     setDestinationLocation(job?.destinationLocation ?? '')
     setNotes(job?.notes ?? '')
-    setScheduledStart(job?.scheduledStart?.slice(0, 16) ?? '')
-    setScheduledEnd(job?.scheduledEnd?.slice(0, 16) ?? '')
+    setScheduledStart(toDatetimeLocalValue(job?.scheduledStart))
+    setScheduledEnd(toDatetimeLocalValue(job?.scheduledEnd))
+    setActualStart(toDatetimeLocalValue(job?.actualStart))
+    setActualEnd(toDatetimeLocalValue(job?.actualEnd))
   }, [open, job])
 
   const isPending = createJob.isPending || updateJob.isPending
@@ -85,6 +117,8 @@ export function JobFormModal({ open, onOpenChange, job }: JobFormModalProps) {
       notes: toNullableString(notes),
       scheduledStart: toIsoOrNull(scheduledStart),
       scheduledEnd: toIsoOrNull(scheduledEnd),
+      actualStart: toIsoOrNull(actualStart),
+      actualEnd: toIsoOrNull(actualEnd),
     }
 
     if (job) {
@@ -206,6 +240,27 @@ export function JobFormModal({ open, onOpenChange, job }: JobFormModalProps) {
             </div>
           </div>
 
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="job-actual-start">Inicio real</Label>
+              <Input
+                id="job-actual-start"
+                type="datetime-local"
+                value={actualStart}
+                onChange={(e) => setActualStart(e.target.value)}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="job-actual-end">Fin real</Label>
+              <Input
+                id="job-actual-end"
+                type="datetime-local"
+                value={actualEnd}
+                onChange={(e) => setActualEnd(e.target.value)}
+              />
+            </div>
+          </div>
+
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="job-description">Descripción</Label>
             <Input id="job-description" value={description} onChange={(e) => setDescription(e.target.value)} />
@@ -218,7 +273,7 @@ export function JobFormModal({ open, onOpenChange, job }: JobFormModalProps) {
 
           {(createJob.isError || updateJob.isError) && (
             <p role="alert" className="text-sm text-error">
-              No se pudo completar la acción.
+              {resolveJobErrorMessage(createJob.isError ? createJob.error : updateJob.error)}
             </p>
           )}
 
