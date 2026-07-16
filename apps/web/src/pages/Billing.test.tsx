@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAuthStore } from '@fleetmgm/store'
 import { resetClientsMock, resetInvoicesMock, SEED_CLIENTS, SEED_INVOICES } from '@/mocks/handlers'
+import { formatCurrency } from '@/lib/currency'
 import { Billing } from './Billing'
 
 function renderBilling() {
@@ -144,7 +145,7 @@ describe('Billing', () => {
     row = screen.getByText('INV-2026-00004').closest('tr')!
     await user.click(within(row).getByRole('button', { name: /emitir/i }))
 
-    await waitFor(() => expect(within(row).getByText('110.00')).toBeInTheDocument())
+    await waitFor(() => expect(within(row).getByText(formatCurrency(110))).toBeInTheDocument())
   })
 
   it('shows the issue date as read-only for an ISSUED invoice, and hides it for a DRAFT invoice', async () => {

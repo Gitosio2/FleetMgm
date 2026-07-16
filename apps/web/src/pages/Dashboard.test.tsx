@@ -10,6 +10,7 @@ import {
   SEED_FINANCIAL_TREND,
   SEED_FLEET_SUMMARY,
 } from '@/mocks/handlers'
+import { formatCurrency } from '@/lib/currency'
 import { Dashboard } from './Dashboard'
 import { DashboardHome } from './DashboardHome'
 
@@ -90,7 +91,7 @@ describe('Dashboard', () => {
     await screen.findByText('Costes del mes')
 
     const costsCard = cardByTitle('Costes del mes')
-    expect(costsCard.textContent).toContain(SEED_FINANCIAL_SUMMARY.monthlyCosts.toFixed(2))
+    expect(costsCard.textContent).toContain(formatCurrency(SEED_FINANCIAL_SUMMARY.monthlyCosts))
 
     expect(screen.getByText('Facturas por cobrar')).toBeInTheDocument()
     expect(screen.getByText('Facturas por pagar')).toBeInTheDocument()
@@ -137,13 +138,13 @@ describe('Dashboard', () => {
     const totalMargin = totalRevenue - totalCosts
 
     const revenueCard = cardByTitle('Ingresos totales')
-    expect(revenueCard.textContent).toContain(totalRevenue.toFixed(2))
+    expect(revenueCard.textContent).toContain(formatCurrency(totalRevenue))
 
     const costsCard = cardByTitle('Gastos totales')
-    expect(costsCard.textContent).toContain(totalCosts.toFixed(2))
+    expect(costsCard.textContent).toContain(formatCurrency(totalCosts))
 
     const marginCard = cardByTitle('Margen total')
-    expect(marginCard.textContent).toContain(totalMargin.toFixed(2))
+    expect(marginCard.textContent).toContain(formatCurrency(totalMargin))
   })
 
   it('recomputes the summary totals when the months selector changes to 3 months', async () => {
@@ -162,13 +163,13 @@ describe('Dashboard', () => {
     const totalMargin = totalRevenue - totalCosts
 
     const revenueCard = cardByTitle('Ingresos totales')
-    await waitFor(() => expect(revenueCard.textContent).toContain(totalRevenue.toFixed(2)))
+    await waitFor(() => expect(revenueCard.textContent).toContain(formatCurrency(totalRevenue)))
 
     const costsCard = cardByTitle('Gastos totales')
-    expect(costsCard.textContent).toContain(totalCosts.toFixed(2))
+    expect(costsCard.textContent).toContain(formatCurrency(totalCosts))
 
     const marginCard = cardByTitle('Margen total')
-    expect(marginCard.textContent).toContain(totalMargin.toFixed(2))
+    expect(marginCard.textContent).toContain(formatCurrency(totalMargin))
   })
 
   it('redirects a DRIVER landing on "/" to /jobs instead of showing the dashboard', () => {

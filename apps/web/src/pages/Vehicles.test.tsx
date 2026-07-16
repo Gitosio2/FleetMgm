@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useAuthStore } from '@fleetmgm/store'
 import { resetVehiclesMock, SEED_PROFITABILITY, SEED_VEHICLE_REVENUE, SEED_VEHICLES } from '@/mocks/handlers'
+import { formatCurrency } from '@/lib/currency'
 import { Vehicles } from './Vehicles'
 
 function renderVehicles() {
@@ -88,9 +89,9 @@ describe('Vehicles', () => {
     expect(
       await screen.findByText(`Rentabilidad — ${FIRST_VEHICLE!.make} ${FIRST_VEHICLE!.model}`),
     ).toBeInTheDocument()
-    expect(await screen.findByText(`${profitability.revenue.toFixed(2)} €`)).toBeInTheDocument()
-    expect(await screen.findByText(`${profitability.costs.toFixed(2)} €`)).toBeInTheDocument()
-    expect(await screen.findByText(`${profitability.margin.toFixed(2)} €`)).toBeInTheDocument()
+    expect(await screen.findByText(formatCurrency(profitability.revenue))).toBeInTheDocument()
+    expect(await screen.findByText(formatCurrency(profitability.costs))).toBeInTheDocument()
+    expect(await screen.findByText(formatCurrency(profitability.margin))).toBeInTheDocument()
   })
 
   it('filters both history lists when the month selector changes', async () => {

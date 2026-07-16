@@ -9,6 +9,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import { formatCurrency } from '@/lib/currency'
 
 type ProfitabilityChartProps = {
   data: MonthlyFinancial[]
@@ -29,10 +30,6 @@ const GRID_STROKE_COLOR = 'var(--color-outline-variant)'
 
 function monthLabel(month: string) {
   return new Date(`${month}-01`).toLocaleDateString('es-ES', { month: 'short', year: 'numeric' })
-}
-
-function formatCurrency(value: number) {
-  return `${value.toFixed(2)} €`
 }
 
 export function ProfitabilityChart({ data }: ProfitabilityChartProps) {
