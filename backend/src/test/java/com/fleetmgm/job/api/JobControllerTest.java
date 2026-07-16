@@ -41,10 +41,19 @@ class JobControllerTest {
     private static final UUID JOB_ID = UUID.randomUUID();
     private static final UUID VEHICLE_ID = UUID.randomUUID();
 
+    private static final Instant ACTUAL_START = Instant.parse("2026-01-01T08:00:00Z");
+    private static final Instant ACTUAL_END = Instant.parse("2026-01-01T12:00:00Z");
+
     private JobResponse sampleResponse() {
         return new JobResponse(JOB_ID, "Delivery", "desc", VEHICLE_ID, "1234ABC", "Toyota", "Corolla",
                 null, null, null, null, JobStatus.PENDING,
                 "Origin", "Destination", null, null, null, null, null, null, null, null, Instant.now());
+    }
+
+    private JobResponse sampleResponseWithActualDates() {
+        return new JobResponse(JOB_ID, "Delivery", "desc", VEHICLE_ID, "1234ABC", "Toyota", "Corolla",
+                null, null, null, null, JobStatus.PENDING,
+                "Origin", "Destination", null, null, null, ACTUAL_START, ACTUAL_END, null, null, null, Instant.now());
     }
 
     // --- GET /api/v1/jobs ---
@@ -72,6 +81,20 @@ class JobControllerTest {
                                 + "\"originLocation\":\"Origin\",\"destinationLocation\":\"Destination\"}"))
                 .andExpect(status().isCreated())
                 .andExpect(header().string("Location", org.hamcrest.Matchers.containsString("/api/v1/jobs/")));
+    }
+
+    @Test
+    void create_returns201_withActualDates_whenProvided() throws Exception {
+        when(jobService.create(any())).thenReturn(sampleResponseWithActualDates());
+
+        mockMvc.perform(post("/api/v1/jobs")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"vehicleId\":\"" + VEHICLE_ID + "\",\"title\":\"Delivery\","
+                                + "\"originLocation\":\"Origin\",\"destinationLocation\":\"Destination\","
+                                + "\"actualStart\":\"" + ACTUAL_START + "\",\"actualEnd\":\"" + ACTUAL_END + "\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.actualStart").value(ACTUAL_START.toString()))
+                .andExpect(jsonPath("$.actualEnd").value(ACTUAL_END.toString()));
     }
 
     @Test
@@ -128,6 +151,20 @@ class JobControllerTest {
                         .content("{\"vehicleId\":\"" + VEHICLE_ID + "\",\"title\":\"Delivery\","
                                 + "\"originLocation\":\"Origin\",\"destinationLocation\":\"Destination\"}"))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void update_returns200_withActualDates_whenProvided() throws Exception {
+        when(jobService.update(eq(JOB_ID), any())).thenReturn(sampleResponseWithActualDates());
+
+        mockMvc.perform(put("/api/v1/jobs/{id}", JOB_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"vehicleId\":\"" + VEHICLE_ID + "\",\"title\":\"Delivery\","
+                                + "\"originLocation\":\"Origin\",\"destinationLocation\":\"Destination\","
+                                + "\"actualStart\":\"" + ACTUAL_START + "\",\"actualEnd\":\"" + ACTUAL_END + "\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.actualStart").value(ACTUAL_START.toString()))
+                .andExpect(jsonPath("$.actualEnd").value(ACTUAL_END.toString()));
     }
 
     // --- DELETE /api/v1/jobs/{id} ---

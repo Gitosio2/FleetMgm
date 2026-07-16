@@ -18,5 +18,7 @@ public record UpdateJobRequest(
         String notes,
         Instant scheduledStart,
         Instant scheduledEnd,
+        Instant actualStart,
+        Instant actualEnd,
         BigDecimal price
 ) {}

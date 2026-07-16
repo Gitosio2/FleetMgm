@@ -10,7 +10,9 @@ import com.fleetmgm.job.domain.JobStatus;
 import com.fleetmgm.job.dto.CreateJobRequest;
 import com.fleetmgm.job.dto.JobMapper;
 import com.fleetmgm.job.dto.JobResponse;
+import com.fleetmgm.job.dto.UpdateJobRequest;
 import com.fleetmgm.job.infrastructure.JobRepository;
+import com.fleetmgm.shared.exception.BadRequestException;
 import com.fleetmgm.shared.exception.ConflictException;
 import com.fleetmgm.shared.exception.NotFoundException;
 import com.fleetmgm.vehicle.domain.UsageMeasure;
@@ -67,7 +69,7 @@ class JobServiceTest {
         UUID driverId = UUID.randomUUID();
         UUID clientId = UUID.randomUUID();
         CreateJobRequest request = new CreateJobRequest(vehicleId, driverId, clientId, "Delivery", null,
-                "Origin", "Destination", null, null, null, null);
+                "Origin", "Destination", null, null, null, null, null, null);
 
         Vehicle vehicle = new Vehicle();
         Worker driver = new Worker();
@@ -97,7 +99,7 @@ class JobServiceTest {
     void create_throwsNotFound_whenVehicleMissing() {
         UUID vehicleId = UUID.randomUUID();
         CreateJobRequest request = new CreateJobRequest(vehicleId, null, null, "Delivery", null,
-                "Origin", "Destination", null, null, null, null);
+                "Origin", "Destination", null, null, null, null, null, null);
 
         when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.empty());
 
@@ -106,6 +108,274 @@ class JobServiceTest {
                 .satisfies(ex -> assertThat(((NotFoundException) ex).getCode()).isEqualTo("VEHICLE_NOT_FOUND"));
 
         verify(jobRepository, never()).save(any());
+    }
+
+    // --- create: actual date validation ---
+
+    @Test
+    void create_throwsBadRequest_whenActualEndWithoutActualStart() {
+        UUID vehicleId = UUID.randomUUID();
+        CreateJobRequest request = new CreateJobRequest(vehicleId, null, null, "Delivery", null,
+                "Origin", "Destination", null, null, null, null, Instant.parse("2026-01-01T10:00:00Z"), null);
+
+        Job entity = new Job();
+        entity.setActualEnd(Instant.parse("2026-01-01T10:00:00Z"));
+
+        when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(new Vehicle()));
+        when(jobMapper.toEntity(request)).thenReturn(entity);
+
+        assertThatThrownBy(() -> jobService.create(request))
+                .isInstanceOf(BadRequestException.class)
+                .satisfies(ex -> assertThat(((BadRequestException) ex).getCode())
+                        .isEqualTo("JOB_ACTUAL_END_WITHOUT_START"));
+
+        verify(jobRepository, never()).save(any());
+    }
+
+    @Test
+    void create_throwsBadRequest_whenActualEndBeforeActualStart() {
+        UUID vehicleId = UUID.randomUUID();
+        Instant start = Instant.parse("2026-01-02T10:00:00Z");
+        Instant end = Instant.parse("2026-01-01T10:00:00Z");
+        CreateJobRequest request = new CreateJobRequest(vehicleId, null, null, "Delivery", null,
+                "Origin", "Destination", null, null, null, start, end, null);
+
+        Job entity = new Job();
+        entity.setActualStart(start);
+        entity.setActualEnd(end);
+
+        when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(new Vehicle()));
+        when(jobMapper.toEntity(request)).thenReturn(entity);
+
+        assertThatThrownBy(() -> jobService.create(request))
+                .isInstanceOf(BadRequestException.class)
+                .satisfies(ex -> assertThat(((BadRequestException) ex).getCode())
+                        .isEqualTo("JOB_ACTUAL_END_BEFORE_START"));
+
+        verify(jobRepository, never()).save(any());
+    }
+
+    @Test
+    void create_throwsBadRequest_whenActualStartInFuture() {
+        UUID vehicleId = UUID.randomUUID();
+        Instant future = Instant.now().plusSeconds(3600);
+        CreateJobRequest request = new CreateJobRequest(vehicleId, null, null, "Delivery", null,
+                "Origin", "Destination", null, null, null, future, null, null);
+
+        Job entity = new Job();
+        entity.setActualStart(future);
+
+        when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(new Vehicle()));
+        when(jobMapper.toEntity(request)).thenReturn(entity);
+
+        assertThatThrownBy(() -> jobService.create(request))
+                .isInstanceOf(BadRequestException.class)
+                .satisfies(ex -> assertThat(((BadRequestException) ex).getCode())
+                        .isEqualTo("JOB_ACTUAL_DATE_IN_FUTURE"));
+
+        verify(jobRepository, never()).save(any());
+    }
+
+    @Test
+    void create_throwsBadRequest_whenActualEndInFuture() {
+        UUID vehicleId = UUID.randomUUID();
+        Instant start = Instant.parse("2026-01-01T10:00:00Z");
+        Instant future = Instant.now().plusSeconds(3600);
+        CreateJobRequest request = new CreateJobRequest(vehicleId, null, null, "Delivery", null,
+                "Origin", "Destination", null, null, null, start, future, null);
+
+        Job entity = new Job();
+        entity.setActualStart(start);
+        entity.setActualEnd(future);
+
+        when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(new Vehicle()));
+        when(jobMapper.toEntity(request)).thenReturn(entity);
+
+        assertThatThrownBy(() -> jobService.create(request))
+                .isInstanceOf(BadRequestException.class)
+                .satisfies(ex -> assertThat(((BadRequestException) ex).getCode())
+                        .isEqualTo("JOB_ACTUAL_DATE_IN_FUTURE"));
+
+        verify(jobRepository, never()).save(any());
+    }
+
+    @Test
+    void create_succeeds_whenActualDatesBothValidAndInPast() {
+        UUID vehicleId = UUID.randomUUID();
+        Instant start = Instant.parse("2026-01-01T10:00:00Z");
+        Instant end = Instant.parse("2026-01-01T12:00:00Z");
+        CreateJobRequest request = new CreateJobRequest(vehicleId, null, null, "Delivery", null,
+                "Origin", "Destination", null, null, null, start, end, null);
+
+        Job entity = new Job();
+        entity.setActualStart(start);
+        entity.setActualEnd(end);
+        JobResponse expected = buildJobResponse(UUID.randomUUID());
+
+        when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(new Vehicle()));
+        when(jobMapper.toEntity(request)).thenReturn(entity);
+        when(jobRepository.save(entity)).thenReturn(entity);
+        when(jobMapper.toResponse(entity)).thenReturn(expected);
+
+        JobResponse result = jobService.create(request);
+
+        assertThat(result).isEqualTo(expected);
+        verify(jobRepository).save(entity);
+    }
+
+    @Test
+    void create_succeeds_whenOnlyActualStartSetInPast() {
+        UUID vehicleId = UUID.randomUUID();
+        Instant start = Instant.parse("2026-01-01T10:00:00Z");
+        CreateJobRequest request = new CreateJobRequest(vehicleId, null, null, "Delivery", null,
+                "Origin", "Destination", null, null, null, start, null, null);
+
+        Job entity = new Job();
+        entity.setActualStart(start);
+        JobResponse expected = buildJobResponse(UUID.randomUUID());
+
+        when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(new Vehicle()));
+        when(jobMapper.toEntity(request)).thenReturn(entity);
+        when(jobRepository.save(entity)).thenReturn(entity);
+        when(jobMapper.toResponse(entity)).thenReturn(expected);
+
+        JobResponse result = jobService.create(request);
+
+        assertThat(result).isEqualTo(expected);
+        verify(jobRepository).save(entity);
+    }
+
+    // --- update: actual date validation ---
+
+    @Test
+    void update_throwsBadRequest_whenActualEndWithoutActualStart() {
+        UUID id = UUID.randomUUID();
+        UUID vehicleId = UUID.randomUUID();
+        Job job = new Job();
+        job.setActualEnd(Instant.parse("2026-01-01T10:00:00Z"));
+        UpdateJobRequest request = new UpdateJobRequest(vehicleId, null, null, "Delivery", null,
+                "Origin", "Destination", null, null, null, null, Instant.parse("2026-01-01T10:00:00Z"), null);
+
+        when(jobRepository.findById(id)).thenReturn(Optional.of(job));
+        when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(new Vehicle()));
+
+        assertThatThrownBy(() -> jobService.update(id, request))
+                .isInstanceOf(BadRequestException.class)
+                .satisfies(ex -> assertThat(((BadRequestException) ex).getCode())
+                        .isEqualTo("JOB_ACTUAL_END_WITHOUT_START"));
+
+        verify(jobRepository, never()).save(any());
+    }
+
+    @Test
+    void update_throwsBadRequest_whenActualEndBeforeActualStart() {
+        UUID id = UUID.randomUUID();
+        UUID vehicleId = UUID.randomUUID();
+        Instant start = Instant.parse("2026-01-02T10:00:00Z");
+        Instant end = Instant.parse("2026-01-01T10:00:00Z");
+        Job job = new Job();
+        job.setActualStart(start);
+        job.setActualEnd(end);
+        UpdateJobRequest request = new UpdateJobRequest(vehicleId, null, null, "Delivery", null,
+                "Origin", "Destination", null, null, null, start, end, null);
+
+        when(jobRepository.findById(id)).thenReturn(Optional.of(job));
+        when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(new Vehicle()));
+
+        assertThatThrownBy(() -> jobService.update(id, request))
+                .isInstanceOf(BadRequestException.class)
+                .satisfies(ex -> assertThat(((BadRequestException) ex).getCode())
+                        .isEqualTo("JOB_ACTUAL_END_BEFORE_START"));
+
+        verify(jobRepository, never()).save(any());
+    }
+
+    @Test
+    void update_throwsBadRequest_whenActualStartInFuture() {
+        UUID id = UUID.randomUUID();
+        UUID vehicleId = UUID.randomUUID();
+        Instant future = Instant.now().plusSeconds(3600);
+        Job job = new Job();
+        job.setActualStart(future);
+        UpdateJobRequest request = new UpdateJobRequest(vehicleId, null, null, "Delivery", null,
+                "Origin", "Destination", null, null, null, future, null, null);
+
+        when(jobRepository.findById(id)).thenReturn(Optional.of(job));
+        when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(new Vehicle()));
+
+        assertThatThrownBy(() -> jobService.update(id, request))
+                .isInstanceOf(BadRequestException.class)
+                .satisfies(ex -> assertThat(((BadRequestException) ex).getCode())
+                        .isEqualTo("JOB_ACTUAL_DATE_IN_FUTURE"));
+
+        verify(jobRepository, never()).save(any());
+    }
+
+    @Test
+    void update_throwsBadRequest_whenActualEndInFuture() {
+        UUID id = UUID.randomUUID();
+        UUID vehicleId = UUID.randomUUID();
+        Instant start = Instant.parse("2026-01-01T10:00:00Z");
+        Instant future = Instant.now().plusSeconds(3600);
+        Job job = new Job();
+        job.setActualStart(start);
+        job.setActualEnd(future);
+        UpdateJobRequest request = new UpdateJobRequest(vehicleId, null, null, "Delivery", null,
+                "Origin", "Destination", null, null, null, start, future, null);
+
+        when(jobRepository.findById(id)).thenReturn(Optional.of(job));
+        when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(new Vehicle()));
+
+        assertThatThrownBy(() -> jobService.update(id, request))
+                .isInstanceOf(BadRequestException.class)
+                .satisfies(ex -> assertThat(((BadRequestException) ex).getCode())
+                        .isEqualTo("JOB_ACTUAL_DATE_IN_FUTURE"));
+
+        verify(jobRepository, never()).save(any());
+    }
+
+    @Test
+    void update_succeeds_whenActualDatesBothNull() {
+        UUID id = UUID.randomUUID();
+        UUID vehicleId = UUID.randomUUID();
+        Job job = new Job();
+        UpdateJobRequest request = new UpdateJobRequest(vehicleId, null, null, "Delivery", null,
+                "Origin", "Destination", null, null, null, null, null, null);
+        JobResponse expected = buildJobResponse(id);
+
+        when(jobRepository.findById(id)).thenReturn(Optional.of(job));
+        when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(new Vehicle()));
+        when(jobRepository.save(job)).thenReturn(job);
+        when(jobMapper.toResponse(job)).thenReturn(expected);
+
+        JobResponse result = jobService.update(id, request);
+
+        assertThat(result).isEqualTo(expected);
+        verify(jobRepository).save(job);
+    }
+
+    @Test
+    void update_succeeds_whenActualDatesBothValidAndInPast() {
+        UUID id = UUID.randomUUID();
+        UUID vehicleId = UUID.randomUUID();
+        Instant start = Instant.parse("2026-01-01T10:00:00Z");
+        Instant end = Instant.parse("2026-01-01T12:00:00Z");
+        Job job = new Job();
+        job.setActualStart(start);
+        job.setActualEnd(end);
+        UpdateJobRequest request = new UpdateJobRequest(vehicleId, null, null, "Delivery", null,
+                "Origin", "Destination", null, null, null, start, end, null);
+        JobResponse expected = buildJobResponse(id);
+
+        when(jobRepository.findById(id)).thenReturn(Optional.of(job));
+        when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(new Vehicle()));
+        when(jobRepository.save(job)).thenReturn(job);
+        when(jobMapper.toResponse(job)).thenReturn(expected);
+
+        JobResponse result = jobService.update(id, request);
+
+        assertThat(result).isEqualTo(expected);
+        verify(jobRepository).save(job);
     }
 
     // --- start ---
@@ -127,6 +397,24 @@ class JobServiceTest {
         assertThat(job.getStatus()).isEqualTo(JobStatus.IN_PROGRESS);
         assertThat(job.getActualStart()).isNotNull();
         assertThat(job.getStartUsageValue()).isEqualTo(1000L);
+    }
+
+    @Test
+    void start_preservesManuallySetActualStart_whenAlreadyPresent() {
+        UUID id = UUID.randomUUID();
+        Instant manualStart = Instant.parse("2026-01-01T10:00:00Z");
+        Job job = new Job();
+        job.setStatus(JobStatus.PENDING);
+        job.setActualStart(manualStart);
+        JobResponse expected = buildJobResponse(id);
+
+        when(jobRepository.findById(id)).thenReturn(Optional.of(job));
+        when(jobRepository.save(job)).thenReturn(job);
+        when(jobMapper.toResponse(job)).thenReturn(expected);
+
+        jobService.start(id, null);
+
+        assertThat(job.getActualStart()).isEqualTo(manualStart);
     }
 
     @Test
@@ -208,6 +496,26 @@ class JobServiceTest {
         JobCompletedEvent event = captor.getValue();
         assertThat(event.clientId()).isNull();
         assertThat(event.price()).isNull();
+    }
+
+    @Test
+    void complete_preservesManuallySetActualEnd_whenAlreadyPresent() {
+        UUID id = UUID.randomUUID();
+        Instant manualEnd = Instant.parse("2026-01-02T10:00:00Z");
+        Vehicle vehicle = mock(Vehicle.class);
+        Job job = new Job();
+        job.setStatus(JobStatus.IN_PROGRESS);
+        job.setVehicle(vehicle);
+        job.setActualEnd(manualEnd);
+        JobResponse expected = buildJobResponse(id);
+
+        when(jobRepository.findById(id)).thenReturn(Optional.of(job));
+        when(jobRepository.save(job)).thenReturn(job);
+        when(jobMapper.toResponse(job)).thenReturn(expected);
+
+        jobService.complete(id, null);
+
+        assertThat(job.getActualEnd()).isEqualTo(manualEnd);
     }
 
     @Test

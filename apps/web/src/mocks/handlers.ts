@@ -509,6 +509,8 @@ type JobRequestBody = {
   notes?: string | null
   scheduledStart?: string | null
   scheduledEnd?: string | null
+  actualStart?: string | null
+  actualEnd?: string | null
 }
 
 const JOB_ACTIVE_STATUSES: JobStatus[] = ['PENDING', 'IN_PROGRESS']
@@ -609,6 +611,30 @@ export const SEED_JOBS: Job[] = [
     startUsageValue: null,
     endUsageValue: null,
     createdAt: '2026-07-02T09:00:00Z',
+  },
+  {
+    id: 'job-5',
+    title: 'Traslado programado',
+    description: null,
+    vehicleId: SEED_VEHICLES[0]!.id,
+    vehicleLicensePlate: SEED_VEHICLES[0]!.licensePlate,
+    vehicleMake: SEED_VEHICLES[0]!.make,
+    vehicleModel: SEED_VEHICLES[0]!.model,
+    assignedDriverId: null,
+    assignedDriverName: null,
+    clientId: null,
+    clientName: null,
+    status: 'PENDING',
+    originLocation: 'Almacén Central',
+    destinationLocation: 'Depósito Este',
+    notes: null,
+    scheduledStart: null,
+    scheduledEnd: null,
+    actualStart: '2026-07-08T09:00:00Z',
+    actualEnd: null,
+    startUsageValue: null,
+    endUsageValue: null,
+    createdAt: '2026-07-03T09:00:00Z',
   },
 ]
 
@@ -2016,8 +2042,17 @@ export const handlers = [
           )
         : jobs
 
+    // Mirrors the backend's ORDER BY: jobs with no actual start sort first, then most recently
+    // started first among the rest.
+    const sorted = [...source].sort((a, b) => {
+      if (a.actualStart == null && b.actualStart == null) return 0
+      if (a.actualStart == null) return -1
+      if (b.actualStart == null) return 1
+      return b.actualStart.localeCompare(a.actualStart)
+    })
+
     const start = page * size
-    const content = source.slice(start, start + size)
+    const content = sorted.slice(start, start + size)
 
     return HttpResponse.json({
       content,
@@ -2094,8 +2129,8 @@ export const handlers = [
       notes: body.notes ?? null,
       scheduledStart: body.scheduledStart ?? null,
       scheduledEnd: body.scheduledEnd ?? null,
-      actualStart: null,
-      actualEnd: null,
+      actualStart: body.actualStart ?? null,
+      actualEnd: body.actualEnd ?? null,
       startUsageValue: null,
       endUsageValue: null,
       createdAt: new Date().toISOString(),
@@ -2103,6 +2138,93 @@ export const handlers = [
     jobs = [...jobs, newJob]
 
     return HttpResponse.json(newJob, { status: 201 })
+  }),
+
+  http.put('/api/v1/jobs/:id', async ({ request, params }) => {
+    const body = (await request.json()) as JobRequestBody
+    const index = jobs.findIndex((job) => job.id === params.id)
+    const existing = jobs[index]
+
+    if (!existing) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'JOB_NOT_FOUND',
+          message: `Job ${params.id} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    const vehicle = vehicles.find((v) => v.id === body.vehicleId)
+    if (!vehicle) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'VEHICLE_NOT_FOUND',
+          message: `Vehicle ${body.vehicleId} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    let driver: Worker | undefined
+    if (body.assignedDriverId) {
+      driver = workers.find((w) => w.id === body.assignedDriverId)
+      if (!driver) {
+        return HttpResponse.json(
+          {
+            status: 404,
+            code: 'WORKER_NOT_FOUND',
+            message: `Worker ${body.assignedDriverId} not found`,
+            correlationId: 'test-correlation-id',
+          },
+          { status: 404 },
+        )
+      }
+    }
+
+    let client: Client | undefined
+    if (body.clientId) {
+      client = clients.find((c) => c.id === body.clientId)
+      if (!client) {
+        return HttpResponse.json(
+          {
+            status: 404,
+            code: 'CLIENT_NOT_FOUND',
+            message: `Client ${body.clientId} not found`,
+            correlationId: 'test-correlation-id',
+          },
+          { status: 404 },
+        )
+      }
+    }
+
+    const updated: Job = {
+      ...existing,
+      title: body.title,
+      description: body.description ?? null,
+      vehicleId: vehicle.id,
+      vehicleLicensePlate: vehicle.licensePlate,
+      vehicleMake: vehicle.make,
+      vehicleModel: vehicle.model,
+      assignedDriverId: driver?.id ?? null,
+      assignedDriverName: driver?.fullName ?? null,
+      clientId: client?.id ?? null,
+      clientName: client?.name ?? null,
+      originLocation: body.originLocation,
+      destinationLocation: body.destinationLocation,
+      notes: body.notes ?? null,
+      scheduledStart: body.scheduledStart ?? null,
+      scheduledEnd: body.scheduledEnd ?? null,
+      actualStart: body.actualStart ?? null,
+      actualEnd: body.actualEnd ?? null,
+    }
+    jobs = jobs.map((job, i) => (i === index ? updated : job))
+
+    return HttpResponse.json(updated)
   }),
 
   http.patch('/api/v1/jobs/:id/start', async ({ request, params }) => {
@@ -2138,7 +2260,8 @@ export const handlers = [
     const updated: Job = {
       ...existing,
       status: 'IN_PROGRESS',
-      actualStart: new Date().toISOString(),
+      // Preserve a manually-set actualStart instead of overwriting it — mirrors JobService.start().
+      actualStart: existing.actualStart ?? new Date().toISOString(),
       startUsageValue: body?.startUsageValue ?? existing.startUsageValue,
     }
     jobs = jobs.map((job, i) => (i === index ? updated : job))
@@ -2199,7 +2322,8 @@ export const handlers = [
     const updated: Job = {
       ...existing,
       status: 'COMPLETED',
-      actualEnd: new Date().toISOString(),
+      // Preserve a manually-set actualEnd instead of overwriting it — mirrors JobService.complete().
+      actualEnd: existing.actualEnd ?? new Date().toISOString(),
       endUsageValue,
     }
     jobs = jobs.map((job, i) => (i === index ? updated : job))

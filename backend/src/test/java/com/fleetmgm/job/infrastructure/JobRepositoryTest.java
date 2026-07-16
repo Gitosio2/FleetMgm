@@ -71,6 +71,43 @@ class JobRepositoryTest {
     }
 
     @Test
+    void findAllJoinFetch_ordersNotStartedFirst_thenMostRecentlyStartedFirst() {
+        Worker driver = persistDriver("55555555E");
+        Vehicle vehicle = persistVehicle("4444DDD");
+        Job notStarted = persistJobWithActualStart("Not started", vehicle, driver, null);
+        Job oldestStart = persistJobWithActualStart(
+                "Oldest start", vehicle, driver, Instant.parse("2026-01-01T00:00:00Z"));
+        Job newestStart = persistJobWithActualStart(
+                "Newest start", vehicle, driver, Instant.parse("2026-01-03T00:00:00Z"));
+        Job middleStart = persistJobWithActualStart(
+                "Middle start", vehicle, driver, Instant.parse("2026-01-02T00:00:00Z"));
+        entityManager.getEntityManager().clear();
+
+        Page<Job> result = jobRepository.findAllJoinFetch(PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).extracting(Job::getId).containsExactly(
+                notStarted.getId(), newestStart.getId(), middleStart.getId(), oldestStart.getId());
+    }
+
+    @Test
+    void findByAssignedDriverIdAndStatusIn_ordersNotStartedFirst_thenMostRecentlyStartedFirst() {
+        Worker driver = persistDriver("66666666F");
+        Vehicle vehicle = persistVehicle("5555EEE");
+        Job notStarted = persistJobWithActualStart("Not started", vehicle, driver, null);
+        Job oldestStart = persistJobWithActualStart(
+                "Oldest start", vehicle, driver, Instant.parse("2026-01-01T00:00:00Z"));
+        Job newestStart = persistJobWithActualStart(
+                "Newest start", vehicle, driver, Instant.parse("2026-01-03T00:00:00Z"));
+        entityManager.getEntityManager().clear();
+
+        Page<Job> result = jobRepository.findByAssignedDriverIdAndStatusIn(
+                driver.getId(), List.of(JobStatus.PENDING), PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).extracting(Job::getId).containsExactly(
+                notStarted.getId(), newestStart.getId(), oldestStart.getId());
+    }
+
+    @Test
     void findByAssignedDriverIdAndStatusIn_returnsOnlyMatchingActiveJobsForDriver() {
         Worker driver = persistDriver("22222222B");
         Worker otherDriver = persistDriver("33333333C");
@@ -133,6 +170,18 @@ class JobRepositoryTest {
         job.setStatus(status);
         job.setOriginLocation("Origin");
         job.setDestinationLocation("Destination");
+        return entityManager.persistAndFlush(job);
+    }
+
+    private Job persistJobWithActualStart(String title, Vehicle vehicle, Worker driver, Instant actualStart) {
+        Job job = new Job();
+        job.setTitle(title);
+        job.setVehicle(vehicle);
+        job.setAssignedDriver(driver);
+        job.setStatus(JobStatus.PENDING);
+        job.setOriginLocation("Origin");
+        job.setDestinationLocation("Destination");
+        job.setActualStart(actualStart);
         return entityManager.persistAndFlush(job);
     }
 }

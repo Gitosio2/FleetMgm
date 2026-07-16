@@ -29,7 +29,7 @@ public class JobController {
 
     @GetMapping
     public ResponseEntity<PageResponse<JobResponse>> list(
-            @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
+            @PageableDefault(size = 20) Pageable pageable) {
         return ResponseEntity.ok(jobService.list(pageable));
     }
 

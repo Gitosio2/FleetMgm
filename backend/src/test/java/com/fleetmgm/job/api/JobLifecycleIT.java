@@ -86,7 +86,7 @@ class JobLifecycleIT {
         // and price are set) stays a no-op — this test only cares about the vehicle-usage side.
         CreateJobRequest createRequest = new CreateJobRequest(
                 vehicle.getId(), null, null, "Reparto centro", null,
-                "Almacén central", "Cliente final", null, null, null, null);
+                "Almacén central", "Cliente final", null, null, null, null, null, null);
         ResponseEntity<JobResponse> createResponse = restTemplate.exchange(
                 "/api/v1/jobs", HttpMethod.POST, new HttpEntity<>(createRequest, headers), JobResponse.class);
         assertThat(createResponse.getStatusCode()).isEqualTo(HttpStatus.CREATED);
