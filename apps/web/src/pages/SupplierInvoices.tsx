@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { Plus } from 'lucide-react'
 import type { ExpenseCategory, SupplierInvoice, SupplierInvoiceStatus } from '@fleetmgm/api'
 import { useSupplierInvoices, useSuppliers, useVehicles } from '@fleetmgm/hooks'
 import { Button } from '@/components/ui/button'
@@ -67,18 +66,8 @@ export function SupplierInvoices() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-display text-2xl font-semibold">Facturas de proveedor</h1>
-          <p className="text-on-surface-variant">Gestiona los gastos operativos y sus proveedores.</p>
-        </div>
-        <Button onClick={openCreateForm}>
-          <Plus className="size-4" />
-          Nueva factura de proveedor
-        </Button>
-      </div>
-
       <SupplierInvoiceFilters
+        onCreate={openCreateForm}
         supplierId={supplierId}
         onSupplierIdChange={resetPageAnd(setSupplierId)}
         category={categoryFilter}

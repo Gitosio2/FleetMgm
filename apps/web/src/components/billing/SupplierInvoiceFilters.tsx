@@ -1,7 +1,8 @@
-import { ChevronDown } from 'lucide-react'
+import { useState } from 'react'
+import { ChevronDown, Plus } from 'lucide-react'
 import type { ExpenseCategory, Supplier, SupplierInvoiceStatus, Vehicle } from '@fleetmgm/api'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { EXPENSE_CATEGORY_LABEL, STATUS_LABEL } from './supplier-invoice-shared'
 
@@ -31,6 +32,7 @@ type SupplierInvoiceFiltersProps = {
   onTotalMaxChange: (value: string) => void
   suppliers: Supplier[]
   vehicles: Vehicle[]
+  onCreate: () => void
 }
 
 function vehicleLabel(vehicle: Vehicle) {
@@ -60,17 +62,44 @@ export function SupplierInvoiceFilters({
   onTotalMaxChange,
   suppliers,
   vehicles,
+  onCreate,
 }: SupplierInvoiceFiltersProps) {
+  const [filtersOpen, setFiltersOpen] = useState(true)
+
+  function toggleFilters() {
+    setFiltersOpen((open) => !open)
+  }
+
   return (
     <Card>
-      <Collapsible defaultOpen>
-        <CardHeader className="flex-row items-center justify-between">
-          <CardTitle className="text-base">Filtros</CardTitle>
-          <CollapsibleTrigger asChild>
-            <Button variant="outline" size="sm" aria-label="Mostrar u ocultar filtros">
-              <ChevronDown className="size-4 transition-transform duration-200 data-[state=open]:rotate-180" />
+      <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen}>
+        <CardHeader className="flex-row items-center justify-between gap-4">
+          <div
+            role="button"
+            tabIndex={0}
+            className="cursor-pointer"
+            onClick={toggleFilters}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                toggleFilters()
+              }
+            }}
+          >
+            <h1 className="font-display text-2xl font-semibold">Facturas de proveedor</h1>
+            <p className="text-on-surface-variant">Gestiona los gastos operativos y sus proveedores.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button onClick={onCreate}>
+              <Plus className="size-4" />
+              Nueva factura de proveedor
             </Button>
-          </CollapsibleTrigger>
+            <CollapsibleTrigger asChild>
+              <Button variant="outline" size="sm" className="group" aria-label="Mostrar u ocultar filtros">
+                <ChevronDown className="size-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+              </Button>
+            </CollapsibleTrigger>
+          </div>
         </CardHeader>
         <CollapsibleContent>
           <CardContent>
