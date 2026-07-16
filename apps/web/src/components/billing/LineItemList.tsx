@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { formatCurrency } from '@/lib/currency'
 
 type LineItemListProps = {
   invoice: Invoice
@@ -64,8 +65,8 @@ export function LineItemList({ invoice }: LineItemListProps) {
               <TableRow key={lineItem.id}>
                 <TableCell>{lineItem.description}</TableCell>
                 <TableCell>{lineItem.quantity}</TableCell>
-                <TableCell>{lineItem.unitPrice.toFixed(2)}</TableCell>
-                <TableCell>{lineItem.subtotal.toFixed(2)}</TableCell>
+                <TableCell>{formatCurrency(lineItem.unitPrice)}</TableCell>
+                <TableCell>{formatCurrency(lineItem.subtotal)}</TableCell>
               </TableRow>
             ))
           )}

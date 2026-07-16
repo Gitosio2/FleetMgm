@@ -3,6 +3,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ClientInfoLink } from '@/components/client/ClientInfoLink'
 import { InvoiceStatusBadge } from './InvoiceStatusBadge'
 import { InvoiceActionButtons } from './InvoiceActionButtons'
+import { formatCurrency } from '@/lib/currency'
 
 type InvoiceTableProps = {
   invoices: Invoice[]
@@ -33,7 +34,7 @@ export function InvoiceTable({ invoices, onEdit }: InvoiceTableProps) {
             <TableCell>
               <InvoiceStatusBadge status={invoice.status} />
             </TableCell>
-            <TableCell>{invoice.total.toFixed(2)}</TableCell>
+            <TableCell>{formatCurrency(invoice.total)}</TableCell>
             <TableCell>{invoice.issueDate ?? '—'}</TableCell>
             <TableCell>{invoice.dueDate ?? '—'}</TableCell>
             <TableCell>

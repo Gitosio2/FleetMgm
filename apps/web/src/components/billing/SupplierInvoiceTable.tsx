@@ -4,6 +4,7 @@ import { SupplierInfoLink } from '@/components/supplier/SupplierInfoLink'
 import { SupplierInvoiceStatusBadge } from './SupplierInvoiceStatusBadge'
 import { SupplierInvoiceActionButtons } from './SupplierInvoiceActionButtons'
 import { EXPENSE_CATEGORY_LABEL } from './supplier-invoice-shared'
+import { formatCurrency } from '@/lib/currency'
 
 type SupplierInvoiceTableProps = {
   invoices: SupplierInvoice[]
@@ -36,7 +37,7 @@ export function SupplierInvoiceTable({ invoices, onEdit }: SupplierInvoiceTableP
             <TableCell>
               <SupplierInvoiceStatusBadge status={invoice.status} />
             </TableCell>
-            <TableCell>{invoice.total.toFixed(2)}</TableCell>
+            <TableCell>{formatCurrency(invoice.total)}</TableCell>
             <TableCell>{invoice.invoiceDate}</TableCell>
             <TableCell>{invoice.dueDate ?? '—'}</TableCell>
             <TableCell>

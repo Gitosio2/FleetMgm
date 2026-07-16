@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useVehicleMaintenanceHistory, useVehicleProfitability, useVehicleRevenue } from '@fleetmgm/hooks'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { MaintenanceStatusBadge } from '@/components/workshop/MaintenanceStatusBadge'
+import { formatCurrency } from '@/lib/currency'
 
 // Derived from Intl instead of hardcoded, same 'es-ES' + toLocaleDateString convention as
 // ProfitabilityChart's month-axis labels — capitalized because Spanish's Intl output is
@@ -78,7 +79,7 @@ export function VehicleProfitabilityPanel({ vehicleId, vehicleLabel }: VehiclePr
         <Card>
           <CardHeader>
             <CardTitle className="text-sm font-medium text-on-surface-variant">
-              Historial de mantenimientos ({maintenanceTotal.toFixed(2)} €)
+              Historial de mantenimientos ({formatCurrency(maintenanceTotal)})
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -97,7 +98,7 @@ export function VehicleProfitabilityPanel({ vehicleId, vehicleLabel }: VehiclePr
                       </span>
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-1">
-                      <span className="font-medium">{(record.cost ?? 0).toFixed(2)} €</span>
+                      <span className="font-medium">{formatCurrency(record.cost ?? 0)}</span>
                       <MaintenanceStatusBadge status={record.status} />
                     </div>
                   </li>
@@ -110,7 +111,7 @@ export function VehicleProfitabilityPanel({ vehicleId, vehicleLabel }: VehiclePr
         <Card>
           <CardHeader>
             <CardTitle className="text-sm font-medium text-on-surface-variant">
-              Historial de ingresos ({revenueTotal.toFixed(2)} €)
+              Historial de ingresos ({formatCurrency(revenueTotal)})
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -125,7 +126,7 @@ export function VehicleProfitabilityPanel({ vehicleId, vehicleLabel }: VehiclePr
                       <span className="text-on-surface-variant">{item.description}</span>
                     </div>
                     <div className="flex flex-col items-end">
-                      <span className="font-medium">{item.subtotal.toFixed(2)} €</span>
+                      <span className="font-medium">{formatCurrency(item.subtotal)}</span>
                       <span className="text-on-surface-variant">
                         {new Date(item.issueDate).toLocaleDateString('es-ES')}
                       </span>
@@ -145,7 +146,7 @@ export function VehicleProfitabilityPanel({ vehicleId, vehicleLabel }: VehiclePr
             <CardTitle className="text-xs font-medium text-on-surface-variant">Ingresos</CardTitle>
           </CardHeader>
           <CardContent className="px-3 pb-3">
-            <p className="text-lg font-semibold">{profitability.revenue.toFixed(2)} €</p>
+            <p className="text-lg font-semibold">{formatCurrency(profitability.revenue)}</p>
           </CardContent>
         </Card>
 
@@ -154,7 +155,7 @@ export function VehicleProfitabilityPanel({ vehicleId, vehicleLabel }: VehiclePr
             <CardTitle className="text-xs font-medium text-on-surface-variant">Gastos</CardTitle>
           </CardHeader>
           <CardContent className="px-3 pb-3">
-            <p className="text-lg font-semibold">{profitability.costs.toFixed(2)} €</p>
+            <p className="text-lg font-semibold">{formatCurrency(profitability.costs)}</p>
           </CardContent>
         </Card>
 
@@ -163,7 +164,7 @@ export function VehicleProfitabilityPanel({ vehicleId, vehicleLabel }: VehiclePr
             <CardTitle className="text-xs font-medium text-on-surface-variant">Margen</CardTitle>
           </CardHeader>
           <CardContent className="px-3 pb-3">
-            <p className="text-lg font-semibold">{profitability.margin.toFixed(2)} €</p>
+            <p className="text-lg font-semibold">{formatCurrency(profitability.margin)}</p>
           </CardContent>
         </Card>
       </div>

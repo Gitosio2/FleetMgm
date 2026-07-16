@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { formatCurrency } from '@/lib/currency'
 
 const selectClassName =
   'flex h-11 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary-container disabled:cursor-not-allowed disabled:opacity-50'
@@ -62,7 +63,7 @@ function EditLineItemRow({ invoiceId, lineItem, vehiclesPage, onDone }: EditLine
   // Preview of the derived average unit price while editing — subtotal is now the direct user
   // input, so there's no subtotal to preview; the previously-computed value (unit price) is
   // shown here instead. Guarded against quantity being 0/empty to avoid NaN/Infinity while typing.
-  const previewUnitPrice = Number(quantity) > 0 ? (Number(subtotal) / Number(quantity)).toFixed(2) : '—'
+  const previewUnitPrice = Number(quantity) > 0 ? formatCurrency(Number(subtotal) / Number(quantity)) : '—'
 
   return (
     <TableRow>
@@ -180,8 +181,8 @@ export function SupplierInvoiceLineItemList({ supplierInvoice }: SupplierInvoice
   return (
     <div className="flex flex-col gap-3">
       <p className="text-sm text-on-surface-variant" data-testid="line-item-allocation-summary">
-        {`Asignado: ${allocatedTotal.toFixed(2)} € / ${supplierInvoice.subtotal.toFixed(2)} €`}
-        {remaining !== 0 && ` (quedan ${remaining.toFixed(2)} € por asignar)`}
+        {`Asignado: ${formatCurrency(allocatedTotal)} / ${formatCurrency(supplierInvoice.subtotal)}`}
+        {remaining !== 0 && ` (quedan ${formatCurrency(remaining)} por asignar)`}
       </p>
 
       <Table>
@@ -217,8 +218,8 @@ export function SupplierInvoiceLineItemList({ supplierInvoice }: SupplierInvoice
                   <TableCell>{vehicleLabel(lineItem.vehicleId)}</TableCell>
                   <TableCell>{lineItem.description}</TableCell>
                   <TableCell>{lineItem.quantity}</TableCell>
-                  <TableCell>{lineItem.unitPrice.toFixed(2)}</TableCell>
-                  <TableCell>{lineItem.subtotal.toFixed(2)}</TableCell>
+                  <TableCell>{formatCurrency(lineItem.unitPrice)}</TableCell>
+                  <TableCell>{formatCurrency(lineItem.subtotal)}</TableCell>
                   {canAddLineItem && (
                     <TableCell>
                       <div className="flex gap-1">

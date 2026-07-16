@@ -10,6 +10,7 @@ import {
   SEED_SUPPLIER_INVOICES,
   SEED_SUPPLIERS,
 } from '@/mocks/handlers'
+import { formatCurrency } from '@/lib/currency'
 import { SupplierInvoices } from './SupplierInvoices'
 
 function renderSupplierInvoices() {
@@ -88,7 +89,7 @@ describe('SupplierInvoices', () => {
     // Both the "Vehículo" and "Vencimiento" columns fall back to the placeholder here, since
     // neither a vehicle nor a due date was entered in this test.
     expect(within(row).getAllByText('—')).toHaveLength(2)
-    expect(within(row).getByText('48.40')).toBeInTheDocument()
+    expect(within(row).getByText(formatCurrency(48.4))).toBeInTheDocument()
   })
 
   it('creates a new PENDING supplier invoice with a vehicle selected', async () => {
@@ -133,7 +134,7 @@ describe('SupplierInvoices', () => {
 
     await waitFor(() => {
       const updatedRow = screen.getByRole('button', { name: withVehicle.supplierName }).closest('tr')!
-      expect(within(updatedRow).getByText('999.00')).toBeInTheDocument()
+      expect(within(updatedRow).getByText(formatCurrency(999))).toBeInTheDocument()
     })
   })
 
@@ -189,7 +190,7 @@ describe('SupplierInvoices', () => {
 
     expect(await screen.findByRole('heading', { name: 'Editar factura de proveedor' })).toBeInTheDocument()
     expect(screen.getByTestId('line-item-allocation-summary')).toHaveTextContent(
-      `Asignado: 0.00 € / ${withoutVehicle.subtotal.toFixed(2)} €`,
+      `Asignado: ${formatCurrency(0)} / ${formatCurrency(withoutVehicle.subtotal)}`,
     )
 
     await user.selectOptions(screen.getByLabelText(/vehículo de la línea/i), 'vehicle-1')
@@ -203,7 +204,7 @@ describe('SupplierInvoices', () => {
       expect(screen.getByText('Gasoil - Toyota Hilux')).toBeInTheDocument()
     })
     expect(screen.getByTestId('line-item-allocation-summary')).toHaveTextContent(
-      `Asignado: 15.00 € / ${withoutVehicle.subtotal.toFixed(2)} €`,
+      `Asignado: ${formatCurrency(15)} / ${formatCurrency(withoutVehicle.subtotal)}`,
     )
   })
 
@@ -256,11 +257,11 @@ describe('SupplierInvoices', () => {
 
     await waitFor(() => {
       const updatedRow = screen.getByText(alreadySplit.lineItems[0]!.description).closest('tr')!
-      expect(within(updatedRow).getByText('45.00')).toBeInTheDocument()
+      expect(within(updatedRow).getByText(formatCurrency(45))).toBeInTheDocument()
     })
     // Line 1's total cost updates directly to 45.00; line 2 stays at 30.00 -> 75.00 total allocated.
     expect(screen.getByTestId('line-item-allocation-summary')).toHaveTextContent(
-      `Asignado: 75.00 € / ${alreadySplit.subtotal.toFixed(2)} €`,
+      `Asignado: ${formatCurrency(75)} / ${formatCurrency(alreadySplit.subtotal)}`,
     )
   })
 
@@ -283,7 +284,7 @@ describe('SupplierInvoices', () => {
     })
     // Only line 1 remains, subtotal 60.00, out of a 90.00 invoice subtotal.
     expect(screen.getByTestId('line-item-allocation-summary')).toHaveTextContent(
-      `Asignado: 60.00 € / ${alreadySplit.subtotal.toFixed(2)} €`,
+      `Asignado: ${formatCurrency(60)} / ${formatCurrency(alreadySplit.subtotal)}`,
     )
   })
 

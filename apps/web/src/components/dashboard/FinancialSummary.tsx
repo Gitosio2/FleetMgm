@@ -2,6 +2,7 @@ import type { FinancialSummary as FinancialSummaryData, UpcomingInvoice } from '
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ClientInfoLink } from '@/components/client/ClientInfoLink'
 import { SupplierInfoLink } from '@/components/supplier/SupplierInfoLink'
+import { formatCurrency } from '@/lib/currency'
 
 type FinancialSummaryProps = {
   summary: FinancialSummaryData
@@ -35,7 +36,7 @@ function UpcomingInvoicesCard({ title, invoices, counterpartyType }: UpcomingInv
                   )}
                 </div>
                 <div className="flex flex-col items-end">
-                  <span className="font-medium">{invoice.amount.toFixed(2)} €</span>
+                  <span className="font-medium">{formatCurrency(invoice.amount)}</span>
                   <span className="text-on-surface-variant">
                     {new Date(invoice.dueDate).toLocaleDateString('es-ES')}
                   </span>
@@ -62,7 +63,7 @@ export function FinancialSummary({ summary }: FinancialSummaryProps) {
           <CardTitle className="text-sm font-medium text-on-surface-variant">Costes del mes</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-3xl font-semibold">{summary.monthlyCosts.toFixed(2)} €</p>
+          <p className="text-3xl font-semibold">{formatCurrency(summary.monthlyCosts)}</p>
         </CardContent>
       </Card>
 
