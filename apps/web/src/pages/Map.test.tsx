@@ -63,7 +63,7 @@ describe('Map', () => {
     const popover = within(await screen.findByTestId('vehicle-popover'))
     expect(popover.getByText(firstPosition.licensePlate!)).toBeInTheDocument()
     expect(popover.getByText(`${firstPosition.vehicleMake} ${firstPosition.vehicleModel}`)).toBeInTheDocument()
-    expect(popover.getByText(`${firstPosition.speed} km/h`)).toBeInTheDocument()
+    expect(popover.getByText(`${Math.round(firstPosition.speed!)} km/h`)).toBeInTheDocument()
   })
 
   it('shows "make model" in the popover for a vehicle without a license plate', async () => {

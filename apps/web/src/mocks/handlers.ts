@@ -290,7 +290,7 @@ export const SEED_GPS_POSITIONS: GpsPositionMock[] = [
     latitude: 40.4168,
     longitude: -3.7038,
     heading: 90,
-    speed: 45,
+    speed: 45.7,
     recordedAt: '2026-07-12T10:00:00Z',
     source: 'MOCK',
   },
