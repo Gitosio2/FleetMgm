@@ -513,6 +513,26 @@ type JobRequestBody = {
   actualEnd?: string | null
 }
 
+// Mirrors JobService.validateActualDates() on the backend, so the mock's error contract matches
+// the real API for create/update.
+function validateJobActualDates(body: JobRequestBody) {
+  const { actualStart, actualEnd } = body
+  if (actualEnd != null && actualStart == null) {
+    return { code: 'JOB_ACTUAL_END_WITHOUT_START', message: 'actualEnd cannot be set without actualStart' }
+  }
+  if (actualStart != null && actualEnd != null && actualEnd < actualStart) {
+    return { code: 'JOB_ACTUAL_END_BEFORE_START', message: 'actualEnd must not be before actualStart' }
+  }
+  const now = new Date().toISOString()
+  if (actualStart != null && actualStart > now) {
+    return { code: 'JOB_ACTUAL_DATE_IN_FUTURE', message: 'actualStart cannot be in the future' }
+  }
+  if (actualEnd != null && actualEnd > now) {
+    return { code: 'JOB_ACTUAL_DATE_IN_FUTURE', message: 'actualEnd cannot be in the future' }
+  }
+  return null
+}
+
 const JOB_ACTIVE_STATUSES: JobStatus[] = ['PENDING', 'IN_PROGRESS']
 
 export const SEED_JOBS: Job[] = [
@@ -2111,6 +2131,14 @@ export const handlers = [
       }
     }
 
+    const actualDatesError = validateJobActualDates(body)
+    if (actualDatesError) {
+      return HttpResponse.json(
+        { status: 400, ...actualDatesError, correlationId: 'test-correlation-id' },
+        { status: 400 },
+      )
+    }
+
     const newJob: Job = {
       id: `job-${jobs.length + 1}`,
       title: body.title,
@@ -2200,6 +2228,14 @@ export const handlers = [
           { status: 404 },
         )
       }
+    }
+
+    const actualDatesError = validateJobActualDates(body)
+    if (actualDatesError) {
+      return HttpResponse.json(
+        { status: 400, ...actualDatesError, correlationId: 'test-correlation-id' },
+        { status: 400 },
+      )
     }
 
     const updated: Job = {

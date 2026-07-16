@@ -158,12 +158,12 @@ describe('Jobs', () => {
     await user.click(within(row).getByRole('button', { name: /editar trabajo/i }))
 
     const dialog = await screen.findByRole('dialog')
-    await user.type(within(dialog).getByLabelText('Inicio real'), '2026-07-20T12:00')
-    await user.type(within(dialog).getByLabelText('Fin real'), '2026-07-22T09:00')
+    await user.type(within(dialog).getByLabelText('Inicio real'), '2026-07-10T12:00')
+    await user.type(within(dialog).getByLabelText('Fin real'), '2026-07-12T09:00')
     await user.click(within(dialog).getByRole('button', { name: /guardar cambios/i }))
 
-    const expectedStartDate = new Date('2026-07-20T12:00').toLocaleDateString('es-ES')
-    const expectedEndDate = new Date('2026-07-22T09:00').toLocaleDateString('es-ES')
+    const expectedStartDate = new Date('2026-07-10T12:00').toLocaleDateString('es-ES')
+    const expectedEndDate = new Date('2026-07-12T09:00').toLocaleDateString('es-ES')
     await waitFor(() => expect(within(row).getByText(expectedStartDate)).toBeInTheDocument())
     expect(within(row).getByText(expectedEndDate)).toBeInTheDocument()
   })
@@ -242,6 +242,23 @@ describe('Jobs', () => {
       const seedJob = SEED_JOBS.find((job) => job.id === 'job-5')!
       expect(new Date(capturedActualStart!).getTime()).toBe(new Date(seedJob.actualStart!).getTime())
     })
+  })
+
+  it('shows an explicit error message when actualStart is set in the future', async () => {
+    loginAs('ADMIN')
+    const user = userEvent.setup()
+    renderJobs()
+
+    const row = (await screen.findByText('Entrega urgente')).closest('tr')!
+    await user.click(within(row).getByRole('button', { name: /editar trabajo/i }))
+
+    const dialog = await screen.findByRole('dialog')
+    await user.type(within(dialog).getByLabelText(/inicio real/i), '2099-01-01T10:00')
+    await user.click(within(dialog).getByRole('button', { name: /guardar cambios/i }))
+
+    expect(
+      await screen.findByText('El inicio o el fin real no pueden ser una fecha futura.'),
+    ).toBeInTheDocument()
   })
 
   it('shows an error message when the job list query fails', async () => {

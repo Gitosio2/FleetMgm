@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import type { CreateJobRequest, Job } from '@fleetmgm/api'
+import { isAxiosError } from 'axios'
+import type { ApiError, CreateJobRequest, Job } from '@fleetmgm/api'
 import { useClients, useCreateJob, useUpdateJob, useVehicles, useWorkers } from '@fleetmgm/hooks'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -14,6 +15,21 @@ import {
 
 const selectClassName =
   'flex h-11 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary-container disabled:cursor-not-allowed disabled:opacity-50'
+
+const JOB_ERROR_MESSAGES: Record<string, string> = {
+  JOB_ACTUAL_END_WITHOUT_START: 'No puedes indicar un fin real sin haber indicado también un inicio real.',
+  JOB_ACTUAL_END_BEFORE_START: 'El fin real no puede ser anterior al inicio real.',
+  JOB_ACTUAL_DATE_IN_FUTURE: 'El inicio o el fin real no pueden ser una fecha futura.',
+}
+
+const DEFAULT_JOB_ERROR_MESSAGE = 'No se pudo completar la acción.'
+
+function resolveJobErrorMessage(error: unknown): string {
+  if (isAxiosError<ApiError>(error) && error.response?.data.code) {
+    return JOB_ERROR_MESSAGES[error.response.data.code] ?? DEFAULT_JOB_ERROR_MESSAGE
+  }
+  return DEFAULT_JOB_ERROR_MESSAGE
+}
 
 type JobFormModalProps = {
   open: boolean
@@ -257,7 +273,7 @@ export function JobFormModal({ open, onOpenChange, job }: JobFormModalProps) {
 
           {(createJob.isError || updateJob.isError) && (
             <p role="alert" className="text-sm text-error">
-              No se pudo completar la acción.
+              {resolveJobErrorMessage(createJob.isError ? createJob.error : updateJob.error)}
             </p>
           )}
 
