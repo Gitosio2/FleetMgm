@@ -160,6 +160,7 @@ class DashboardServiceTest {
         assertThat(summary.upcomingReceivables()).hasSize(1);
         UpcomingInvoiceResponse response = summary.upcomingReceivables().get(0);
         assertThat(response.number()).isEqualTo("INV-2026-00010");
+        assertThat(response.counterpartyId()).isEqualTo(client.getId());
         assertThat(response.counterparty()).isEqualTo("Acme Logistics");
         assertThat(response.amount()).isEqualByComparingTo("500.00");
         assertThat(response.overdue()).isFalse();
@@ -197,6 +198,7 @@ class DashboardServiceTest {
         assertThat(summary.upcomingPayables()).hasSize(1);
         UpcomingInvoiceResponse response = summary.upcomingPayables().get(0);
         assertThat(response.number()).isEqualTo("F-2026-0456");
+        assertThat(response.counterpartyId()).isEqualTo(supplier.getId());
         assertThat(response.counterparty()).isEqualTo("Taller Mecánico Norte");
         assertThat(response.amount()).isEqualByComparingTo("121.00");
         assertThat(response.overdue()).isTrue();
@@ -205,12 +207,14 @@ class DashboardServiceTest {
     private Client client(String name) {
         Client client = new Client();
         client.setName(name);
+        setId(client, "id");
         return client;
     }
 
     private Supplier supplier(String name) {
         Supplier supplier = new Supplier();
         supplier.setName(name);
+        setId(supplier, "id");
         return supplier;
     }
 

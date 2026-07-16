@@ -51,10 +51,10 @@ class DashboardControllerTest {
     @Test
     void financialSummary_returns200_withAssembledSummary() throws Exception {
         UpcomingInvoiceResponse receivable = new UpcomingInvoiceResponse(
-                UUID.randomUUID(), "INV-2026-00010", "Acme Logistics",
+                UUID.randomUUID(), "INV-2026-00010", UUID.randomUUID(), "Acme Logistics",
                 new BigDecimal("500.00"), LocalDate.now().plusDays(3), false);
         UpcomingInvoiceResponse payable = new UpcomingInvoiceResponse(
-                UUID.randomUUID(), "F-2026-0456", "Taller Mecánico Norte",
+                UUID.randomUUID(), "F-2026-0456", UUID.randomUUID(), "Taller Mecánico Norte",
                 new BigDecimal("121.00"), LocalDate.now().minusDays(1), true);
         FinancialSummaryResponse summary = new FinancialSummaryResponse(
                 new BigDecimal("8420.50"), List.of(receivable), List.of(payable));

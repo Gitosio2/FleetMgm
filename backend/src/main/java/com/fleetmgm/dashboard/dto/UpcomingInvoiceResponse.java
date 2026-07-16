@@ -7,6 +7,7 @@ import java.util.UUID;
 public record UpcomingInvoiceResponse(
         UUID id,
         String number,
+        UUID counterpartyId,
         String counterparty,
         BigDecimal amount,
         LocalDate dueDate,

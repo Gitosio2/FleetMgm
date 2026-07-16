@@ -1,10 +1,15 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, describe, expect, it } from 'vitest'
 import { useAuthStore, type AppRole } from '@fleetmgm/store'
-import { SEED_FINANCIAL_SUMMARY, SEED_FINANCIAL_TREND, SEED_FLEET_SUMMARY } from '@/mocks/handlers'
+import {
+  SEED_CLIENTS,
+  SEED_FINANCIAL_SUMMARY,
+  SEED_FINANCIAL_TREND,
+  SEED_FLEET_SUMMARY,
+} from '@/mocks/handlers'
 import { Dashboard } from './Dashboard'
 import { DashboardHome } from './DashboardHome'
 
@@ -98,6 +103,21 @@ describe('Dashboard', () => {
 
     const notOverdueRow = screen.getByText(notOverdueReceivable.number).closest('li') as HTMLElement
     expect(notOverdueRow.textContent).not.toContain('Vencida')
+  })
+
+  it('opens a read-only client modal from the "Facturas por cobrar" list', async () => {
+    const user = userEvent.setup()
+    loginAs('ADMIN')
+    renderDashboard()
+
+    const receivable = SEED_FINANCIAL_SUMMARY.upcomingReceivables[0]!
+    const client = SEED_CLIENTS.find((c) => c.id === receivable.counterpartyId)!
+
+    await user.click(await screen.findByRole('button', { name: receivable.counterparty }))
+
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByRole('heading', { name: 'Datos del cliente' })).toBeInTheDocument()
+    expect(within(dialog).getByLabelText(/teléfono/i)).toHaveValue(client.phone)
   })
 
   it('renders the fleet-wide monthly Ingresos/Gastos trend, defaulting to the last 6 months', async () => {
