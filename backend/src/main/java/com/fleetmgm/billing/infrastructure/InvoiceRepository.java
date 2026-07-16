@@ -17,7 +17,12 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
 
     // List query denormalizes client fields into InvoiceResponse — JOIN FETCH avoids N+1
     // (CLAUDE.md JPA rule). Safe with Pageable: this is a to-one join, not a to-many collection.
-    @Query("SELECT i FROM Invoice i JOIN FETCH i.client")
+    // Not-yet-PAID invoices (DRAFT/ISSUED) sort before PAID, newest first within each group —
+    // createdAt is the tie-break (not issueDate/dueDate) since DRAFT has neither populated yet.
+    // Callers must pass an unsorted Pageable — this ORDER BY is the whole point of the query.
+    @Query("SELECT i FROM Invoice i JOIN FETCH i.client "
+            + "ORDER BY CASE WHEN i.status = com.fleetmgm.billing.domain.InvoiceStatus.PAID THEN 1 ELSE 0 END, "
+            + "i.createdAt DESC")
     Page<Invoice> findAllJoinFetch(Pageable pageable);
 
     // Financial-summary KPI (dashboard) — top-N unpaid client invoices due soon. No lower bound on

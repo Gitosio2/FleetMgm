@@ -2,6 +2,7 @@ package com.fleetmgm.billing.infrastructure;
 
 import com.fleetmgm.billing.domain.ExpenseCategory;
 import com.fleetmgm.billing.domain.SupplierInvoice;
+import com.fleetmgm.billing.domain.SupplierInvoiceStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -21,11 +22,39 @@ public interface SupplierInvoiceRepository extends JpaRepository<SupplierInvoice
     // standard "(:param IS NULL OR ...)" JPQL idiom keeps the query fully parameterized (no string
     // concatenation), satisfying the dynamic-query SQL injection rule while still supporting
     // Pageable on a to-one join.
+    // PENDING sorts before PAID, newest invoiceDate first within each group — invoiceDate is
+    // NOT NULL for every row (no DRAFT concept here), so unlike Invoice it's a safe sort key
+    // directly, no createdAt fallback needed. Callers must pass an unsorted Pageable.
+    // supplierId/status and the four date/amount ranges are newer than vehicleId/category and use
+    // CAST(:param AS string) IS NULL instead of a bare ":param IS NULL" — see AuditLogRepository's
+    // comment on the same idiom: a parameter that appears ONLY in a bare IS NULL check gives
+    // Postgres no type context to infer from, even for enums, and fails 500 on every request that
+    // leaves it null. vehicleId/category predate this fix and are left as-is since they already work.
     @Query("SELECT si FROM SupplierInvoice si JOIN FETCH si.supplier LEFT JOIN FETCH si.vehicle "
             + "WHERE (:vehicleId IS NULL OR si.vehicle.id = :vehicleId) "
-            + "AND (:category IS NULL OR si.category = :category)")
+            + "AND (:category IS NULL OR si.category = :category) "
+            + "AND (CAST(:supplierId AS string) IS NULL OR si.supplier.id = :supplierId) "
+            + "AND (CAST(:status AS string) IS NULL OR si.status = :status) "
+            + "AND (CAST(:invoiceDateFrom AS string) IS NULL OR si.invoiceDate >= :invoiceDateFrom) "
+            + "AND (CAST(:invoiceDateTo AS string) IS NULL OR si.invoiceDate <= :invoiceDateTo) "
+            + "AND (CAST(:dueDateFrom AS string) IS NULL OR si.dueDate >= :dueDateFrom) "
+            + "AND (CAST(:dueDateTo AS string) IS NULL OR si.dueDate <= :dueDateTo) "
+            + "AND (CAST(:totalMin AS string) IS NULL OR si.total >= :totalMin) "
+            + "AND (CAST(:totalMax AS string) IS NULL OR si.total <= :totalMax) "
+            + "ORDER BY CASE WHEN si.status = com.fleetmgm.billing.domain.SupplierInvoiceStatus.PAID THEN 1 ELSE 0 END, "
+            + "si.invoiceDate DESC")
     Page<SupplierInvoice> findAllJoinFetch(
-            @Param("vehicleId") UUID vehicleId, @Param("category") ExpenseCategory category, Pageable pageable);
+            @Param("vehicleId") UUID vehicleId,
+            @Param("category") ExpenseCategory category,
+            @Param("supplierId") UUID supplierId,
+            @Param("status") SupplierInvoiceStatus status,
+            @Param("invoiceDateFrom") LocalDate invoiceDateFrom,
+            @Param("invoiceDateTo") LocalDate invoiceDateTo,
+            @Param("dueDateFrom") LocalDate dueDateFrom,
+            @Param("dueDateTo") LocalDate dueDateTo,
+            @Param("totalMin") BigDecimal totalMin,
+            @Param("totalMax") BigDecimal totalMax,
+            Pageable pageable);
 
     // Fleet-summary KPI (dashboard) — monthly supplier costs, summed alongside
     // MaintenanceRepository.sumCostByWorkshopEntryDateBetween. COALESCE guards against SUM

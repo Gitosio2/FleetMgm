@@ -1,10 +1,6 @@
 import type { SupplierInvoiceStatus } from '@fleetmgm/api'
 import { cn } from '@/lib/utils'
-
-const STATUS_LABEL: Record<SupplierInvoiceStatus, string> = {
-  PENDING: 'Pendiente',
-  PAID: 'Pagada',
-}
+import { STATUS_LABEL } from './supplier-invoice-shared'
 
 const STATUS_CLASSNAME: Record<SupplierInvoiceStatus, string> = {
   PENDING: 'bg-surface-container-high text-on-surface-variant',

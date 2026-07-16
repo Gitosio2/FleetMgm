@@ -25,6 +25,7 @@ import com.fleetmgm.shared.exception.NotFoundException;
 import com.fleetmgm.shared.infrastructure.AuditLogRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -83,7 +84,11 @@ public class InvoiceService {
     @Transactional(readOnly = true)
     @PreAuthorize(ROLES)
     public PageResponse<InvoiceResponse> list(Pageable pageable) {
-        Page<Invoice> page = invoiceRepository.findAllJoinFetch(pageable);
+        // The repository query's own ORDER BY (pending-first, then newest-first) is the whole
+        // point — a caller-supplied Sort would just get appended after it, which is confusing at
+        // best, so it's stripped here rather than trusted from the controller.
+        Pageable pageOnly = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
+        Page<Invoice> page = invoiceRepository.findAllJoinFetch(pageOnly);
         List<UUID> invoiceIds = page.getContent().stream().map(Invoice::getId).toList();
         // Single batched query for the whole page — grouping in memory here, instead of calling
         // lineItemRepository.findAllByInvoiceId() once per invoice inside the loop below, is what

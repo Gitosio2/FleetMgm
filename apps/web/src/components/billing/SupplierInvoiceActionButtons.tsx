@@ -1,4 +1,5 @@
 import { isAxiosError } from 'axios'
+import { Eye, Pencil } from 'lucide-react'
 import type { ApiError, SupplierInvoice } from '@fleetmgm/api'
 import { usePaySupplierInvoice } from '@fleetmgm/hooks'
 import { Button } from '@/components/ui/button'
@@ -31,8 +32,13 @@ export function SupplierInvoiceActionButtons({ invoice, onEdit }: SupplierInvoic
   return (
     <div className="flex flex-col items-start gap-1">
       <div className="flex items-center gap-1">
-        <Button variant="ghost" size="sm" onClick={() => onEdit(invoice)}>
-          {invoice.status === 'PAID' ? 'Ver' : 'Editar'}
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-label={invoice.status === 'PAID' ? 'Ver' : 'Editar'}
+          onClick={() => onEdit(invoice)}
+        >
+          {invoice.status === 'PAID' ? <Eye className="size-4" /> : <Pencil className="size-4" />}
         </Button>
         {invoice.status === 'PENDING' && (
           <Button

@@ -3127,11 +3127,27 @@ export const handlers = [
     const size = Number(url.searchParams.get('size') ?? 20)
     const vehicleId = url.searchParams.get('vehicleId')
     const category = url.searchParams.get('category') as ExpenseCategory | null
+    const supplierId = url.searchParams.get('supplierId')
+    const status = url.searchParams.get('status') as SupplierInvoiceStatus | null
+    const invoiceDateFrom = url.searchParams.get('invoiceDateFrom')
+    const invoiceDateTo = url.searchParams.get('invoiceDateTo')
+    const dueDateFrom = url.searchParams.get('dueDateFrom')
+    const dueDateTo = url.searchParams.get('dueDateTo')
+    const totalMin = url.searchParams.get('totalMin')
+    const totalMax = url.searchParams.get('totalMax')
 
     const source = supplierInvoices.filter(
       (invoice) =>
         (vehicleId == null || invoice.vehicleId === vehicleId) &&
-        (category == null || invoice.category === category),
+        (category == null || invoice.category === category) &&
+        (supplierId == null || invoice.supplierId === supplierId) &&
+        (status == null || invoice.status === status) &&
+        (invoiceDateFrom == null || invoice.invoiceDate >= invoiceDateFrom) &&
+        (invoiceDateTo == null || invoice.invoiceDate <= invoiceDateTo) &&
+        (dueDateFrom == null || (invoice.dueDate != null && invoice.dueDate >= dueDateFrom)) &&
+        (dueDateTo == null || (invoice.dueDate != null && invoice.dueDate <= dueDateTo)) &&
+        (totalMin == null || invoice.total >= Number(totalMin)) &&
+        (totalMax == null || invoice.total <= Number(totalMax)),
     )
     const start = page * size
     const content = source.slice(start, start + size)
