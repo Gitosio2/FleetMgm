@@ -4,14 +4,14 @@ import { cn } from '@/lib/utils'
 
 function Table({ className, ...props }: React.ComponentProps<'table'>) {
   return (
-    <div className="w-full overflow-x-auto rounded-xl border border-outline-variant/40">
+    <div className="w-full overflow-x-auto rounded-xl border border-outline-variant/40 bg-surface-bright shadow-lg">
       <table className={cn('w-full caption-bottom text-sm', className)} {...props} />
     </div>
   )
 }
 
 function TableHeader({ className, ...props }: React.ComponentProps<'thead'>) {
-  return <thead className={cn('bg-surface-container-lowest', className)} {...props} />
+  return <thead className={cn('bg-surface-container-low', className)} {...props} />
 }
 
 function TableBody({ className, ...props }: React.ComponentProps<'tbody'>) {
