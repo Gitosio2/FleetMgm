@@ -2,7 +2,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { http, HttpResponse } from 'msw'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { useAuthStore } from '@fleetmgm/store'
 import { resetJobsMock, resetVehiclesMock, resetWorkersMock, SEED_JOBS, SEED_VEHICLES } from '@/mocks/handlers'
 import { server } from '@/mocks/server'
@@ -201,14 +201,18 @@ describe('Jobs', () => {
   })
 
   describe('actual date timezone round-trip', () => {
-    const ORIGINAL_TZ = process.env.TZ
+    // This frontend project has no @types/node in its ambient scope (see src/test/setup.ts) —
+    // `process` still exists at runtime under vitest/Node, just untyped here, so it's cast locally
+    // rather than widening the project's ambient types just for this one test.
+    const nodeProcess = (globalThis as unknown as { process: { env: Record<string, string | undefined> } }).process
+    const ORIGINAL_TZ = nodeProcess.env.TZ
 
     beforeEach(() => {
-      process.env.TZ = 'Europe/Madrid'
+      nodeProcess.env.TZ = 'Europe/Madrid'
     })
 
     afterEach(() => {
-      process.env.TZ = ORIGINAL_TZ
+      nodeProcess.env.TZ = ORIGINAL_TZ
     })
 
     it('keeps actualStart stable when the form is saved without touching it', async () => {
