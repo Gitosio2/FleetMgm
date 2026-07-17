@@ -1,5 +1,6 @@
 import { http, HttpResponse } from 'msw'
 import { useAuthStore } from '@fleetmgm/store'
+import { computeTaxAndTotal } from '@/components/billing/invoice-shared'
 
 export const VALID_CREDENTIALS = {
   email: 'admin@fleetmgm.com',
@@ -1033,12 +1034,17 @@ function buildMinimalPdf(bodyText: string): string {
 
 function recalcInvoiceTotals(invoice: InvoiceMock): InvoiceMock {
   const subtotal = invoice.lineItems.reduce((sum, lineItem) => sum + lineItem.subtotal, 0)
-  const taxAmount = subtotal * invoice.taxRate
-  return { ...invoice, subtotal, taxAmount, total: subtotal + taxAmount }
+  const { taxAmount, total } = computeTaxAndTotal(subtotal, invoice.taxRate)
+  return { ...invoice, subtotal, taxAmount, total }
 }
 
 export const SEED_INVOICES: InvoiceMock[] = [
-  recalcInvoiceTotals({
+  // Not wrapped in recalcInvoiceTotals — a real DRAFT invoice's subtotal/taxAmount/total stay 0
+  // until InvoiceService.issue() computes them server-side (see invoice-shared.ts's
+  // displayInvoiceTotal), regardless of how many line items it already has. Keeping this literal
+  // 0 here (instead of eagerly recalculating like the other two seed invoices below) is what makes
+  // it possible to test that the UI computes its own preview instead of trusting invoice.total.
+  {
     id: 'invoice-1',
     invoiceNumber: 'INV-2026-00001',
     clientId: SEED_CLIENTS[0]!.id,
@@ -1057,7 +1063,7 @@ export const SEED_INVOICES: InvoiceMock[] = [
       buildLineItemMock('line-item-1', { description: 'Transporte de mercancía', quantity: 2, unitPrice: 150 }),
       buildLineItemMock('line-item-2', { description: 'Combustible', quantity: 1, unitPrice: 80 }),
     ],
-  }),
+  },
   recalcInvoiceTotals({
     id: 'invoice-2',
     invoiceNumber: 'INV-2026-00002',
@@ -2971,15 +2977,37 @@ export const handlers = [
     const url = new URL(request.url)
     const page = Number(url.searchParams.get('page') ?? 0)
     const size = Number(url.searchParams.get('size') ?? 20)
+    const clientId = url.searchParams.get('clientId')
+    const invoiceNumber = url.searchParams.get('invoiceNumber')
+    const status = url.searchParams.get('status') as InvoiceMock['status'] | null
+    const issueDateFrom = url.searchParams.get('issueDateFrom')
+    const issueDateTo = url.searchParams.get('issueDateTo')
+    const dueDateFrom = url.searchParams.get('dueDateFrom')
+    const dueDateTo = url.searchParams.get('dueDateTo')
+    const totalMin = url.searchParams.get('totalMin')
+    const totalMax = url.searchParams.get('totalMax')
+
+    const source = invoices.filter(
+      (invoice) =>
+        (clientId == null || invoice.clientId === clientId) &&
+        (invoiceNumber == null || invoice.invoiceNumber.toLowerCase().includes(invoiceNumber.toLowerCase())) &&
+        (status == null || invoice.status === status) &&
+        (issueDateFrom == null || (invoice.issueDate != null && invoice.issueDate >= issueDateFrom)) &&
+        (issueDateTo == null || (invoice.issueDate != null && invoice.issueDate <= issueDateTo)) &&
+        (dueDateFrom == null || (invoice.dueDate != null && invoice.dueDate >= dueDateFrom)) &&
+        (dueDateTo == null || (invoice.dueDate != null && invoice.dueDate <= dueDateTo)) &&
+        (totalMin == null || invoice.total >= Number(totalMin)) &&
+        (totalMax == null || invoice.total <= Number(totalMax)),
+    )
     const start = page * size
-    const content = invoices.slice(start, start + size)
+    const content = source.slice(start, start + size)
 
     return HttpResponse.json({
       content,
       page,
       size,
-      totalElements: invoices.length,
-      totalPages: Math.max(1, Math.ceil(invoices.length / size)),
+      totalElements: source.length,
+      totalPages: Math.max(1, Math.ceil(source.length / size)),
     })
   }),
 
@@ -3081,14 +3109,16 @@ export const handlers = [
       )
     }
 
-    const updated = recalcInvoiceTotals({
+    // Not recalculated — InvoiceService.update() only ever touches client/dueDate/notes/taxRate,
+    // never subtotal/taxAmount/total (those are set exclusively by issue(), see below).
+    const updated: InvoiceMock = {
       ...existing,
       clientId: client.id,
       clientName: client.name,
       dueDate: body.dueDate ?? null,
       notes: body.notes ?? null,
       taxRate: body.taxRate ?? DEFAULT_TAX_RATE,
-    })
+    }
     invoices = invoices.map((invoice, i) => (i === index ? updated : invoice))
 
     return HttpResponse.json(updated)
@@ -3165,8 +3195,10 @@ export const handlers = [
       )
     }
 
+    // recalcInvoiceTotals runs here — matching InvoiceService.issue(), the one place subtotal/
+    // taxAmount/total are ever computed from line items on the real backend.
     const updated: InvoiceMock = {
-      ...existing,
+      ...recalcInvoiceTotals(existing),
       status: 'ISSUED',
       issueDate: new Date().toISOString().slice(0, 10),
     }
@@ -3247,7 +3279,9 @@ export const handlers = [
     lineItemSequence += 1
     const newLineItem = buildLineItemMock(`line-item-${lineItemSequence}`, body)
 
-    const updated = recalcInvoiceTotals({ ...existing, lineItems: [...existing.lineItems, newLineItem] })
+    // Not recalculated — InvoiceService.addLineItem() only persists the line item row, it never
+    // touches the invoice's own subtotal/taxAmount/total (those are set exclusively by issue()).
+    const updated: InvoiceMock = { ...existing, lineItems: [...existing.lineItems, newLineItem] }
     invoices = invoices.map((invoice, i) => (i === index ? updated : invoice))
 
     return HttpResponse.json(updated, { status: 201 })
