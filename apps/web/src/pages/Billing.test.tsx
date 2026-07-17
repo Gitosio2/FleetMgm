@@ -44,13 +44,28 @@ describe('Billing', () => {
 
     const [draft, issued, paid] = SEED_INVOICES
 
-    expect(await screen.findByText(draft!.invoiceNumber)).toBeInTheDocument()
-    expect(screen.getByText(issued!.invoiceNumber)).toBeInTheDocument()
-    expect(screen.getByText(paid!.invoiceNumber)).toBeInTheDocument()
+    const draftRow = (await screen.findByText(draft!.invoiceNumber)).closest('tr')!
+    const issuedRow = screen.getByText(issued!.invoiceNumber).closest('tr')!
+    const paidRow = screen.getByText(paid!.invoiceNumber).closest('tr')!
 
-    expect(screen.getByText('Borrador')).toBeInTheDocument()
-    expect(screen.getByText('Emitida')).toBeInTheDocument()
-    expect(screen.getByText('Pagada')).toBeInTheDocument()
+    // Scoped to each row — the status filter dropdown also renders these same status labels
+    // as <option> text, so an unscoped query would match twice.
+    expect(within(draftRow).getByText('Borrador')).toBeInTheDocument()
+    expect(within(issuedRow).getByText('Emitida')).toBeInTheDocument()
+    expect(within(paidRow).getByText('Pagada')).toBeInTheDocument()
+  })
+
+  it('shows a computed total for a DRAFT invoice, not the persisted 0 it has until issued', async () => {
+    renderBilling()
+
+    const draft = SEED_INVOICES[0]!
+    // The seed DRAFT invoice's persisted total is 0 (matches the real backend, where subtotal/
+    // taxAmount/total stay 0 until issue() computes them) — the table must show a preview computed
+    // from the two line items (2*150 + 1*80 = 380) and taxRate (0.21) instead: 380 * 1.21 = 459.80.
+    expect(draft.total).toBe(0)
+    const row = (await screen.findByText(draft.invoiceNumber)).closest('tr')!
+
+    expect(within(row).getByText(formatCurrency(459.8))).toBeInTheDocument()
   })
 
   it('shows the issue date column in the invoice table, with a placeholder for DRAFT invoices', async () => {
@@ -96,7 +111,7 @@ describe('Billing', () => {
     await screen.findByText(SEED_INVOICES[0]!.invoiceNumber)
 
     await user.click(screen.getByRole('button', { name: /nueva factura/i }))
-    await user.selectOptions(screen.getByLabelText(/cliente/i), 'client-2')
+    await user.selectOptions(screen.getByLabelText(/^cliente$/i), 'client-2')
     await user.click(screen.getByRole('button', { name: /crear factura/i }))
 
     await waitFor(() => {
@@ -106,6 +121,62 @@ describe('Billing', () => {
     expect(within(row).getByText('Borrador')).toBeInTheDocument()
   })
 
+  it('switches to edit mode after creating an invoice even when the active filters exclude it from the list', async () => {
+    const user = userEvent.setup()
+    renderBilling()
+
+    await screen.findByText(SEED_INVOICES[0]!.invoiceNumber)
+
+    // A brand-new invoice is always DRAFT, so filtering to PAID guarantees it won't appear in the
+    // filtered list query — this is exactly the scenario that broke the old
+    // data.content.find(editingInvoiceId) lookup: the modal would silently revert to "Nueva
+    // factura" instead of switching to edit mode, and a second submit created a duplicate invoice.
+    await user.selectOptions(screen.getByLabelText(/filtrar por estado/i), 'PAID')
+    await waitFor(() => expect(screen.queryByText(SEED_INVOICES[0]!.invoiceNumber)).not.toBeInTheDocument())
+
+    await user.click(screen.getByRole('button', { name: /nueva factura/i }))
+    await user.selectOptions(screen.getByLabelText(/^cliente$/i), 'client-2')
+    await user.click(screen.getByRole('button', { name: /crear factura/i }))
+
+    expect(await screen.findByText('Editar factura')).toBeInTheDocument()
+    expect(screen.getByLabelText(/^cliente$/i)).toHaveValue('client-2')
+  })
+
+  it('computes the DRAFT preview total with the same rounding issuing will produce (not float-truncated)', async () => {
+    const user = userEvent.setup()
+    renderBilling()
+
+    await screen.findByText(SEED_INVOICES[0]!.invoiceNumber)
+
+    await user.click(screen.getByRole('button', { name: /nueva factura/i }))
+    await user.selectOptions(screen.getByLabelText(/^cliente$/i), 'client-2')
+    await user.click(screen.getByRole('button', { name: /crear factura/i }))
+    expect(await screen.findByText('Editar factura')).toBeInTheDocument()
+
+    // 18.50 at the default 21% tax rate is exactly the boundary case where plain JS float
+    // arithmetic (18.5 * 0.21 = 3.884999999999999786...) rounds down to 3.88/22.38 instead of the
+    // backend's exact BigDecimal HALF_UP 3.89/22.39 — a real, reproducible €0.01 mismatch.
+    await user.type(screen.getByLabelText(/^descripción$/i), 'Servicio')
+    await user.clear(screen.getByLabelText(/cantidad/i))
+    await user.type(screen.getByLabelText(/cantidad/i), '1')
+    await user.type(screen.getByLabelText(/precio unitario/i), '18.50')
+    await user.click(screen.getByRole('button', { name: /agregar línea/i }))
+    await waitFor(() => expect(screen.getByText('Servicio')).toBeInTheDocument())
+
+    // Preview panel (still DRAFT, computed client-side) must already show 22,39€, not 22,38€.
+    // Scoped to the dialog — the table row behind it shows the same DRAFT preview total too, via
+    // the same displayInvoiceTotal(), which would otherwise make this an ambiguous match.
+    const dialog = screen.getByRole('dialog')
+    expect(within(dialog).getByText(formatCurrency(22.39))).toBeInTheDocument()
+    expect(within(dialog).queryByText(formatCurrency(22.38))).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /close/i }))
+    const row = screen.getByText('INV-2026-00004').closest('tr')!
+    await user.click(within(row).getByRole('button', { name: /emitir/i }))
+
+    await waitFor(() => expect(within(row).getByText(formatCurrency(22.39))).toBeInTheDocument())
+  })
+
   it('shows the tax rate as a whole percentage and submits it as a fraction', async () => {
     const user = userEvent.setup()
     renderBilling()
@@ -113,27 +184,20 @@ describe('Billing', () => {
     await screen.findByText(SEED_INVOICES[0]!.invoiceNumber)
 
     await user.click(screen.getByRole('button', { name: /nueva factura/i }))
-    await user.selectOptions(screen.getByLabelText(/cliente/i), 'client-2')
+    await user.selectOptions(screen.getByLabelText(/^cliente$/i), 'client-2')
     await user.type(screen.getByLabelText(/iva/i), '10')
     await user.click(screen.getByRole('button', { name: /crear factura/i }))
 
-    await waitFor(() => {
-      expect(screen.getByText('INV-2026-00004')).toBeInTheDocument()
-    })
-    let row = screen.getByText('INV-2026-00004').closest('tr')!
-
-    // Reopening the form must show "10" (whole percent), not "0.1" (the raw
-    // fraction) — proves the display-side conversion, not just that whatever
-    // was typed comes back unchanged.
-    await user.click(within(row).getByRole('button', { name: /editar/i }))
+    // Creating no longer closes the modal — it switches into edit mode for the newly created
+    // invoice instead, so the user can add line items in the same flow. The refetched invoice
+    // re-populating the IVA field with "10" (whole percent, not "0.1" the raw fraction) proves
+    // the same round trip the old reopen-via-"Editar" step used to prove.
+    expect(await screen.findByText('Editar factura')).toBeInTheDocument()
     expect(await screen.findByLabelText(/iva/i)).toHaveValue(10)
-    await user.click(screen.getByRole('button', { name: /guardar cambios/i }))
 
     // Add a 100.00 line item and issue — if "10" had been sent to the backend
     // as a raw fraction (10) instead of 0.10, the resulting total would be
     // 1100.00 (100 + 1000%) instead of 110.00 (100 + 10%).
-    row = screen.getByText('INV-2026-00004').closest('tr')!
-    await user.click(within(row).getByRole('button', { name: /editar/i }))
     await user.type(screen.getByLabelText(/^descripción$/i), 'Servicio')
     await user.clear(screen.getByLabelText(/cantidad/i))
     await user.type(screen.getByLabelText(/cantidad/i), '1')
@@ -142,7 +206,7 @@ describe('Billing', () => {
     await waitFor(() => expect(screen.getByText('Servicio')).toBeInTheDocument())
     await user.click(screen.getByRole('button', { name: /close/i }))
 
-    row = screen.getByText('INV-2026-00004').closest('tr')!
+    const row = screen.getByText('INV-2026-00004').closest('tr')!
     await user.click(within(row).getByRole('button', { name: /emitir/i }))
 
     await waitFor(() => expect(within(row).getByText(formatCurrency(110))).toBeInTheDocument())
@@ -163,9 +227,31 @@ describe('Billing', () => {
     const issuedRow = screen.getByText(issued.invoiceNumber).closest('tr')!
     await user.click(within(issuedRow).getByRole('button', { name: /editar/i }))
     const dialog = await screen.findByRole('dialog')
-    expect(await within(dialog).findByRole('heading', { name: 'Editar factura' })).toBeInTheDocument()
+    // ISSUED invoices are read-only (InvoiceService.update() rejects non-DRAFT edits) — the modal
+    // shows this with the generic "Factura" heading instead of "Editar factura".
+    expect(await within(dialog).findByRole('heading', { name: 'Factura' })).toBeInTheDocument()
     expect(within(dialog).getByText(/fecha de emisión/i)).toBeInTheDocument()
     expect(within(dialog).getByText(issued.issueDate!)).toBeInTheDocument()
+  })
+
+  it('locks the top-level fields and shows a Cerrar button for a non-DRAFT invoice', async () => {
+    const user = userEvent.setup()
+    renderBilling()
+
+    const issued = SEED_INVOICES[1]!
+    const row = (await screen.findByText(issued.invoiceNumber)).closest('tr')!
+    await user.click(within(row).getByRole('button', { name: /editar/i }))
+
+    const dialog = await screen.findByRole('dialog')
+    expect(await within(dialog).findByRole('heading', { name: 'Factura' })).toBeInTheDocument()
+    expect(within(dialog).getByLabelText(/^cliente$/i)).toBeDisabled()
+    expect(within(dialog).getByLabelText(/fecha de vencimiento/i)).toBeDisabled()
+    expect(within(dialog).getByLabelText(/iva/i)).toBeDisabled()
+    expect(within(dialog).getByLabelText(/notas/i)).toBeDisabled()
+    expect(within(dialog).queryByRole('button', { name: /guardar cambios/i })).not.toBeInTheDocument()
+
+    await user.click(within(dialog).getByRole('button', { name: /cerrar/i }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
   it('adds a line item to a DRAFT invoice', async () => {
@@ -208,8 +294,14 @@ describe('Billing', () => {
     await screen.findByText(SEED_INVOICES[0]!.invoiceNumber)
 
     await user.click(screen.getByRole('button', { name: /nueva factura/i }))
-    await user.selectOptions(screen.getByLabelText(/cliente/i), 'client-2')
+    await user.selectOptions(screen.getByLabelText(/^cliente$/i), 'client-2')
     await user.click(screen.getByRole('button', { name: /crear factura/i }))
+
+    // Creating no longer closes the modal — it switches into edit mode for the newly created
+    // invoice. Close it here so the underlying table (inert while the dialog is open) becomes
+    // interactive again for the "Emitir" click below.
+    expect(await screen.findByText('Editar factura')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /close/i }))
 
     const row = (await screen.findByText('INV-2026-00004')).closest('tr')!
     await user.click(within(row).getByRole('button', { name: /emitir/i }))
@@ -268,4 +360,114 @@ describe('Billing', () => {
     clickSpy.mockRestore()
   })
 
+  it('narrows the invoice list with the invoice number search', async () => {
+    const user = userEvent.setup()
+    renderBilling()
+
+    const [draft, issued] = SEED_INVOICES
+    await screen.findByText(draft!.invoiceNumber)
+
+    await user.type(screen.getByLabelText(/buscar por número de factura/i), '00002')
+
+    await waitFor(() => {
+      expect(screen.getByText(issued!.invoiceNumber)).toBeInTheDocument()
+    })
+    expect(screen.queryByText(draft!.invoiceNumber)).not.toBeInTheDocument()
+  })
+
+  it('narrows the invoice list with the client filter', async () => {
+    const user = userEvent.setup()
+    renderBilling()
+
+    const [draft, issued] = SEED_INVOICES
+    await screen.findByText(draft!.invoiceNumber)
+
+    await user.selectOptions(screen.getByLabelText(/filtrar por cliente/i), issued!.clientId)
+
+    await waitFor(() => {
+      expect(screen.getByText(issued!.invoiceNumber)).toBeInTheDocument()
+    })
+    expect(screen.queryByText(draft!.invoiceNumber)).not.toBeInTheDocument()
+  })
+
+  it('narrows the invoice list with the status filter', async () => {
+    const user = userEvent.setup()
+    renderBilling()
+
+    const [draft, , paid] = SEED_INVOICES
+    await screen.findByText(draft!.invoiceNumber)
+
+    await user.selectOptions(screen.getByLabelText(/filtrar por estado/i), 'PAID')
+
+    await waitFor(() => {
+      expect(screen.getByText(paid!.invoiceNumber)).toBeInTheDocument()
+    })
+    expect(screen.queryByText(draft!.invoiceNumber)).not.toBeInTheDocument()
+  })
+
+  it('narrows the invoice list with the issue date range filter', async () => {
+    const user = userEvent.setup()
+    renderBilling()
+
+    const [draft, issued, paid] = SEED_INVOICES
+    await screen.findByText(draft!.invoiceNumber)
+
+    await user.type(screen.getByLabelText(/^emisión desde$/i), '2026-06-01')
+    await user.type(screen.getByLabelText(/^emisión hasta$/i), '2026-06-30')
+
+    await waitFor(() => {
+      expect(screen.getByText(paid!.invoiceNumber)).toBeInTheDocument()
+    })
+    expect(screen.queryByText(issued!.invoiceNumber)).not.toBeInTheDocument()
+    expect(screen.queryByText(draft!.invoiceNumber)).not.toBeInTheDocument()
+  })
+
+  it('narrows the invoice list with the due date range filter', async () => {
+    const user = userEvent.setup()
+    renderBilling()
+
+    const [draft, issued, paid] = SEED_INVOICES
+    await screen.findByText(draft!.invoiceNumber)
+
+    await user.type(screen.getByLabelText(/^vencimiento desde$/i), '2026-07-25')
+    await user.type(screen.getByLabelText(/^vencimiento hasta$/i), '2026-08-03')
+
+    await waitFor(() => {
+      expect(screen.getByText(draft!.invoiceNumber)).toBeInTheDocument()
+    })
+    expect(screen.queryByText(issued!.invoiceNumber)).not.toBeInTheDocument()
+    expect(screen.queryByText(paid!.invoiceNumber)).not.toBeInTheDocument()
+  })
+
+  it('narrows the invoice list with the total amount range filter', async () => {
+    const user = userEvent.setup()
+    renderBilling()
+
+    const [draft, issued] = SEED_INVOICES
+    await screen.findByText(draft!.invoiceNumber)
+
+    await user.type(screen.getByLabelText(/^total mínimo$/i), '600')
+    await user.type(screen.getByLabelText(/^total máximo$/i), '700')
+
+    await waitFor(() => {
+      expect(screen.getByText(issued!.invoiceNumber)).toBeInTheDocument()
+    })
+    expect(screen.getAllByRole('row')).toHaveLength(2) // header row + the one matching invoice
+  })
+
+  it('collapses and expands the filter panel when the trigger is clicked', async () => {
+    const user = userEvent.setup()
+    renderBilling()
+
+    await screen.findByText(SEED_INVOICES[0]!.invoiceNumber)
+
+    const trigger = screen.getByRole('button', { name: /mostrar u ocultar filtros/i })
+    expect(trigger).toHaveAttribute('data-state', 'open')
+    expect(screen.getByLabelText(/filtrar por estado/i)).toBeInTheDocument()
+
+    await user.click(trigger)
+
+    expect(trigger).toHaveAttribute('data-state', 'closed')
+    expect(screen.queryByLabelText(/filtrar por estado/i)).not.toBeInTheDocument()
+  })
 })

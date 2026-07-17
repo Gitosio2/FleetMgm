@@ -1,13 +1,6 @@
-import { useState } from 'react'
-import { ChevronDown, Plus } from 'lucide-react'
 import type { ExpenseCategory, Supplier, SupplierInvoiceStatus, Vehicle } from '@fleetmgm/api'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import { FilterBar, type FilterField } from './FilterBar'
 import { EXPENSE_CATEGORY_LABEL, STATUS_LABEL } from './supplier-invoice-shared'
-
-const selectClassName =
-  'flex h-9 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary-container'
 
 type SupplierInvoiceFiltersProps = {
   supplierId: string
@@ -64,187 +57,110 @@ export function SupplierInvoiceFilters({
   vehicles,
   onCreate,
 }: SupplierInvoiceFiltersProps) {
-  const [filtersOpen, setFiltersOpen] = useState(true)
-
-  function toggleFilters() {
-    setFiltersOpen((open) => !open)
-  }
+  const fields: FilterField[] = [
+    {
+      type: 'select',
+      key: 'supplierId',
+      label: 'Proveedor',
+      ariaLabel: 'Filtrar por proveedor',
+      value: supplierId,
+      onChange: onSupplierIdChange,
+      placeholder: 'Todos los proveedores',
+      options: suppliers.map((supplier) => ({ value: supplier.id, label: supplier.name })),
+    },
+    {
+      type: 'select',
+      key: 'category',
+      label: 'Categoría',
+      ariaLabel: 'Filtrar por categoría',
+      value: category,
+      onChange: (value) => onCategoryChange(value as ExpenseCategory | ''),
+      placeholder: 'Todas las categorías',
+      options: (Object.keys(EXPENSE_CATEGORY_LABEL) as ExpenseCategory[]).map((value) => ({
+        value,
+        label: EXPENSE_CATEGORY_LABEL[value],
+      })),
+    },
+    {
+      type: 'select',
+      key: 'vehicleId',
+      label: 'Vehículo',
+      ariaLabel: 'Filtrar por vehículo',
+      value: vehicleId,
+      onChange: onVehicleIdChange,
+      placeholder: 'Todos los vehículos',
+      options: vehicles.map((vehicle) => ({ value: vehicle.id, label: vehicleLabel(vehicle) })),
+    },
+    {
+      type: 'select',
+      key: 'status',
+      label: 'Estado',
+      ariaLabel: 'Filtrar por estado',
+      value: status,
+      onChange: (value) => onStatusChange(value as SupplierInvoiceStatus | ''),
+      placeholder: 'Todos los estados',
+      options: (Object.keys(STATUS_LABEL) as SupplierInvoiceStatus[]).map((value) => ({
+        value,
+        label: STATUS_LABEL[value],
+      })),
+    },
+    {
+      type: 'date',
+      key: 'invoiceDateFrom',
+      label: 'Fecha desde',
+      ariaLabel: 'Fecha desde',
+      value: invoiceDateFrom,
+      onChange: onInvoiceDateFromChange,
+    },
+    {
+      type: 'date',
+      key: 'invoiceDateTo',
+      label: 'Fecha hasta',
+      ariaLabel: 'Fecha hasta',
+      value: invoiceDateTo,
+      onChange: onInvoiceDateToChange,
+    },
+    {
+      type: 'date',
+      key: 'dueDateFrom',
+      label: 'Vencimiento desde',
+      ariaLabel: 'Vencimiento desde',
+      value: dueDateFrom,
+      onChange: onDueDateFromChange,
+    },
+    {
+      type: 'date',
+      key: 'dueDateTo',
+      label: 'Vencimiento hasta',
+      ariaLabel: 'Vencimiento hasta',
+      value: dueDateTo,
+      onChange: onDueDateToChange,
+    },
+    {
+      type: 'number',
+      key: 'totalMin',
+      label: 'Total mínimo',
+      ariaLabel: 'Total mínimo',
+      value: totalMin,
+      onChange: onTotalMinChange,
+    },
+    {
+      type: 'number',
+      key: 'totalMax',
+      label: 'Total máximo',
+      ariaLabel: 'Total máximo',
+      value: totalMax,
+      onChange: onTotalMaxChange,
+    },
+  ]
 
   return (
-    <Card>
-      <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen}>
-        <CardHeader className="flex-row items-center justify-between gap-4">
-          <div
-            role="button"
-            tabIndex={0}
-            className="cursor-pointer"
-            onClick={toggleFilters}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault()
-                toggleFilters()
-              }
-            }}
-          >
-            <h1 className="font-display text-2xl font-semibold">Facturas de proveedor</h1>
-            <p className="text-on-surface-variant">Gestiona los gastos operativos y sus proveedores.</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button onClick={onCreate}>
-              <Plus className="size-4" />
-              Nueva factura de proveedor
-            </Button>
-            <CollapsibleTrigger asChild>
-              <Button variant="outline" size="sm" className="group" aria-label="Mostrar u ocultar filtros">
-                <ChevronDown className="size-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
-              </Button>
-            </CollapsibleTrigger>
-          </div>
-        </CardHeader>
-        <CollapsibleContent>
-          <CardContent>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="flex flex-col gap-1 text-sm text-on-surface-variant">
-                <span>Proveedor</span>
-                <select
-                  aria-label="Filtrar por proveedor"
-                  className={selectClassName}
-                  value={supplierId}
-                  onChange={(e) => onSupplierIdChange(e.target.value)}
-                >
-                  <option value="">Todos los proveedores</option>
-                  {suppliers.map((supplier) => (
-                    <option key={supplier.id} value={supplier.id}>
-                      {supplier.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex flex-col gap-1 text-sm text-on-surface-variant">
-                <span>Categoría</span>
-                <select
-                  aria-label="Filtrar por categoría"
-                  className={selectClassName}
-                  value={category}
-                  onChange={(e) => onCategoryChange(e.target.value as ExpenseCategory | '')}
-                >
-                  <option value="">Todas las categorías</option>
-                  {(Object.keys(EXPENSE_CATEGORY_LABEL) as ExpenseCategory[]).map((value) => (
-                    <option key={value} value={value}>
-                      {EXPENSE_CATEGORY_LABEL[value]}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex flex-col gap-1 text-sm text-on-surface-variant">
-                <span>Vehículo</span>
-                <select
-                  aria-label="Filtrar por vehículo"
-                  className={selectClassName}
-                  value={vehicleId}
-                  onChange={(e) => onVehicleIdChange(e.target.value)}
-                >
-                  <option value="">Todos los vehículos</option>
-                  {vehicles.map((vehicle) => (
-                    <option key={vehicle.id} value={vehicle.id}>
-                      {vehicleLabel(vehicle)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex flex-col gap-1 text-sm text-on-surface-variant">
-                <span>Estado</span>
-                <select
-                  aria-label="Filtrar por estado"
-                  className={selectClassName}
-                  value={status}
-                  onChange={(e) => onStatusChange(e.target.value as SupplierInvoiceStatus | '')}
-                >
-                  <option value="">Todos los estados</option>
-                  {(Object.keys(STATUS_LABEL) as SupplierInvoiceStatus[]).map((value) => (
-                    <option key={value} value={value}>
-                      {STATUS_LABEL[value]}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex flex-col gap-1 text-sm text-on-surface-variant">
-                <span>Fecha desde</span>
-                <input
-                  aria-label="Fecha desde"
-                  type="date"
-                  className={selectClassName}
-                  value={invoiceDateFrom}
-                  onChange={(e) => onInvoiceDateFromChange(e.target.value)}
-                />
-              </div>
-
-              <div className="flex flex-col gap-1 text-sm text-on-surface-variant">
-                <span>Fecha hasta</span>
-                <input
-                  aria-label="Fecha hasta"
-                  type="date"
-                  className={selectClassName}
-                  value={invoiceDateTo}
-                  onChange={(e) => onInvoiceDateToChange(e.target.value)}
-                />
-              </div>
-
-              <div className="flex flex-col gap-1 text-sm text-on-surface-variant">
-                <span>Vencimiento desde</span>
-                <input
-                  aria-label="Vencimiento desde"
-                  type="date"
-                  className={selectClassName}
-                  value={dueDateFrom}
-                  onChange={(e) => onDueDateFromChange(e.target.value)}
-                />
-              </div>
-
-              <div className="flex flex-col gap-1 text-sm text-on-surface-variant">
-                <span>Vencimiento hasta</span>
-                <input
-                  aria-label="Vencimiento hasta"
-                  type="date"
-                  className={selectClassName}
-                  value={dueDateTo}
-                  onChange={(e) => onDueDateToChange(e.target.value)}
-                />
-              </div>
-
-              <div className="flex flex-col gap-1 text-sm text-on-surface-variant">
-                <span>Total mínimo</span>
-                <input
-                  aria-label="Total mínimo"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  className={selectClassName}
-                  value={totalMin}
-                  onChange={(e) => onTotalMinChange(e.target.value)}
-                />
-              </div>
-
-              <div className="flex flex-col gap-1 text-sm text-on-surface-variant">
-                <span>Total máximo</span>
-                <input
-                  aria-label="Total máximo"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  className={selectClassName}
-                  value={totalMax}
-                  onChange={(e) => onTotalMaxChange(e.target.value)}
-                />
-              </div>
-            </div>
-          </CardContent>
-        </CollapsibleContent>
-      </Collapsible>
-    </Card>
+    <FilterBar
+      title="Facturas de proveedor"
+      description="Gestiona los gastos operativos y sus proveedores."
+      createLabel="Nueva factura de proveedor"
+      onCreate={onCreate}
+      fields={fields}
+    />
   )
 }

@@ -20,6 +20,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -54,11 +55,37 @@ class InvoiceControllerTest {
     @Test
     void list_returns200_withPage() throws Exception {
         PageResponse<InvoiceResponse> page = new PageResponse<>(List.of(sampleResponse()), 0, 20, 1, 1);
-        when(invoiceService.list(any(Pageable.class))).thenReturn(page);
+        when(invoiceService.list(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(Pageable.class)))
+                .thenReturn(page);
 
         mockMvc.perform(get("/api/v1/invoices"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    @Test
+    void list_forwardsQueryParams_toService() throws Exception {
+        PageResponse<InvoiceResponse> page = new PageResponse<>(List.of(sampleResponse()), 0, 20, 1, 1);
+
+        when(invoiceService.list(
+                eq(CLIENT_ID), eq("INV-2026-00"), eq(InvoiceStatus.ISSUED),
+                eq(LocalDate.parse("2026-01-01")), eq(LocalDate.parse("2026-12-31")),
+                eq(LocalDate.parse("2026-02-01")), eq(LocalDate.parse("2026-11-30")),
+                eq(new BigDecimal("50")), eq(new BigDecimal("200")), any(Pageable.class)))
+                .thenReturn(page);
+
+        mockMvc.perform(get("/api/v1/invoices")
+                        .param("clientId", CLIENT_ID.toString())
+                        .param("invoiceNumber", "INV-2026-00")
+                        .param("status", "ISSUED")
+                        .param("issueDateFrom", "2026-01-01")
+                        .param("issueDateTo", "2026-12-31")
+                        .param("dueDateFrom", "2026-02-01")
+                        .param("dueDateTo", "2026-11-30")
+                        .param("totalMin", "50")
+                        .param("totalMax", "200"))
+                .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(1));
     }
 

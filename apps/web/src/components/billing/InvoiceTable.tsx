@@ -3,6 +3,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ClientInfoLink } from '@/components/client/ClientInfoLink'
 import { InvoiceStatusBadge } from './InvoiceStatusBadge'
 import { InvoiceActionButtons } from './InvoiceActionButtons'
+import { displayInvoiceTotal } from './invoice-shared'
 import { formatCurrency } from '@/lib/currency'
 
 type InvoiceTableProps = {
@@ -34,7 +35,7 @@ export function InvoiceTable({ invoices, onEdit }: InvoiceTableProps) {
             <TableCell>
               <InvoiceStatusBadge status={invoice.status} />
             </TableCell>
-            <TableCell>{formatCurrency(invoice.total)}</TableCell>
+            <TableCell>{formatCurrency(displayInvoiceTotal(invoice))}</TableCell>
             <TableCell>{invoice.issueDate ?? '—'}</TableCell>
             <TableCell>{invoice.dueDate ?? '—'}</TableCell>
             <TableCell>

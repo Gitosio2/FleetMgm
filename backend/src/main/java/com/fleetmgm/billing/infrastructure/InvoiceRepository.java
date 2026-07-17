@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -20,10 +21,60 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
     // Not-yet-PAID invoices (DRAFT/ISSUED) sort before PAID, newest first within each group —
     // createdAt is the tie-break (not issueDate/dueDate) since DRAFT has neither populated yet.
     // Callers must pass an unsorted Pageable — this ORDER BY is the whole point of the query.
+    // Filters mirror SupplierInvoiceRepository.findAllJoinFetch(): clientId follows the bare
+    // ":param IS NULL" idiom (precedent: that method's vehicleId, also a UUID, uses the same bare
+    // form and works). status/the four date bounds/the two total bounds use
+    // "CAST(:param AS string) IS NULL" instead — see AuditLogRepository's comment on that idiom:
+    // a parameter that appears ONLY in a bare IS NULL check gives Postgres no type context to
+    // infer from, even for enums, and fails 500 on every request that leaves it null. invoiceNumber
+    // was tried with the bare form first on the theory that its second appearance in the
+    // LIKE/CONCAT clause would give Postgres a String type to infer from — but that failed
+    // empirically (InvoiceRepositoryTest, real Postgres via Testcontainers): "function lower(bytea)
+    // does not exist". Casting only the IS NULL occurrence wasn't enough either, and failed with the
+    // same error — each JPQL "?" placeholder is bound independently, so the CONCAT occurrence needs
+    // its own CAST too; pgjdbc binds an untyped null parameter to bytea by default. Both occurrences
+    // of :invoiceNumber below are cast for that reason.
+    //
+    // totalMin/totalMax compare against an "effective total" CASE expression, not i.total directly:
+    // a DRAFT invoice's subtotal/taxAmount/total stay 0 until issue() computes them, but the
+    // frontend (InvoiceTable/invoice-shared.ts's displayInvoiceTotal) shows a preview total for
+    // DRAFT rows computed from their line items — filtering against the raw i.total would silently
+    // exclude a DRAFT invoice the user can see visibly satisfies the range they typed. The
+    // correlated subquery mirrors that same preview computation so the filter agrees with what's
+    // displayed. Repeated once per bound (JPQL/Hibernate has no local CTE/WITH to factor it into)
+    // — same repetition tradeoff already accepted elsewhere in this query.
     @Query("SELECT i FROM Invoice i JOIN FETCH i.client "
+            + "WHERE (:clientId IS NULL OR i.client.id = :clientId) "
+            + "AND (CAST(:invoiceNumber AS string) IS NULL OR LOWER(i.invoiceNumber) LIKE "
+            + "     LOWER(CONCAT('%', CAST(:invoiceNumber AS string), '%'))) "
+            + "AND (CAST(:status AS string) IS NULL OR i.status = :status) "
+            + "AND (CAST(:issueDateFrom AS string) IS NULL OR i.issueDate >= :issueDateFrom) "
+            + "AND (CAST(:issueDateTo AS string) IS NULL OR i.issueDate <= :issueDateTo) "
+            + "AND (CAST(:dueDateFrom AS string) IS NULL OR i.dueDate >= :dueDateFrom) "
+            + "AND (CAST(:dueDateTo AS string) IS NULL OR i.dueDate <= :dueDateTo) "
+            + "AND (CAST(:totalMin AS string) IS NULL OR "
+            + "     (CASE WHEN i.status = com.fleetmgm.billing.domain.InvoiceStatus.DRAFT "
+            + "       THEN (SELECT COALESCE(SUM(li.subtotal), 0) FROM InvoiceLineItem li WHERE li.invoice = i) "
+            + "            * (1 + i.taxRate) "
+            + "       ELSE i.total END) >= :totalMin) "
+            + "AND (CAST(:totalMax AS string) IS NULL OR "
+            + "     (CASE WHEN i.status = com.fleetmgm.billing.domain.InvoiceStatus.DRAFT "
+            + "       THEN (SELECT COALESCE(SUM(li.subtotal), 0) FROM InvoiceLineItem li WHERE li.invoice = i) "
+            + "            * (1 + i.taxRate) "
+            + "       ELSE i.total END) <= :totalMax) "
             + "ORDER BY CASE WHEN i.status = com.fleetmgm.billing.domain.InvoiceStatus.PAID THEN 1 ELSE 0 END, "
             + "i.createdAt DESC")
-    Page<Invoice> findAllJoinFetch(Pageable pageable);
+    Page<Invoice> findAllJoinFetch(
+            @Param("clientId") UUID clientId,
+            @Param("invoiceNumber") String invoiceNumber,
+            @Param("status") InvoiceStatus status,
+            @Param("issueDateFrom") LocalDate issueDateFrom,
+            @Param("issueDateTo") LocalDate issueDateTo,
+            @Param("dueDateFrom") LocalDate dueDateFrom,
+            @Param("dueDateTo") LocalDate dueDateTo,
+            @Param("totalMin") BigDecimal totalMin,
+            @Param("totalMax") BigDecimal totalMax,
+            Pageable pageable);
 
     // Financial-summary KPI (dashboard) — top-N unpaid client invoices due soon. No lower bound on
     // dueDate: already-overdue invoices (dueDate in the past) must be included too, not filtered

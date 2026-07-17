@@ -1,12 +1,6 @@
 import type { InvoiceStatus } from '@fleetmgm/api'
 import { cn } from '@/lib/utils'
-
-const STATUS_LABEL: Record<InvoiceStatus, string> = {
-  DRAFT: 'Borrador',
-  ISSUED: 'Emitida',
-  PAID: 'Pagada',
-  OVERDUE: 'Vencida',
-}
+import { STATUS_LABEL } from './invoice-shared'
 
 const STATUS_CLASSNAME: Record<InvoiceStatus, string> = {
   DRAFT: 'bg-surface-container-high text-on-surface-variant',

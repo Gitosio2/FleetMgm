@@ -83,12 +83,15 @@ public class InvoiceService {
 
     @Transactional(readOnly = true)
     @PreAuthorize(ROLES)
-    public PageResponse<InvoiceResponse> list(Pageable pageable) {
+    public PageResponse<InvoiceResponse> list(UUID clientId, String invoiceNumber, InvoiceStatus status,
+            LocalDate issueDateFrom, LocalDate issueDateTo, LocalDate dueDateFrom, LocalDate dueDateTo,
+            BigDecimal totalMin, BigDecimal totalMax, Pageable pageable) {
         // The repository query's own ORDER BY (pending-first, then newest-first) is the whole
         // point — a caller-supplied Sort would just get appended after it, which is confusing at
         // best, so it's stripped here rather than trusted from the controller.
         Pageable pageOnly = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
-        Page<Invoice> page = invoiceRepository.findAllJoinFetch(pageOnly);
+        Page<Invoice> page = invoiceRepository.findAllJoinFetch(clientId, invoiceNumber, status, issueDateFrom,
+                issueDateTo, dueDateFrom, dueDateTo, totalMin, totalMax, pageOnly);
         List<UUID> invoiceIds = page.getContent().stream().map(Invoice::getId).toList();
         // Single batched query for the whole page — grouping in memory here, instead of calling
         // lineItemRepository.findAllByInvoiceId() once per invoice inside the loop below, is what

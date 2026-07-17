@@ -1,6 +1,7 @@
 package com.fleetmgm.billing.infrastructure;
 
 import com.fleetmgm.billing.domain.Invoice;
+import com.fleetmgm.billing.domain.InvoiceLineItem;
 import com.fleetmgm.billing.domain.InvoiceStatus;
 import com.fleetmgm.client.domain.Client;
 import com.fleetmgm.config.AuditorAwareImpl;
@@ -54,12 +55,26 @@ class InvoiceRepositoryTest {
     TestEntityManager entityManager;
 
     @Test
-    void findAllJoinFetch_initializesClient_withoutFurtherQueries() {
+    void findAllJoinFetch_returnsAll_whenNoFiltersProvided() {
         Client client = persistClient("11111111A");
-        Invoice invoice = persistInvoice(client, "INV-2026-00001", InvoiceStatus.DRAFT);
+        persistInvoice(client, "INV-2026-00001", InvoiceStatus.DRAFT);
+        persistInvoice(client, "INV-2026-00040", InvoiceStatus.ISSUED);
         entityManager.getEntityManager().clear();
 
-        Page<Invoice> result = invoiceRepository.findAllJoinFetch(PageRequest.of(0, 20));
+        Page<Invoice> result = invoiceRepository.findAllJoinFetch(
+                null, null, null, null, null, null, null, null, null, PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).hasSize(2);
+    }
+
+    @Test
+    void findAllJoinFetch_initializesClient_withoutFurtherQueries() {
+        Client client = persistClient("12121212K");
+        Invoice invoice = persistInvoice(client, "INV-2026-00041", InvoiceStatus.DRAFT);
+        entityManager.getEntityManager().clear();
+
+        Page<Invoice> result = invoiceRepository.findAllJoinFetch(
+                null, null, null, null, null, null, null, null, null, PageRequest.of(0, 20));
 
         assertThat(result.getContent()).hasSize(1);
         Invoice fetched = result.getContent().get(0);
@@ -75,7 +90,8 @@ class InvoiceRepositoryTest {
         entityManager.persistAndFlush(invoice);
         entityManager.getEntityManager().clear();
 
-        Page<Invoice> result = invoiceRepository.findAllJoinFetch(PageRequest.of(0, 20));
+        Page<Invoice> result = invoiceRepository.findAllJoinFetch(
+                null, null, null, null, null, null, null, null, null, PageRequest.of(0, 20));
 
         assertThat(result.getContent()).isEmpty();
     }
@@ -89,10 +105,205 @@ class InvoiceRepositoryTest {
         Invoice newestPaid = persistInvoice(client, "INV-2026-00033", InvoiceStatus.PAID);
         entityManager.getEntityManager().clear();
 
-        Page<Invoice> result = invoiceRepository.findAllJoinFetch(PageRequest.of(0, 20));
+        Page<Invoice> result = invoiceRepository.findAllJoinFetch(
+                null, null, null, null, null, null, null, null, null, PageRequest.of(0, 20));
 
         assertThat(result.getContent()).extracting(Invoice::getId).containsExactly(
                 newestPending.getId(), oldestPending.getId(), newestPaid.getId(), oldestPaid.getId());
+    }
+
+    @Test
+    void findAllJoinFetch_narrowsByClientId_whenProvided() {
+        Client clientA = persistClient("13131313L");
+        Client clientB = persistClient("14141414M");
+        Invoice match = persistInvoice(clientA, "INV-2026-00042", InvoiceStatus.DRAFT);
+        persistInvoice(clientB, "INV-2026-00043", InvoiceStatus.DRAFT);
+        entityManager.getEntityManager().clear();
+
+        Page<Invoice> result = invoiceRepository.findAllJoinFetch(
+                clientA.getId(), null, null, null, null, null, null, null, null, PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).extracting(Invoice::getId).containsExactly(match.getId());
+    }
+
+    @Test
+    void findAllJoinFetch_narrowsByInvoiceNumber_partialMatch_caseInsensitive_whenProvided() {
+        Client client = persistClient("21212121T");
+        Invoice match = persistInvoice(client, "INV-2026-00056", InvoiceStatus.DRAFT);
+        persistInvoice(client, "INV-2026-00099", InvoiceStatus.DRAFT);
+        entityManager.getEntityManager().clear();
+
+        Page<Invoice> result = invoiceRepository.findAllJoinFetch(
+                null, "inv-2026-0005", null, null, null, null, null, null, null, PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).extracting(Invoice::getId).containsExactly(match.getId());
+    }
+
+    @Test
+    void findAllJoinFetch_narrowsByStatus_whenProvided() {
+        Client client = persistClient("15151515N");
+        Invoice draft = persistInvoice(client, "INV-2026-00044", InvoiceStatus.DRAFT);
+        persistInvoice(client, "INV-2026-00045", InvoiceStatus.PAID);
+        entityManager.getEntityManager().clear();
+
+        Page<Invoice> result = invoiceRepository.findAllJoinFetch(
+                null, null, InvoiceStatus.DRAFT, null, null, null, null, null, null, PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).extracting(Invoice::getId).containsExactly(draft.getId());
+    }
+
+    @Test
+    void findAllJoinFetch_narrowsByIssueDateRange_whenBothBoundsProvided() {
+        Client client = persistClient("16161616O");
+        Invoice inRange = persistInvoiceWithIssueDate(client, "INV-2026-00046", LocalDate.now());
+        persistInvoiceWithIssueDate(client, "INV-2026-00047", LocalDate.now().minusDays(10));
+        entityManager.getEntityManager().clear();
+
+        Page<Invoice> result = invoiceRepository.findAllJoinFetch(null, null, null,
+                LocalDate.now().minusDays(5), LocalDate.now().plusDays(5), null, null, null, null,
+                PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).extracting(Invoice::getId).containsExactly(inRange.getId());
+    }
+
+    @Test
+    void findAllJoinFetch_narrowsByDueDateRange_whenBothBoundsProvided() {
+        Client client = persistClient("17171717P");
+        Invoice inRange = persistInvoiceWithDueDate(client, "INV-2026-00048", InvoiceStatus.ISSUED, LocalDate.now().plusDays(5));
+        persistInvoiceWithDueDate(client, "INV-2026-00049", InvoiceStatus.ISSUED, LocalDate.now().plusDays(20));
+        entityManager.getEntityManager().clear();
+
+        Page<Invoice> result = invoiceRepository.findAllJoinFetch(null, null, null, null, null,
+                LocalDate.now(), LocalDate.now().plusDays(10), null, null, PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).extracting(Invoice::getId).containsExactly(inRange.getId());
+    }
+
+    @Test
+    void findAllJoinFetch_narrowsByTotalRange_whenBothBoundsProvided() {
+        Client client = persistClient("18181818Q");
+        Invoice inRange = persistInvoiceWithTotal(client, "INV-2026-00050", new BigDecimal("150.00"));
+        persistInvoiceWithTotal(client, "INV-2026-00051", new BigDecimal("50.00"));
+        entityManager.getEntityManager().clear();
+
+        Page<Invoice> result = invoiceRepository.findAllJoinFetch(null, null, null, null, null, null, null,
+                new BigDecimal("100.00"), new BigDecimal("200.00"), PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).extracting(Invoice::getId).containsExactly(inRange.getId());
+    }
+
+    @Test
+    void findAllJoinFetch_narrowsByTotalRange_matchesDraftInvoiceByEstimatedTotal_notPersistedZero() {
+        // A DRAFT invoice's persisted total/subtotal/taxAmount stay 0 until issue() computes them
+        // (InvoiceService.issue()) — but InvoiceTable displays an estimated total to the user
+        // (line items summed, taxed) for DRAFT rows. The total-range filter must agree with that
+        // displayed estimate, not the raw persisted 0, or a DRAFT invoice the user can see visibly
+        // satisfies the range silently disappears from the filtered results.
+        Client client = persistClient("23232323V");
+        // subtotal 300.00 + 80.00 = 380.00, * 1.21 = 459.80 estimated total — inside [400, 500].
+        Invoice draftInRange = persistInvoiceWithLineItems(client, "INV-2026-00057",
+                new BigDecimal("0.2100"), new BigDecimal("300.00"), new BigDecimal("80.00"));
+        // subtotal 15.00, * 1.21 = 18.15 estimated total — outside [400, 500].
+        persistInvoiceWithLineItems(client, "INV-2026-00058",
+                new BigDecimal("0.2100"), new BigDecimal("10.00"), new BigDecimal("5.00"));
+        entityManager.getEntityManager().clear();
+
+        assertThat(draftInRange.getTotal()).isEqualByComparingTo(BigDecimal.ZERO);
+
+        Page<Invoice> result = invoiceRepository.findAllJoinFetch(null, null, null, null, null, null, null,
+                new BigDecimal("400.00"), new BigDecimal("500.00"), PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).extracting(Invoice::getId).containsExactly(draftInRange.getId());
+    }
+
+    @Test
+    void findAllJoinFetch_narrowsByTotalRange_stillUsesPersistedTotal_forIssuedInvoices() {
+        // Confirms the DRAFT-only CASE branch didn't accidentally change ISSUED/PAID filtering,
+        // which must keep comparing against the real persisted total (an ISSUED invoice may have
+        // had line items added and later removed/adjusted, so its persisted total is authoritative,
+        // not a re-derivation from its current line items).
+        Client client = persistClient("24242424W");
+        Invoice issuedInRange = persistInvoiceWithTotal(client, "INV-2026-00059", new BigDecimal("450.00"));
+        entityManager.getEntityManager().clear();
+
+        Page<Invoice> result = invoiceRepository.findAllJoinFetch(null, null, null, null, null, null, null,
+                new BigDecimal("400.00"), new BigDecimal("500.00"), PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).extracting(Invoice::getId).containsExactly(issuedInRange.getId());
+    }
+
+    private Invoice persistInvoiceWithLineItems(Client client, String invoiceNumber, BigDecimal taxRate,
+            BigDecimal... lineSubtotals) {
+        Invoice invoice = new Invoice();
+        invoice.setClient(client);
+        invoice.setInvoiceNumber(invoiceNumber);
+        invoice.setStatus(InvoiceStatus.DRAFT);
+        invoice.setTaxRate(taxRate);
+        Invoice saved = entityManager.persistAndFlush(invoice);
+        for (BigDecimal subtotal : lineSubtotals) {
+            InvoiceLineItem lineItem = new InvoiceLineItem();
+            lineItem.setInvoice(saved);
+            lineItem.setDescription("Test line");
+            lineItem.setQuantity(BigDecimal.ONE);
+            lineItem.setUnitPrice(subtotal);
+            lineItem.setSubtotal(subtotal);
+            entityManager.persistAndFlush(lineItem);
+        }
+        return saved;
+    }
+
+    @Test
+    void findAllJoinFetch_combinesAllFilters_whenAllProvided() {
+        Client client = persistClient("19191919R");
+        Client otherClient = persistClient("20202020S");
+
+        Invoice match = persistInvoiceWithDueDate(client, "INV-2026-00052", InvoiceStatus.ISSUED, LocalDate.now().plusDays(15));
+        match.setIssueDate(LocalDate.now());
+        match.setTotal(new BigDecimal("150.00"));
+        entityManager.persistAndFlush(match);
+
+        // Each sibling violates exactly one of the filters below.
+        Invoice wrongClient = persistInvoiceWithDueDate(otherClient, "INV-2026-00053", InvoiceStatus.ISSUED, LocalDate.now().plusDays(15));
+        wrongClient.setIssueDate(LocalDate.now());
+        wrongClient.setTotal(new BigDecimal("150.00"));
+        entityManager.persistAndFlush(wrongClient);
+
+        Invoice wrongStatus = persistInvoiceWithDueDate(client, "INV-2026-00054", InvoiceStatus.PAID, LocalDate.now().plusDays(15));
+        wrongStatus.setIssueDate(LocalDate.now());
+        wrongStatus.setTotal(new BigDecimal("150.00"));
+        entityManager.persistAndFlush(wrongStatus);
+
+        Invoice wrongTotal = persistInvoiceWithDueDate(client, "INV-2026-00055", InvoiceStatus.ISSUED, LocalDate.now().plusDays(15));
+        wrongTotal.setIssueDate(LocalDate.now());
+        wrongTotal.setTotal(new BigDecimal("999.00"));
+        entityManager.persistAndFlush(wrongTotal);
+        entityManager.getEntityManager().clear();
+
+        Page<Invoice> result = invoiceRepository.findAllJoinFetch(
+                client.getId(), null, InvoiceStatus.ISSUED,
+                LocalDate.now().minusDays(1), LocalDate.now().plusDays(1),
+                LocalDate.now().plusDays(10), LocalDate.now().plusDays(20),
+                new BigDecimal("100.00"), new BigDecimal("200.00"), PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).extracting(Invoice::getId).containsExactly(match.getId());
+    }
+
+    private Invoice persistInvoiceWithIssueDate(Client client, String invoiceNumber, LocalDate issueDate) {
+        Invoice invoice = new Invoice();
+        invoice.setClient(client);
+        invoice.setInvoiceNumber(invoiceNumber);
+        invoice.setStatus(InvoiceStatus.ISSUED);
+        invoice.setIssueDate(issueDate);
+        return entityManager.persistAndFlush(invoice);
+    }
+
+    private Invoice persistInvoiceWithTotal(Client client, String invoiceNumber, BigDecimal total) {
+        Invoice invoice = new Invoice();
+        invoice.setClient(client);
+        invoice.setInvoiceNumber(invoiceNumber);
+        invoice.setStatus(InvoiceStatus.ISSUED);
+        invoice.setTotal(total);
+        return entityManager.persistAndFlush(invoice);
     }
 
     @Test

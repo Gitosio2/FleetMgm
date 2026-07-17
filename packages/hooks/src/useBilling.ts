@@ -3,6 +3,7 @@ import { apiClient } from '@fleetmgm/api'
 import type {
   CreateInvoiceRequest,
   Invoice,
+  InvoiceStatus,
   LineItemRequest,
   PageResponse,
   UpdateInvoiceRequest,
@@ -11,12 +12,39 @@ import { invalidateQueryKeys } from './invalidateQueryKeys'
 
 export const INVOICE_KEY = 'invoices'
 
-export function useInvoices(page = 0, size = 20) {
+export type InvoiceFilters = {
+  invoiceNumber?: string
+  clientId?: string
+  status?: InvoiceStatus
+  issueDateFrom?: string
+  issueDateTo?: string
+  dueDateFrom?: string
+  dueDateTo?: string
+  totalMin?: number
+  totalMax?: number
+}
+
+export function useInvoices(filters: InvoiceFilters = {}, page = 0, size = 20) {
+  const { invoiceNumber, clientId, status, issueDateFrom, issueDateTo, dueDateFrom, dueDateTo, totalMin, totalMax } =
+    filters
+
   return useQuery({
-    queryKey: [INVOICE_KEY, { page, size }],
+    queryKey: [INVOICE_KEY, { ...filters, page, size }],
     queryFn: async () => {
       const { data } = await apiClient.get<PageResponse<Invoice>>('/invoices', {
-        params: { page, size },
+        params: {
+          invoiceNumber,
+          clientId,
+          status,
+          issueDateFrom,
+          issueDateTo,
+          dueDateFrom,
+          dueDateTo,
+          totalMin,
+          totalMax,
+          page,
+          size,
+        },
       })
       return data
     },

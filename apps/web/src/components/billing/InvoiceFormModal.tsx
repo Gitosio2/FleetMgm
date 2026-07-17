@@ -6,7 +6,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { formatCurrency } from '@/lib/currency'
 import { LineItemList } from './LineItemList'
+import { computeTaxAndTotal, sumLineItemSubtotals } from './invoice-shared'
 
 const selectClassName =
   'flex h-11 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary-container disabled:cursor-not-allowed disabled:opacity-50'
@@ -35,9 +37,10 @@ type InvoiceFormModalProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   invoice?: Invoice
+  onCreated: (invoice: Invoice) => void
 }
 
-export function InvoiceFormModal({ open, onOpenChange, invoice }: InvoiceFormModalProps) {
+export function InvoiceFormModal({ open, onOpenChange, invoice, onCreated }: InvoiceFormModalProps) {
   const isEditing = invoice != null
   const createInvoice = useCreateInvoice()
   const updateInvoice = useUpdateInvoice()
@@ -61,8 +64,28 @@ export function InvoiceFormModal({ open, onOpenChange, invoice }: InvoiceFormMod
 
   const isPending = createInvoice.isPending || updateInvoice.isPending
 
+  // DRAFT invoices have subtotal/taxAmount/total stuck at 0 until issue() computes them server-side
+  // (see InvoiceService.issue()) — showing invoice.total directly would misleadingly read "0,00€"
+  // even with line items worth thousands. This preview mirrors that same computation client-side
+  // from the current line items and the tax rate being edited, so the user sees what issuing would
+  // produce. ISSUED/PAID invoices show the real persisted values instead, since those are final.
+  const isDraft = invoice?.status === 'DRAFT'
+  const previewSubtotal = sumLineItemSubtotals(invoice?.lineItems ?? [])
+  const previewTaxRate = percentageInputToFraction(taxRate) ?? invoice?.taxRate ?? 0
+  const { taxAmount: previewTaxAmount, total: previewTotal } = computeTaxAndTotal(previewSubtotal, previewTaxRate)
+
+  // InvoiceService.update() rejects any edit with 409 INVOICE_INVALID_STATE_TRANSITION unless the
+  // invoice is still DRAFT — this surfaces that constraint as a read-only view instead of letting
+  // the user fill out the form only to have the save fail (mirrors SupplierInvoiceFormModal's
+  // isReadOnly, whose equivalent condition is status === 'PAID' since that domain has no ISSUED).
+  const isReadOnly = isEditing && !isDraft
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+
+    if (isReadOnly) {
+      return
+    }
 
     const request: CreateInvoiceRequest = {
       clientId,
@@ -74,7 +97,11 @@ export function InvoiceFormModal({ open, onOpenChange, invoice }: InvoiceFormMod
     if (invoice) {
       updateInvoice.mutate({ id: invoice.id, request }, { onSuccess: () => onOpenChange(false) })
     } else {
-      createInvoice.mutate(request, { onSuccess: () => onOpenChange(false) })
+      // Stay open and switch into edit mode for the newly created invoice instead of closing —
+      // a client invoice can't be created with an amount in one step (CreateInvoiceRequest has no
+      // line items), so this lets the user add line items immediately instead of having to close
+      // the modal, find the invoice in the list, and reopen it via "Editar".
+      createInvoice.mutate(request, { onSuccess: (createdInvoice) => onCreated(createdInvoice) })
     }
   }
 
@@ -82,7 +109,7 @@ export function InvoiceFormModal({ open, onOpenChange, invoice }: InvoiceFormMod
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{isEditing ? 'Editar factura' : 'Nueva factura'}</DialogTitle>
+          <DialogTitle>{isReadOnly ? 'Factura' : isEditing ? 'Editar factura' : 'Nueva factura'}</DialogTitle>
         </DialogHeader>
 
         <form id="invoice-form" className="flex flex-col gap-4" onSubmit={handleSubmit}>
@@ -93,6 +120,7 @@ export function InvoiceFormModal({ open, onOpenChange, invoice }: InvoiceFormMod
               className={selectClassName}
               value={clientId}
               onChange={(e) => setClientId(e.target.value)}
+              disabled={isReadOnly}
               required
             >
               <option value="" disabled>
@@ -121,6 +149,7 @@ export function InvoiceFormModal({ open, onOpenChange, invoice }: InvoiceFormMod
                 type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
+                disabled={isReadOnly}
               />
             </div>
             <div className="flex flex-col gap-1.5">
@@ -138,6 +167,7 @@ export function InvoiceFormModal({ open, onOpenChange, invoice }: InvoiceFormMod
                   step="any"
                   value={taxRate}
                   onChange={(e) => setTaxRate(e.target.value)}
+                  disabled={isReadOnly}
                 />
                 <span className="text-sm text-on-surface-variant">%</span>
               </div>
@@ -146,7 +176,12 @@ export function InvoiceFormModal({ open, onOpenChange, invoice }: InvoiceFormMod
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="invoice-notes">Notas</Label>
-            <Input id="invoice-notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
+            <Input
+              id="invoice-notes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              disabled={isReadOnly}
+            />
           </div>
 
           {(createInvoice.isError || updateInvoice.isError) && (
@@ -156,17 +191,49 @@ export function InvoiceFormModal({ open, onOpenChange, invoice }: InvoiceFormMod
           )}
         </form>
 
-        {isEditing && invoice.status === 'DRAFT' && (
+        {isEditing && (
           <div className="mt-6 flex flex-col gap-2 border-t border-outline-variant/40 pt-4">
             <h3 className="font-display text-sm font-semibold">Líneas de factura</h3>
+            {/* LineItemList itself only shows the "add line" form when status === 'DRAFT' — the
+                table of existing lines is always rendered, so ISSUED/PAID invoices show them
+                read-only here instead of not being shown at all. */}
             <LineItemList invoice={invoice} />
           </div>
         )}
 
+        {isEditing && (
+          <div className="mt-4 grid grid-cols-3 gap-4 rounded-lg border border-outline-variant/40 p-4 text-sm">
+            <div>
+              <p className="text-on-surface-variant">Subtotal</p>
+              <p className="font-semibold">{formatCurrency(isDraft ? previewSubtotal : invoice.subtotal)}</p>
+            </div>
+            <div>
+              <p className="text-on-surface-variant">IVA</p>
+              <p className="font-semibold">{formatCurrency(isDraft ? previewTaxAmount : invoice.taxAmount)}</p>
+            </div>
+            <div>
+              <p className="text-on-surface-variant">Total</p>
+              <p className="font-semibold">{formatCurrency(isDraft ? previewTotal : invoice.total)}</p>
+            </div>
+            {isDraft && (
+              <p className="col-span-3 text-xs text-on-surface-variant">
+                Estimado a partir de las líneas actuales y el IVA configurado — se recalcula y queda fijo al
+                emitir la factura.
+              </p>
+            )}
+          </div>
+        )}
+
         <DialogFooter className="mt-6">
-          <Button type="submit" form="invoice-form" disabled={isPending || clientId === ''}>
-            {isEditing ? 'Guardar cambios' : 'Crear factura'}
-          </Button>
+          {isReadOnly ? (
+            <Button type="button" onClick={() => onOpenChange(false)}>
+              Cerrar
+            </Button>
+          ) : (
+            <Button type="submit" form="invoice-form" disabled={isPending || clientId === ''}>
+              {isEditing ? 'Guardar cambios' : 'Crear factura'}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
