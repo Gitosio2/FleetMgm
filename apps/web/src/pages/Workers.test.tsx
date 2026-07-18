@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useAuthStore } from '@fleetmgm/store'
@@ -88,5 +89,50 @@ describe('Workers', () => {
     const thirdWorker = SEED_WORKERS.find((worker) => worker.id === 'worker-3')!
     const row = (await screen.findByText(thirdWorker.fullName)).closest('tr')!
     expect(row).toHaveTextContent('—')
+  })
+
+  it('narrows the worker list with the name filter', async () => {
+    loginAs('ADMIN')
+    const user = userEvent.setup()
+    renderWorkers()
+
+    await screen.findByText(FIRST_WORKER!.fullName)
+
+    await user.type(screen.getByLabelText(/buscar por nombre/i), 'Laura')
+
+    await waitFor(() => {
+      expect(screen.getByText(SECOND_WORKER!.fullName)).toBeInTheDocument()
+    })
+    expect(screen.queryByText(FIRST_WORKER!.fullName)).not.toBeInTheDocument()
+  })
+
+  it('narrows the worker list with the document filter', async () => {
+    loginAs('ADMIN')
+    const user = userEvent.setup()
+    renderWorkers()
+
+    await screen.findByText(FIRST_WORKER!.fullName)
+
+    await user.type(screen.getByLabelText(/buscar por documento/i), FIRST_WORKER!.nationalId.slice(0, 4))
+
+    await waitFor(() => {
+      expect(screen.getByText(FIRST_WORKER!.fullName)).toBeInTheDocument()
+    })
+    expect(screen.queryByText(SECOND_WORKER!.fullName)).not.toBeInTheDocument()
+  })
+
+  it('narrows the worker list with the role filter', async () => {
+    loginAs('ADMIN')
+    const user = userEvent.setup()
+    renderWorkers()
+
+    await screen.findByText(SECOND_WORKER!.fullName)
+
+    await user.selectOptions(screen.getByLabelText(/filtrar por rol/i), 'TECHNICIAN')
+
+    await waitFor(() => {
+      expect(screen.getByText(SECOND_WORKER!.fullName)).toBeInTheDocument()
+    })
+    expect(screen.queryByText(FIRST_WORKER!.fullName)).not.toBeInTheDocument()
   })
 })

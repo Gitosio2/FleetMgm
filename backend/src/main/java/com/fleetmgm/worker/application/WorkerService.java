@@ -6,6 +6,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import com.fleetmgm.shared.exception.ConflictException;
 import com.fleetmgm.shared.exception.NotFoundException;
 import com.fleetmgm.worker.domain.Worker;
+import com.fleetmgm.worker.domain.WorkerRole;
 import com.fleetmgm.worker.dto.CreateWorkerRequest;
 import com.fleetmgm.worker.dto.UpdateWorkerRequest;
 import com.fleetmgm.worker.dto.WorkerMapper;
@@ -41,11 +42,14 @@ public class WorkerService {
 
     @Transactional(readOnly = true)
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ADMINISTRATIVE', 'DRIVER')")
-    public PageResponse<WorkerResponse> list(Pageable pageable) {
+    public PageResponse<WorkerResponse> list(String name, String nationalId, WorkerRole workerRole, Pageable pageable) {
         if (isCurrentUserDriver()) {
+            // A driver only ever sees their own profile — filters are meaningless here and are
+            // intentionally not threaded into this branch.
             return listForCurrentDriver();
         }
-        return PageResponse.from(workerRepository.findAll(pageable).map(workerMapper::toResponse));
+        return PageResponse.from(
+                workerRepository.search(name, nationalId, workerRole, pageable).map(workerMapper::toResponse));
     }
 
     @Transactional
