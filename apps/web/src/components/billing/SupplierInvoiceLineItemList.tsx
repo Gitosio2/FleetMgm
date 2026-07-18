@@ -130,7 +130,7 @@ function EditLineItemRow({ invoiceId, lineItem, vehiclesPage, onDone }: EditLine
 export function SupplierInvoiceLineItemList({ supplierInvoice }: SupplierInvoiceLineItemListProps) {
   const addLineItem = useAddSupplierLineItem()
   const deleteLineItem = useDeleteSupplierLineItem()
-  const { data: vehiclesPage } = useVehicles(0, 100)
+  const { data: vehiclesPage } = useVehicles({}, 0, 100)
 
   const [vehicleId, setVehicleId] = useState('')
   const [description, setDescription] = useState('')

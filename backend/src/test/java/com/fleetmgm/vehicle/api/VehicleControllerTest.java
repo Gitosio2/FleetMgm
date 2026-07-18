@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
@@ -61,11 +62,26 @@ class VehicleControllerTest {
     @Test
     void list_returns200_withPage() throws Exception {
         PageResponse<VehicleResponse> page = new PageResponse<>(List.of(sampleResponse()), 0, 20, 1, 1);
-        when(vehicleService.list(any(Pageable.class))).thenReturn(page);
+        when(vehicleService.list(any(), any(), any(), any(), any(Pageable.class))).thenReturn(page);
 
         mockMvc.perform(get("/api/v1/vehicles"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    @Test
+    void list_passesFilterParams_toService() throws Exception {
+        PageResponse<VehicleResponse> page = new PageResponse<>(List.of(sampleResponse()), 0, 20, 1, 1);
+        when(vehicleService.list(eq(VehicleCategory.HEAVY_VEHICLE), eq(VehicleStatus.MAINTENANCE),
+                eq("1234"), eq("volvo"), any(Pageable.class))).thenReturn(page);
+
+        mockMvc.perform(get("/api/v1/vehicles")
+                        .param("category", "HEAVY_VEHICLE")
+                        .param("status", "MAINTENANCE")
+                        .param("licensePlate", "1234")
+                        .param("vehicle", "volvo"))
+                .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(1));
     }
 

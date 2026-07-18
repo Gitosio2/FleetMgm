@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { beforeEach, describe, expect, it } from 'vitest'
@@ -49,10 +49,13 @@ describe('Vehicles', () => {
     loginAs('ADMIN')
     renderVehicles()
 
-    await screen.findByText(`${FIRST_VEHICLE!.make} ${FIRST_VEHICLE!.model}`)
+    // Scoped to each row — "Activo"/"Mantenimiento" also appear as <option> labels in the new
+    // status filter select, which would otherwise make screen.findByText ambiguous.
+    const firstRow = (await screen.findByText(`${FIRST_VEHICLE!.make} ${FIRST_VEHICLE!.model}`)).closest('tr')!
+    const secondRow = screen.getByText(`${SECOND_VEHICLE!.make} ${SECOND_VEHICLE!.model}`).closest('tr')!
 
-    expect(await screen.findByText('Activo')).toBeInTheDocument()
-    expect(await screen.findByText('Mantenimiento')).toBeInTheDocument()
+    expect(within(firstRow).getByText('Activo')).toBeInTheDocument()
+    expect(within(secondRow).getByText('Mantenimiento')).toBeInTheDocument()
   })
 
   it('shows only the assigned vehicle for the DRIVER role', async () => {
@@ -61,6 +64,58 @@ describe('Vehicles', () => {
 
     expect(await screen.findByText(`${FIRST_VEHICLE!.make} ${FIRST_VEHICLE!.model}`)).toBeInTheDocument()
     expect(screen.queryByText(`${SECOND_VEHICLE!.make} ${SECOND_VEHICLE!.model}`)).not.toBeInTheDocument()
+  })
+
+  it('narrows the vehicle list with the category filter', async () => {
+    const user = userEvent.setup()
+    loginAs('ADMIN')
+    renderVehicles()
+
+    await screen.findByText(`${FIRST_VEHICLE!.make} ${FIRST_VEHICLE!.model}`)
+
+    await user.selectOptions(screen.getByLabelText(/filtrar por tipo/i), 'HEAVY_MACHINERY')
+
+    await screen.findByText(`${SECOND_VEHICLE!.make} ${SECOND_VEHICLE!.model}`)
+    expect(screen.queryByText(`${FIRST_VEHICLE!.make} ${FIRST_VEHICLE!.model}`)).not.toBeInTheDocument()
+  })
+
+  it('narrows the vehicle list with the status filter', async () => {
+    const user = userEvent.setup()
+    loginAs('ADMIN')
+    renderVehicles()
+
+    await screen.findByText(`${FIRST_VEHICLE!.make} ${FIRST_VEHICLE!.model}`)
+
+    await user.selectOptions(screen.getByLabelText(/filtrar por estado/i), 'MAINTENANCE')
+
+    await screen.findByText(`${SECOND_VEHICLE!.make} ${SECOND_VEHICLE!.model}`)
+    expect(screen.queryByText(`${FIRST_VEHICLE!.make} ${FIRST_VEHICLE!.model}`)).not.toBeInTheDocument()
+  })
+
+  it('narrows the vehicle list with the license plate search', async () => {
+    const user = userEvent.setup()
+    loginAs('ADMIN')
+    renderVehicles()
+
+    await screen.findByText(`${FIRST_VEHICLE!.make} ${FIRST_VEHICLE!.model}`)
+
+    await user.type(screen.getByLabelText(/buscar por matrícula/i), '1234')
+
+    await screen.findByText(`${FIRST_VEHICLE!.make} ${FIRST_VEHICLE!.model}`)
+    expect(screen.queryByText(`${SECOND_VEHICLE!.make} ${SECOND_VEHICLE!.model}`)).not.toBeInTheDocument()
+  })
+
+  it('narrows the vehicle list with the vehicle (make/model) search', async () => {
+    const user = userEvent.setup()
+    loginAs('ADMIN')
+    renderVehicles()
+
+    await screen.findByText(`${FIRST_VEHICLE!.make} ${FIRST_VEHICLE!.model}`)
+
+    await user.type(screen.getByLabelText(/buscar por vehículo/i), 'caterpillar')
+
+    await screen.findByText(`${SECOND_VEHICLE!.make} ${SECOND_VEHICLE!.model}`)
+    expect(screen.queryByText(`${FIRST_VEHICLE!.make} ${FIRST_VEHICLE!.model}`)).not.toBeInTheDocument()
   })
 
   it('hides management actions for the DRIVER role', async () => {

@@ -3,6 +3,8 @@ package com.fleetmgm.vehicle.application;
 import com.fleetmgm.shared.PageResponse;
 import com.fleetmgm.shared.exception.ConflictException;
 import com.fleetmgm.shared.exception.NotFoundException;
+import com.fleetmgm.vehicle.domain.VehicleCategory;
+import com.fleetmgm.vehicle.domain.VehicleStatus;
 import com.fleetmgm.vehicle.dto.CreateVehicleRequest;
 import com.fleetmgm.vehicle.dto.UpdateVehicleRequest;
 import com.fleetmgm.vehicle.dto.VehicleMapper;
@@ -39,11 +41,16 @@ public class VehicleService {
 
     @Transactional(readOnly = true)
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ADMINISTRATIVE', 'WORKSHOP_STAFF', 'DRIVER')")
-    public PageResponse<VehicleResponse> list(Pageable pageable) {
+    public PageResponse<VehicleResponse> list(VehicleCategory category, VehicleStatus status,
+            String licensePlate, String vehicle, Pageable pageable) {
         if (isCurrentUserDriver()) {
+            // A driver only ever sees their own assigned vehicle — filters are meaningless here
+            // and are intentionally not threaded into this branch.
             return listForCurrentDriver();
         }
-        return PageResponse.from(vehicleRepository.findAll(pageable).map(vehicleMapper::toResponse));
+        return PageResponse.from(
+                vehicleRepository.search(category, status, licensePlate, vehicle, pageable)
+                        .map(vehicleMapper::toResponse));
     }
 
     @Transactional

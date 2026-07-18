@@ -10,6 +10,7 @@ import com.fleetmgm.vehicle.dto.UpdateVehicleRequest;
 import com.fleetmgm.vehicle.dto.VehicleMapper;
 import com.fleetmgm.vehicle.dto.VehicleResponse;
 import com.fleetmgm.vehicle.domain.VehicleCategory;
+import com.fleetmgm.vehicle.domain.VehicleStatus;
 import com.fleetmgm.vehicle.domain.UsageMeasure;
 import com.fleetmgm.vehicle.infrastructure.AssignmentRepository;
 import com.fleetmgm.vehicle.infrastructure.VehicleRepository;
@@ -177,13 +178,38 @@ class VehicleServiceTest {
         when(assignmentRepository.findActiveByDriverEmail(email)).thenReturn(Optional.of(assignment));
         when(vehicleMapper.toResponse(vehicle)).thenReturn(expectedResponse);
 
-        PageResponse<VehicleResponse> result = vehicleService.list(PageRequest.of(0, 20));
+        PageResponse<VehicleResponse> result = vehicleService.list(null, null, null, null, PageRequest.of(0, 20));
 
         assertThat(result.content()).hasSize(1);
         assertThat(result.content().get(0)).isEqualTo(expectedResponse);
         assertThat(result.totalElements()).isEqualTo(1L);
         verify(assignmentRepository).findActiveByDriverEmail(email);
-        verify(vehicleRepository, never()).findAll(any(org.springframework.data.domain.Pageable.class));
+        // A driver only ever sees their own assigned vehicle — filters must never reach the
+        // filtered query on this branch.
+        verify(vehicleRepository, never()).search(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void list_asNonDriver_passesFiltersThrough_toSearch() {
+        SecurityContextHolder.clearContext();
+
+        VehicleCategory category = VehicleCategory.HEAVY_VEHICLE;
+        VehicleStatus status = VehicleStatus.MAINTENANCE;
+        String licensePlate = "1234";
+        String vehicleSearch = "volvo";
+        Vehicle vehicle = new Vehicle();
+        VehicleResponse expectedResponse = sampleResponse(UUID.randomUUID());
+        var pageable = PageRequest.of(0, 20);
+        var page = new PageImpl<>(List.of(vehicle));
+
+        when(vehicleRepository.search(category, status, licensePlate, vehicleSearch, pageable)).thenReturn(page);
+        when(vehicleMapper.toResponse(vehicle)).thenReturn(expectedResponse);
+
+        PageResponse<VehicleResponse> result =
+                vehicleService.list(category, status, licensePlate, vehicleSearch, pageable);
+
+        assertThat(result.content()).containsExactly(expectedResponse);
+        verify(vehicleRepository).search(category, status, licensePlate, vehicleSearch, pageable);
     }
 
     // --- helpers ---

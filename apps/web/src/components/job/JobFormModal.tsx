@@ -62,7 +62,7 @@ export function JobFormModal({ open, onOpenChange, job }: JobFormModalProps) {
   const createJob = useCreateJob()
   const updateJob = useUpdateJob()
 
-  const { data: vehiclesPage } = useVehicles(0, 100)
+  const { data: vehiclesPage } = useVehicles({}, 0, 100)
   const { data: workersPage } = useWorkers(0, 100)
   const { data: clientsPage } = useClients(0, 100)
 
