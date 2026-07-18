@@ -1,5 +1,5 @@
 import { isAxiosError } from 'axios'
-import { Eye, Pencil } from 'lucide-react'
+import { Banknote, Eye, Pencil } from 'lucide-react'
 import type { ApiError, SupplierInvoice } from '@fleetmgm/api'
 import { usePaySupplierInvoice } from '@fleetmgm/hooks'
 import { Button } from '@/components/ui/button'
@@ -45,12 +45,14 @@ export function SupplierInvoiceActionButtons({ invoice, onEdit }: SupplierInvoic
         </Button>
         {invoice.status === 'PENDING' && (
           <Button
-            variant="default"
+            variant="ghost"
             size="sm"
+            aria-label="Marcar factura como pagada"
+            title="Marcar factura como pagada"
             disabled={isPending}
             onClick={() => payInvoice.mutate({ id: invoice.id })}
           >
-            Marcar pagada
+            <Banknote className="size-4" />
           </Button>
         )}
         {invoice.status === 'PENDING' && <SupplierInvoiceDeleteButton invoiceId={invoice.id} />}
