@@ -52,6 +52,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -287,6 +288,73 @@ class SupplierInvoiceServiceTest {
         verify(supplierInvoiceRepository, never()).save(any());
         verify(vehicleRepository, never()).findById(any());
         verify(supplierRepository, never()).findById(any());
+    }
+
+    @Test
+    void update_allowsResubmittingUnchangedHeaderVehicle_evenWhenLineItemsAlreadyExist() {
+        // Reproduces a real reported bug: seed data predating this invariant left invoices with
+        // BOTH a header vehicle and line items already set. Editing an unrelated field on one of
+        // those invoices must not 409 just because the (unchanged) vehicleId is resubmitted.
+        UUID id = UUID.randomUUID();
+        UUID vehicleId = UUID.randomUUID();
+        UpdateSupplierInvoiceRequest request = new UpdateSupplierInvoiceRequest(
+                SUPPLIER_ID, "SUP-002", ExpenseCategory.FUEL, LocalDate.now(), null,
+                vehicleId, new BigDecimal("100.00"), new BigDecimal("21.00"), new BigDecimal("121.00"), null, null);
+
+        Vehicle currentVehicle = mock(Vehicle.class);
+        when(currentVehicle.getId()).thenReturn(vehicleId);
+
+        SupplierInvoice invoice = new SupplierInvoice();
+        invoice.setStatus(SupplierInvoiceStatus.PENDING);
+        invoice.setVehicle(currentVehicle);
+        Supplier supplier = new Supplier();
+        SupplierInvoiceLineItem existingLine = new SupplierInvoiceLineItem();
+        SupplierInvoiceResponse expected = buildResponse(id);
+
+        when(supplierInvoiceRepository.findById(id)).thenReturn(Optional.of(invoice));
+        when(supplierInvoiceLineItemRepository.findAllByInvoiceId(id)).thenReturn(List.of(existingLine));
+        when(supplierRepository.findById(SUPPLIER_ID)).thenReturn(Optional.of(supplier));
+        when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(currentVehicle));
+        when(supplierInvoiceRepository.save(invoice)).thenReturn(invoice);
+        when(supplierInvoiceMapper.toResponse(invoice)).thenReturn(expected);
+        when(supplierInvoiceMapper.toResponse(existingLine)).thenReturn(new SupplierLineItemResponse(
+                UUID.randomUUID(), "Parts", BigDecimal.ONE, new BigDecimal("50.00"), new BigDecimal("50.00"), null, null));
+
+        supplierInvoiceService.update(id, request);
+
+        assertThat(invoice.getVehicle()).isEqualTo(currentVehicle);
+        assertThat(invoice.getSupplier()).isEqualTo(supplier);
+        verify(supplierInvoiceRepository).save(invoice);
+    }
+
+    @Test
+    void update_throwsConflict_whenChangingHeaderVehicle_whileLineItemsExist() {
+        // Actually attempting to swap the header vehicle for a DIFFERENT one while line items
+        // exist must still be rejected — only a no-op resubmission is exempted.
+        UUID id = UUID.randomUUID();
+        UUID currentVehicleId = UUID.randomUUID();
+        UUID newVehicleId = UUID.randomUUID();
+        UpdateSupplierInvoiceRequest request = new UpdateSupplierInvoiceRequest(
+                SUPPLIER_ID, "SUP-002", ExpenseCategory.FUEL, LocalDate.now(), null,
+                newVehicleId, new BigDecimal("100.00"), new BigDecimal("21.00"), new BigDecimal("121.00"), null, null);
+
+        Vehicle currentVehicle = mock(Vehicle.class);
+        when(currentVehicle.getId()).thenReturn(currentVehicleId);
+
+        SupplierInvoice invoice = new SupplierInvoice();
+        invoice.setStatus(SupplierInvoiceStatus.PENDING);
+        invoice.setVehicle(currentVehicle);
+        SupplierInvoiceLineItem existingLine = new SupplierInvoiceLineItem();
+
+        when(supplierInvoiceRepository.findById(id)).thenReturn(Optional.of(invoice));
+        when(supplierInvoiceLineItemRepository.findAllByInvoiceId(id)).thenReturn(List.of(existingLine));
+
+        assertThatThrownBy(() -> supplierInvoiceService.update(id, request))
+                .isInstanceOf(ConflictException.class)
+                .satisfies(ex -> assertThat(((ConflictException) ex).getCode())
+                        .isEqualTo("SUPPLIER_INVOICE_VEHICLE_LINE_ITEMS_CONFLICT"));
+
+        verify(supplierInvoiceRepository, never()).save(any());
     }
 
     @Test
