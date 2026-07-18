@@ -7,6 +7,7 @@ const STATUS_CLASSNAME: Record<InvoiceStatus, string> = {
   ISSUED: 'bg-tertiary-container/40 text-tertiary',
   PAID: 'bg-secondary-container/20 text-secondary',
   OVERDUE: 'bg-error-container/40 text-error',
+  CANCELLED: 'bg-surface-container-highest text-on-surface-variant line-through',
 }
 
 type InvoiceStatusBadgeProps = {

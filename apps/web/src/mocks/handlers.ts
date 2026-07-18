@@ -935,7 +935,7 @@ function buildWorkshopScheduleMock(params: {
   }
 }
 
-type InvoiceStatus = 'DRAFT' | 'ISSUED' | 'PAID' | 'OVERDUE'
+type InvoiceStatus = 'DRAFT' | 'ISSUED' | 'PAID' | 'OVERDUE' | 'CANCELLED'
 
 type LineItemMock = {
   id: string
@@ -3139,11 +3139,14 @@ export const handlers = [
       )
     }
 
-    if (existing.status !== 'DRAFT') {
+    // Mirrors InvoiceService.delete: DRAFT is removed outright, ISSUED/OVERDUE is cancelled in
+    // place (keeps its invoiceNumber, stays in the list) since it already consumed a sequential
+    // invoice number, and PAID/CANCELLED is rejected.
+    if (existing.status === 'PAID' || existing.status === 'CANCELLED') {
       return HttpResponse.json(
         {
           status: 409,
-          code: 'INVOICE_INVALID_STATE_TRANSITION',
+          code: 'INVOICE_DELETE_NOT_ALLOWED',
           message: `Invoice ${params.id} cannot be deleted from state ${existing.status}`,
           correlationId: 'test-correlation-id',
         },
@@ -3151,7 +3154,13 @@ export const handlers = [
       )
     }
 
-    invoices = invoices.filter((invoice) => invoice.id !== params.id)
+    if (existing.status === 'DRAFT') {
+      invoices = invoices.filter((invoice) => invoice.id !== params.id)
+    } else {
+      invoices = invoices.map((invoice) =>
+        invoice.id === params.id ? { ...invoice, status: 'CANCELLED' as const } : invoice,
+      )
+    }
     return new HttpResponse(null, { status: 204 })
   }),
 
@@ -3523,6 +3532,37 @@ export const handlers = [
     supplierInvoices = supplierInvoices.map((invoice, i) => (i === index ? updated : invoice))
 
     return HttpResponse.json(updated)
+  }),
+
+  http.delete('/api/v1/supplier-invoices/:id', ({ params }) => {
+    const existing = supplierInvoices.find((invoice) => invoice.id === params.id)
+
+    if (!existing) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'SUPPLIER_INVOICE_NOT_FOUND',
+          message: `Supplier invoice ${params.id} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    if (existing.status !== 'PENDING') {
+      return HttpResponse.json(
+        {
+          status: 409,
+          code: 'SUPPLIER_INVOICE_DELETE_NOT_ALLOWED',
+          message: `Supplier invoice ${params.id} cannot be deleted from state ${existing.status}`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 409 },
+      )
+    }
+
+    supplierInvoices = supplierInvoices.filter((invoice) => invoice.id !== params.id)
+    return new HttpResponse(null, { status: 204 })
   }),
 
   http.patch('/api/v1/supplier-invoices/:id/pay', async ({ request, params }) => {

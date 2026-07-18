@@ -342,10 +342,76 @@ class InvoiceServiceTest {
     }
 
     @Test
-    void delete_throwsConflict_whenNotDraft() {
+    void delete_cancelsIssuedInvoice_andWritesAuditLog() {
+        UUID id = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        Invoice invoice = new Invoice();
+        setId(invoice, id);
+        invoice.setStatus(InvoiceStatus.ISSUED);
+
+        User user = new User();
+        setId(user, userId);
+        user.setEmail("manager@fleetmgm.com");
+
+        setAuthentication("manager@fleetmgm.com");
+        when(invoiceRepository.findById(id)).thenReturn(Optional.of(invoice));
+        when(userRepository.findByEmail("manager@fleetmgm.com")).thenReturn(Optional.of(user));
+
+        invoiceService.delete(id);
+
+        assertThat(invoice.getStatus()).isEqualTo(InvoiceStatus.CANCELLED);
+        assertThat(invoice.getDeletedAt()).isNull();
+        verify(invoiceRepository).save(invoice);
+        ArgumentCaptor<AuditLog> captor = ArgumentCaptor.forClass(AuditLog.class);
+        verify(auditLogRepository).save(captor.capture());
+        AuditLog log = captor.getValue();
+        assertThat(log.getAction()).isEqualTo(AuditAction.DELETE);
+        assertThat(log.getEntityType()).isEqualTo("Invoice");
+        assertThat(log.getEntityId()).isEqualTo(id.toString());
+        assertThat(log.getPerformedByEmail()).isEqualTo("manager@fleetmgm.com");
+        assertThat(log.getPerformedByUserId()).isEqualTo(userId);
+    }
+
+    @Test
+    void delete_cancelsOverdueInvoice() {
         UUID id = UUID.randomUUID();
         Invoice invoice = new Invoice();
-        invoice.setStatus(InvoiceStatus.ISSUED);
+        setId(invoice, id);
+        invoice.setStatus(InvoiceStatus.OVERDUE);
+
+        setAuthentication("manager@fleetmgm.com");
+        when(invoiceRepository.findById(id)).thenReturn(Optional.of(invoice));
+        when(userRepository.findByEmail("manager@fleetmgm.com")).thenReturn(Optional.empty());
+
+        invoiceService.delete(id);
+
+        assertThat(invoice.getStatus()).isEqualTo(InvoiceStatus.CANCELLED);
+        assertThat(invoice.getDeletedAt()).isNull();
+        verify(invoiceRepository).save(invoice);
+    }
+
+    @Test
+    void delete_throwsConflict_whenPaid() {
+        UUID id = UUID.randomUUID();
+        Invoice invoice = new Invoice();
+        invoice.setStatus(InvoiceStatus.PAID);
+
+        when(invoiceRepository.findById(id)).thenReturn(Optional.of(invoice));
+
+        assertThatThrownBy(() -> invoiceService.delete(id))
+                .isInstanceOf(ConflictException.class)
+                .satisfies(ex -> assertThat(((ConflictException) ex).getCode())
+                        .isEqualTo("INVOICE_DELETE_NOT_ALLOWED"));
+
+        verify(invoiceRepository, never()).save(any());
+        verify(auditLogRepository, never()).save(any());
+    }
+
+    @Test
+    void delete_throwsConflict_whenAlreadyCancelled() {
+        UUID id = UUID.randomUUID();
+        Invoice invoice = new Invoice();
+        invoice.setStatus(InvoiceStatus.CANCELLED);
 
         when(invoiceRepository.findById(id)).thenReturn(Optional.of(invoice));
 
