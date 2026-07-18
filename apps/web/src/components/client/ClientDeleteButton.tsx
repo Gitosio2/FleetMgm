@@ -24,7 +24,7 @@ export function ClientDeleteButton({ clientId, clientName }: ClientDeleteButtonP
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button variant="ghost" size="sm" aria-label="Eliminar cliente" disabled={deleteClient.isPending}>
+        <Button variant="destructive" size="sm" aria-label="Eliminar cliente" disabled={deleteClient.isPending}>
           <Trash2 className="size-4" />
         </Button>
       </AlertDialogTrigger>

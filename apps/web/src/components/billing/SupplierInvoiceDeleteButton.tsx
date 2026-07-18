@@ -24,7 +24,7 @@ export function SupplierInvoiceDeleteButton({ invoiceId }: SupplierInvoiceDelete
     <AlertDialog>
       <AlertDialogTrigger asChild>
         <Button
-          variant="ghost"
+          variant="destructive"
           size="sm"
           aria-label="Eliminar factura de proveedor"
           disabled={deleteInvoice.isPending}

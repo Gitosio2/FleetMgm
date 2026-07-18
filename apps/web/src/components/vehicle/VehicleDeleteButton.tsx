@@ -24,7 +24,7 @@ export function VehicleDeleteButton({ vehicleId, vehicleLabel }: VehicleDeleteBu
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button variant="ghost" size="sm" aria-label="Eliminar vehículo" disabled={deleteVehicle.isPending}>
+        <Button variant="destructive" size="sm" aria-label="Eliminar vehículo" disabled={deleteVehicle.isPending}>
           <Trash2 className="size-4" />
         </Button>
       </AlertDialogTrigger>

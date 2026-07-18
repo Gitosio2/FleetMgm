@@ -9,6 +9,7 @@ export const buttonVariants = cva(
         outline:
           'border border-outline-variant bg-transparent text-on-surface hover:bg-surface-container-high',
         ghost: 'bg-transparent text-on-surface hover:bg-surface-container-high',
+        destructive: 'bg-error text-on-error hover:opacity-90',
       },
       size: {
         default: 'h-11 px-4 py-2',
