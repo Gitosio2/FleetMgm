@@ -72,8 +72,9 @@ public class Job {
     @Column(name = "end_usage_value")
     private Long endUsageValue;
 
-    // Nullable: a Job with no clientId bills nothing, and a Job with a clientId but no price is
-    // an accepted data gap the JobCompletedEvent consumer treats as a no-op, not an error.
+    // Nullable: a Job with no clientId bills nothing (no-op in the JobCompletedEvent consumer). A
+    // Job with a clientId but no price still gets billed — the consumer adds a 0.00 line item to
+    // invoice instead of silently dropping the billable work (see InvoiceJobCompletionListener).
     @Column(precision = 12, scale = 2)
     private BigDecimal price;
 
