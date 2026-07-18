@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface LineItemRepository extends JpaRepository<InvoiceLineItem, UUID> {
@@ -13,6 +14,12 @@ public interface LineItemRepository extends JpaRepository<InvoiceLineItem, UUID>
     // Used by InvoiceService.issue() to sum all of an invoice's line items into its
     // subtotal/taxAmount/total. No JOIN FETCH needed — issue() only reads the subtotal column.
     List<InvoiceLineItem> findAllByInvoiceId(UUID invoiceId);
+
+    // Used by InvoiceService.updateLineItem() to verify the line item actually belongs to the
+    // invoice in the URL path, not just that some line item with that id exists anywhere — an
+    // id-only findById() would let a caller edit any line item on any invoice by id alone (IDOR,
+    // CLAUDE.md OWASP B).
+    Optional<InvoiceLineItem> findByIdAndInvoiceId(UUID id, UUID invoiceId);
 
     // Used by InvoiceService.list() to batch-fetch line items for an entire page of invoices in
     // a single query, then group them in memory by invoice id — avoids the N+1 that a per-invoice

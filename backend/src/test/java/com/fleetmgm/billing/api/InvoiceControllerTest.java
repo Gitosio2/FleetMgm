@@ -43,6 +43,7 @@ class InvoiceControllerTest {
 
     private static final UUID INVOICE_ID = UUID.randomUUID();
     private static final UUID CLIENT_ID = UUID.randomUUID();
+    private static final UUID LINE_ITEM_ID = UUID.randomUUID();
 
     private InvoiceResponse sampleResponse() {
         return new InvoiceResponse(INVOICE_ID, "INV-2026-00001", CLIENT_ID, "Acme Corp", InvoiceStatus.DRAFT,
@@ -260,5 +261,40 @@ class InvoiceControllerTest {
                         .content("{\"description\":\"Parts\",\"quantity\":2,\"unitPrice\":50.00}"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("INVOICE_NOT_FOUND"));
+    }
+
+    // --- PATCH /api/v1/invoices/{id}/line-items/{lineItemId} ---
+
+    @Test
+    void updateLineItem_returns200_whenValid() throws Exception {
+        LineItemResponse response = new LineItemResponse(LINE_ITEM_ID, "Parts",
+                new BigDecimal("2"), new BigDecimal("50.00"), new BigDecimal("100.00"), null);
+        when(invoiceService.updateLineItem(eq(INVOICE_ID), eq(LINE_ITEM_ID), any())).thenReturn(response);
+
+        mockMvc.perform(patch("/api/v1/invoices/{id}/line-items/{lineItemId}", INVOICE_ID, LINE_ITEM_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"description\":\"Parts\",\"quantity\":2,\"unitPrice\":50.00}"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void updateLineItem_returns400_whenDescriptionMissing() throws Exception {
+        mockMvc.perform(patch("/api/v1/invoices/{id}/line-items/{lineItemId}", INVOICE_ID, LINE_ITEM_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"quantity\":2,\"unitPrice\":50.00}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void updateLineItem_returns404_whenLineItemMissing() throws Exception {
+        when(invoiceService.updateLineItem(eq(INVOICE_ID), eq(LINE_ITEM_ID), any()))
+                .thenThrow(new NotFoundException("LINE_ITEM_NOT_FOUND", "Line item not found"));
+
+        mockMvc.perform(patch("/api/v1/invoices/{id}/line-items/{lineItemId}", INVOICE_ID, LINE_ITEM_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"description\":\"Parts\",\"quantity\":2,\"unitPrice\":50.00}"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("LINE_ITEM_NOT_FOUND"));
     }
 }

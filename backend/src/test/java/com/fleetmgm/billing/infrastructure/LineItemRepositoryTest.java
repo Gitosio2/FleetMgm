@@ -170,6 +170,32 @@ class LineItemRepositoryTest {
         assertThat(result).isEmpty();
     }
 
+    @Test
+    void findByIdAndInvoiceId_returnsLineItem_whenItBelongsToTheGivenInvoice() {
+        Client client = persistClient("88888888H");
+        Invoice invoice = persistInvoice(client, "INV-2026-00010", LocalDate.of(2026, 7, 5));
+        InvoiceLineItem lineItem = persistLineItem(invoice, null, new BigDecimal("100.00"));
+        entityManager.getEntityManager().clear();
+
+        var result = lineItemRepository.findByIdAndInvoiceId(lineItem.getId(), invoice.getId());
+
+        assertThat(result).isPresent();
+        assertThat(result.get().getId()).isEqualTo(lineItem.getId());
+    }
+
+    @Test
+    void findByIdAndInvoiceId_returnsEmpty_whenLineItemBelongsToADifferentInvoice() {
+        Client client = persistClient("99999999I");
+        Invoice ownerInvoice = persistInvoice(client, "INV-2026-00011", LocalDate.of(2026, 7, 5));
+        Invoice otherInvoice = persistInvoice(client, "INV-2026-00012", LocalDate.of(2026, 7, 6));
+        InvoiceLineItem lineItem = persistLineItem(ownerInvoice, null, new BigDecimal("100.00"));
+        entityManager.getEntityManager().clear();
+
+        var result = lineItemRepository.findByIdAndInvoiceId(lineItem.getId(), otherInvoice.getId());
+
+        assertThat(result).isEmpty();
+    }
+
     private Vehicle persistVehicle(String licensePlate) {
         Vehicle vehicle = new Vehicle();
         vehicle.setVehicleCategory(VehicleCategory.LIGHT_VEHICLE);

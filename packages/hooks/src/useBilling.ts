@@ -5,6 +5,7 @@ import type {
   Invoice,
   InvoiceStatus,
   LineItemRequest,
+  LineItemResponse,
   PageResponse,
   UpdateInvoiceRequest,
 } from '@fleetmgm/api'
@@ -132,6 +133,29 @@ export function useAddLineItem() {
     // The response is the full updated Invoice (including recalculated subtotal/tax/total), not
     // just the created LineItemResponse — invalidating the list key keeps both the table's totals
     // and the modal's line item list consistent with the server-side recalculation.
+    onSuccess: () => invalidateQueryKeys(queryClient, [INVOICE_KEY]),
+  })
+}
+
+export function useUpdateLineItem() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({
+      invoiceId,
+      lineItemId,
+      request,
+    }: {
+      invoiceId: string
+      lineItemId: string
+      request: LineItemRequest
+    }) => {
+      const { data } = await apiClient.patch<LineItemResponse>(
+        `/invoices/${invoiceId}/line-items/${lineItemId}`,
+        request,
+      )
+      return data
+    },
     onSuccess: () => invalidateQueryKeys(queryClient, [INVOICE_KEY]),
   })
 }
