@@ -97,7 +97,7 @@ class InvoiceRepositoryTest {
     }
 
     @Test
-    void findAllJoinFetch_ordersPendingBeforePaid_thenNewestFirstWithinEachGroup() {
+    void findAllJoinFetch_ordersByCreatedAtDescending_regardlessOfStatus() {
         Client client = persistClient("10101010J");
         Invoice oldestPaid = persistInvoice(client, "INV-2026-00030", InvoiceStatus.PAID);
         Invoice oldestPending = persistInvoice(client, "INV-2026-00031", InvoiceStatus.DRAFT);
@@ -108,8 +108,10 @@ class InvoiceRepositoryTest {
         Page<Invoice> result = invoiceRepository.findAllJoinFetch(
                 null, null, null, null, null, null, null, null, null, PageRequest.of(0, 20));
 
+        // Pure chronological order — a PAID invoice (newestPaid) still ranks above an older
+        // non-PAID one (oldestPending), proving status no longer influences the sort.
         assertThat(result.getContent()).extracting(Invoice::getId).containsExactly(
-                newestPending.getId(), oldestPending.getId(), newestPaid.getId(), oldestPaid.getId());
+                newestPaid.getId(), newestPending.getId(), oldestPending.getId(), oldestPaid.getId());
     }
 
     @Test
