@@ -28,6 +28,7 @@ import java.util.UUID;
 public class InvoiceJobCompletionListener {
 
     private static final Logger log = LoggerFactory.getLogger(InvoiceJobCompletionListener.class);
+    private static final int MONEY_SCALE = 2;
 
     private final InvoiceRepository invoiceRepository;
     private final LineItemRepository lineItemRepository;
@@ -54,21 +55,25 @@ public class InvoiceJobCompletionListener {
         // already returned 200 OK, so an exception here can't roll anything back — it must be
         // logged with enough context to debug later, never left silent and never rethrown.
         try {
-            // A Job with no clientId bills nothing, and a Job with a clientId but no price is an
-            // accepted data gap — both are no-ops here, not errors (see Job.price javadoc/CLAUDE.md).
-            if (event.clientId() == null || event.price() == null) {
+            // A Job with no clientId bills nothing — there's no client to invoice, so this stays a
+            // no-op, not an error. A Job with a clientId but no price still gets a line item: the
+            // line lands at 0.00 (unit_price is NOT NULL, see InvoiceLineItem) and is left for the
+            // billing team to price manually — omitting it entirely would silently drop billable
+            // work from the invoice instead of surfacing it as a $0 line to fix.
+            if (event.clientId() == null) {
                 return;
             }
             Invoice invoice = invoiceRepository
                     .findFirstByClientIdAndStatusOrderByCreatedAtAsc(event.clientId(), InvoiceStatus.DRAFT)
                     .orElseGet(() -> createDraftInvoice(event.clientId()));
 
+            BigDecimal price = event.price() != null ? event.price() : BigDecimal.ZERO.setScale(MONEY_SCALE);
             InvoiceLineItem lineItem = new InvoiceLineItem();
             lineItem.setInvoice(invoice);
             lineItem.setDescription(event.title() != null ? event.title() : "Job " + event.jobId());
             lineItem.setQuantity(BigDecimal.ONE);
-            lineItem.setUnitPrice(event.price());
-            lineItem.setSubtotal(event.price());
+            lineItem.setUnitPrice(price);
+            lineItem.setSubtotal(price);
             // The job that just completed obviously exists, but resolve it defensively the same
             // way every other optional relation in this codebase is resolved — never assume.
             jobRepository.findById(event.jobId()).ifPresent(lineItem::setLinkedJob);

@@ -53,14 +53,30 @@ class InvoiceJobCompletionListenerTest {
     }
 
     @Test
-    void onJobCompleted_isNoOp_whenPriceIsNull() {
+    void onJobCompleted_addsZeroPriceLine_whenPriceIsNull() {
+        UUID jobId = UUID.randomUUID();
+        UUID clientId = UUID.randomUUID();
         JobCompletedEvent event = new JobCompletedEvent(
-                UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), null, "Delivery",
+                jobId, UUID.randomUUID(), clientId, null, "Delivery",
                 5000L, Instant.now());
+
+        Invoice existingDraft = new Invoice();
+        Job job = new Job();
+
+        when(invoiceRepository.findFirstByClientIdAndStatusOrderByCreatedAtAsc(clientId, InvoiceStatus.DRAFT))
+                .thenReturn(Optional.of(existingDraft));
+        when(jobRepository.findById(jobId)).thenReturn(Optional.of(job));
 
         listener.onJobCompleted(event);
 
-        verifyNoInteractions(invoiceRepository, lineItemRepository, clientRepository, jobRepository);
+        // A missing price must not drop the billable work — it lands as a 0.00 line the billing
+        // team can price manually, since unit_price is NOT NULL (InvoiceLineItem).
+        ArgumentCaptor<InvoiceLineItem> lineCaptor = ArgumentCaptor.forClass(InvoiceLineItem.class);
+        verify(lineItemRepository).save(lineCaptor.capture());
+        InvoiceLineItem savedLine = lineCaptor.getValue();
+        assertThat(savedLine.getUnitPrice()).isEqualByComparingTo("0.00");
+        assertThat(savedLine.getSubtotal()).isEqualByComparingTo("0.00");
+        assertThat(savedLine.getLinkedJob()).isEqualTo(job);
     }
 
     @Test
