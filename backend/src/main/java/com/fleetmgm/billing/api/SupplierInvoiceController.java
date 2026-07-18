@@ -39,6 +39,7 @@ public class SupplierInvoiceController {
             @RequestParam(required = false) ExpenseCategory category,
             @RequestParam(required = false) UUID supplierId,
             @RequestParam(required = false) SupplierInvoiceStatus status,
+            @RequestParam(required = false) String supplierInvoiceNumber,
             @RequestParam(required = false) LocalDate invoiceDateFrom,
             @RequestParam(required = false) LocalDate invoiceDateTo,
             @RequestParam(required = false) LocalDate dueDateFrom,
@@ -47,7 +48,8 @@ public class SupplierInvoiceController {
             @RequestParam(required = false) BigDecimal totalMax,
             @PageableDefault(size = 20) Pageable pageable) {
         return ResponseEntity.ok(supplierInvoiceService.list(vehicleId, category, supplierId, status,
-                invoiceDateFrom, invoiceDateTo, dueDateFrom, dueDateTo, totalMin, totalMax, pageable));
+                supplierInvoiceNumber, invoiceDateFrom, invoiceDateTo, dueDateFrom, dueDateTo, totalMin, totalMax,
+                pageable));
     }
 
     @PostMapping

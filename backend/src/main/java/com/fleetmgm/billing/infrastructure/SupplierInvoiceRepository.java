@@ -34,16 +34,24 @@ public interface SupplierInvoiceRepository extends JpaRepository<SupplierInvoice
     // DESC). Those two stay as the true final tiebreak beneath supplierInvoiceNumber, guaranteeing
     // every row has a fully deterministic position regardless of what invoiceNumber/category data
     // looks like. Callers must pass an unsorted Pageable.
-    // supplierId/status and the four date/amount ranges are newer than vehicleId/category and use
-    // CAST(:param AS string) IS NULL instead of a bare ":param IS NULL" — see AuditLogRepository's
-    // comment on the same idiom: a parameter that appears ONLY in a bare IS NULL check gives
-    // Postgres no type context to infer from, even for enums, and fails 500 on every request that
-    // leaves it null. vehicleId/category predate this fix and are left as-is since they already work.
+    // supplierId/status/supplierInvoiceNumber and the four date/amount ranges are newer than
+    // vehicleId/category and use CAST(:param AS string) IS NULL instead of a bare ":param IS NULL"
+    // — see AuditLogRepository's comment on the same idiom: a parameter that appears ONLY in a bare
+    // IS NULL check gives Postgres no type context to infer from, even for enums, and fails 500 on
+    // every request that leaves it null. vehicleId/category predate this fix and are left as-is
+    // since they already work.
+    // supplierInvoiceNumber's filter additionally needs BOTH of its occurrences cast, not just the
+    // IS NULL one — see InvoiceRepository.findAllJoinFetch's comment on the identical invoiceNumber
+    // filter: the CONCAT occurrence failed against real Postgres ("function lower(bytea) does not
+    // exist") when left uncast, because each JPQL "?" placeholder is bound independently and pgjdbc
+    // binds an untyped null parameter to bytea by default.
     @Query("SELECT si FROM SupplierInvoice si JOIN FETCH si.supplier LEFT JOIN FETCH si.vehicle "
             + "WHERE (:vehicleId IS NULL OR si.vehicle.id = :vehicleId) "
             + "AND (:category IS NULL OR si.category = :category) "
             + "AND (CAST(:supplierId AS string) IS NULL OR si.supplier.id = :supplierId) "
             + "AND (CAST(:status AS string) IS NULL OR si.status = :status) "
+            + "AND (CAST(:supplierInvoiceNumber AS string) IS NULL OR LOWER(si.supplierInvoiceNumber) LIKE "
+            + "     LOWER(CONCAT('%', CAST(:supplierInvoiceNumber AS string), '%'))) "
             + "AND (CAST(:invoiceDateFrom AS string) IS NULL OR si.invoiceDate >= :invoiceDateFrom) "
             + "AND (CAST(:invoiceDateTo AS string) IS NULL OR si.invoiceDate <= :invoiceDateTo) "
             + "AND (CAST(:dueDateFrom AS string) IS NULL OR si.dueDate >= :dueDateFrom) "
@@ -57,6 +65,7 @@ public interface SupplierInvoiceRepository extends JpaRepository<SupplierInvoice
             @Param("category") ExpenseCategory category,
             @Param("supplierId") UUID supplierId,
             @Param("status") SupplierInvoiceStatus status,
+            @Param("supplierInvoiceNumber") String supplierInvoiceNumber,
             @Param("invoiceDateFrom") LocalDate invoiceDateFrom,
             @Param("invoiceDateTo") LocalDate invoiceDateTo,
             @Param("dueDateFrom") LocalDate dueDateFrom,

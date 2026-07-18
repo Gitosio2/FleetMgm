@@ -65,6 +65,21 @@ describe('SupplierInvoices', () => {
     expect(within(row3).getByText('Pagada')).toBeInTheDocument()
   })
 
+  it('narrows the supplier invoice list with the invoice number search', async () => {
+    const user = userEvent.setup()
+    renderSupplierInvoices()
+
+    const [withVehicle, withoutVehicle] = SEED_SUPPLIER_INVOICES
+    await screen.findByRole('button', { name: withVehicle!.supplierName })
+
+    await user.type(screen.getByLabelText(/buscar por número de factura/i), '0456')
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: withVehicle!.supplierName })).toBeInTheDocument()
+    })
+    expect(screen.queryByRole('button', { name: withoutVehicle!.supplierName })).not.toBeInTheDocument()
+  })
+
   it('creates a new PENDING supplier invoice without a vehicle', async () => {
     const user = userEvent.setup()
     renderSupplierInvoices()
