@@ -95,9 +95,10 @@ describe('Billing', () => {
 
     const dialog = await screen.findByRole('dialog')
     expect(within(dialog).getByRole('heading', { name: 'Datos del cliente' })).toBeInTheDocument()
-    expect(within(dialog).getByLabelText(/teléfono/i)).toHaveValue(client.phone)
+    const phoneInput = within(dialog).getByLabelText(/teléfono/i)
+    await waitFor(() => expect(phoneInput).toHaveValue(client.phone))
     expect(within(dialog).getByLabelText(/correo electrónico/i)).toHaveValue(client.email)
-    expect(within(dialog).getByLabelText(/teléfono/i)).toBeDisabled()
+    expect(phoneInput).toBeDisabled()
     expect(within(dialog).queryByRole('button', { name: /guardar cambios/i })).not.toBeInTheDocument()
 
     // Two "Cerrar" buttons exist in a read-only dialog now: the footer button and the icon-only
