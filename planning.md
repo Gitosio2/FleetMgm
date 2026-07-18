@@ -930,6 +930,67 @@ FleetMgm/
 > defecto del backend (`createdAt`/`scheduledDate`) de ascendente a `DESC` — sin eso, con más de 20 registros
 > las órdenes `SCHEDULED`/`IN_PROGRESS` más nuevas quedaban fuera de la página 0, invisibles.
 
+> **Addendum 2 (2026-07-18, misma rama):** Redistribución completa de responsabilidades entre Agenda y
+> Órdenes de mantenimiento, motivada por un callejón sin salida real: una entrada de agenda creada sin
+> orden vinculada (flujo de avería) podía iniciarse pero nunca completarse — Agenda no tenía "Completar"
+> por diseño (Hito 25: evitar "dos caminos al mismo estado"), y crear una orden nueva para ese trabajo
+> generaba una **segunda** agenda en vez de vincularse a la existente.
+>
+> **Decisión de diseño:** el antipatrón "dos caminos" solo aplica cuando dos métodos independientes
+> mutan el mismo estado sin coordinarse. Si Agenda dispara la transición llamando al mismo
+> `MaintenanceService.complete()`/`start()` que ya usa Órdenes (vía el `maintenanceRecordId` vinculado),
+> no hay dos caminos — hay un único método con dos botones. Se adoptó ese patrón de punta a punta:
+> **Agenda pasa a ser la única superficie operativa** (crear, iniciar, completar, cancelar, editar
+> reserva); **Órdenes de mantenimiento pasa a ser un registro de consulta** (filtrable, sin botones de
+> ciclo de vida, solo "Editar" para corregir categoría/costo/descripción — campos que Agenda no tiene).
+>
+> **Backend:**
+> - `MaintenanceService.createFromSchedule(vehicle, technician, type, category)` — nuevo método interno
+>   (sin `@PreAuthorize`, sin publicar `MaintenanceScheduledEvent` — evita crear una segunda agenda
+>   duplicada), reemplaza al helper original pensado solo para huérfanas.
+> - `WorkshopScheduleService.create()` — si no viene `maintenanceRecordId` explícito, crea la orden
+>   vinculada **en el mismo momento** que la reserva (ya no recién al iniciar) — así Órdenes de
+>   mantenimiento también muestra trabajo planificado a futuro, no solo lo ya iniciado.
+> - `WorkshopScheduleService.start()` — cascada síncrona (misma transacción, no evento): si hay orden
+>   vinculada en `SCHEDULED`, la inicia; si no hay ninguna (dato legado pre-redistribución), la crea y
+>   la inicia. Deliberadamente síncrona, no el patrón `AFTER_COMMIT`/`REQUIRES_NEW` ya usado en el resto
+>   del paquete — una falla acá debe hacer rollback visible, no reproducir el bug original de forma
+>   invisible (agenda en `IN_PROGRESS` sin orden real detrás).
+> - Nuevo `WorkshopScheduleService.completeLinkedMaintenance()` + `PATCH /api/v1/workshop/schedules/{id}/complete`
+>   — delega en `MaintenanceService.complete()`; la cascada existente (`MaintenanceCompletedEvent` →
+>   `ScheduleCompletionListener`, sin tocar) sigue siendo el único lugar que marca la agenda `COMPLETED`.
+>   Sin cuerpo de respuesta (204): el listener corre `AFTER_COMMIT` en una transacción separada, así que
+>   devolver el estado de la agenda en la misma llamada mostraría un `IN_PROGRESS` obsoleto.
+> - `CreateScheduleRequest` gana `category` opcional (default `PREVENTIVE`, mismo criterio que
+>   `CreateMaintenanceRequest`) — campo añadido al final del record, sin reordenar los existentes.
+>
+> **Frontend:** `ScheduleFormModal` gana selector de categoría (solo en creación, igual que
+> `MaintenanceFormModal` ya ocultaba `scheduledDate` en edición). `ScheduleTable` gana columna
+> "Categoría" y botón "Completar". `MaintenanceTable` pierde Iniciar/Completar/Cancelar, gana columna
+> "Costo" (`formatCurrency`, `'—'` si no hay costo). `MaintenanceFormModal` pierde el modo creación
+> (edición únicamente) — `useCreateMaintenance`, `useStartMaintenance`, `useCompleteMaintenance` y
+> `useCancelMaintenance` quedaron sin ningún consumidor y se eliminaron de `useMaintenance.ts` (código
+> muerto, no solo el hook que el plan original marcaba). `useCreateWorkshopSchedule`/
+> `useStartWorkshopSchedule` pasan a invalidar también `[MAINTENANCE_KEY]`.
+>
+> **Split de página:** "Taller" se separó en dos rutas — `Agenda` (`/workshop`, sin cambio de path) y
+> `Órdenes de mantenimiento` (`/maintenance-orders`, ruta nueva), mismo patrón que el commit `dcb865a`
+> (Billing → Billing + SupplierInvoices). Ambas páginas mantienen los mismos `allowedRoles`
+> (`[...MANAGEMENT_ROLES, 'WORKSHOP_STAFF']`) que la página combinada — decisión explícita del usuario,
+> no se introdujo ningún nivel de permiso nuevo. El endpoint `POST /api/v1/maintenance` no se eliminó
+> (sigue siendo válido a nivel API/tests), solo perdió su botón en la UI.
+>
+> **Tests finales:** backend 490/490 (`./mvnw test`, suite completa, no solo `workshop`); frontend
+> 154/154 (`vitest run`, 16 archivos); `tsc -b --force` limpio en las tres referencias de proyecto;
+> `oxlint` sin advertencias nuevas (mismo warning preexistente en `AssignmentModal.tsx`).
+>
+> **Gotcha de infraestructura (no relacionado al feature, documentado para la próxima vez):** los
+> worktrees de git creados con `git worktree add` no incluyen `node_modules` — sin correr `npm install`
+> ahí, `tsc`/`vitest` resuelven `@fleetmgm/*` a través de los symlinks del checkout principal (`git
+> worktree add` no copia `node_modules`, que está gitignored), compilando contra el código **viejo** del
+> checkout principal en silencio, no el del worktree. Cualquier worktree nuevo en este repo necesita
+> `npm install` en su raíz antes de confiar en `tsc -b`/`vitest`.
+
 ---
 
 ### Hito 30 — Facturación (clientes): Contrato API

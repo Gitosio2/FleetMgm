@@ -32,7 +32,10 @@ export function useCreateWorkshopSchedule() {
       const { data } = await apiClient.post<WorkshopSchedule>('/workshop/schedules', request)
       return data
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [WORKSHOP_KEY] }),
+    // Creating a schedule now always creates (or links) a MaintenanceRecord server-side
+    // (WorkshopScheduleService.create()) — invalidate both keys so a freshly booked entry shows
+    // up in Órdenes de mantenimiento immediately, not just once it's started.
+    onSuccess: () => invalidateQueryKeys(queryClient, [WORKSHOP_KEY, MAINTENANCE_KEY]),
   })
 }
 
@@ -44,9 +47,8 @@ export function useUpdateWorkshopSchedule() {
       const { data } = await apiClient.put<WorkshopSchedule>(`/workshop/schedules/${id}`, request)
       return data
     },
-    // Unlike useCancelWorkshopSchedule/useCompleteMaintenance, a plain update doesn't publish a
-    // domain event server-side, so there's no cascade to the linked MaintenanceRecord — only
-    // the workshop key needs to be invalidated.
+    // A plain update only rewires which record is linked (by id) — it never mutates the linked
+    // MaintenanceRecord's own fields, so only the workshop key needs to be invalidated.
     onSuccess: () => queryClient.invalidateQueries({ queryKey: [WORKSHOP_KEY] }),
   })
 }
@@ -59,9 +61,22 @@ export function useStartWorkshopSchedule() {
       const { data } = await apiClient.patch<WorkshopSchedule>(`/workshop/schedules/${id}/start`)
       return data
     },
-    // Same rationale as useUpdateWorkshopSchedule: starting a schedule doesn't cascade to the
-    // linked MaintenanceRecord server-side, so only the workshop key needs invalidation.
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [WORKSHOP_KEY] }),
+    // Starting a schedule now always starts (or creates-and-starts) its linked MaintenanceRecord
+    // server-side (WorkshopScheduleService.start()) — invalidate both keys.
+    onSuccess: () => invalidateQueryKeys(queryClient, [WORKSHOP_KEY, MAINTENANCE_KEY]),
+  })
+}
+
+export function useCompleteWorkshopSchedule() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await apiClient.patch(`/workshop/schedules/${id}/complete`)
+    },
+    // Completes the linked MaintenanceRecord, which cascades this schedule to COMPLETED via the
+    // existing ScheduleCompletionListener — invalidate both keys so both tables reflect it.
+    onSuccess: () => invalidateQueryKeys(queryClient, [WORKSHOP_KEY, MAINTENANCE_KEY]),
   })
 }
 
@@ -73,11 +88,9 @@ export function useCancelWorkshopSchedule() {
       const { data } = await apiClient.patch<WorkshopSchedule>(`/workshop/schedules/${id}/cancel`)
       return data
     },
-    // Mirrors useCancelMaintenance/useCompleteMaintenance: cancelling a schedule can cascade to
-    // a linked MaintenanceRecord server-side (unless it's already terminal), so invalidate both
-    // feature keys — otherwise the "Órdenes de mantenimiento" table keeps showing a stale
-    // pre-cancel status and still-clickable action buttons for a record that's actually
-    // terminal server-side.
+    // Cancelling a schedule can cascade to cancel a linked MaintenanceRecord server-side (unless
+    // it's already terminal), so invalidate both feature keys — otherwise the "Órdenes de
+    // mantenimiento" table keeps showing a stale pre-cancel status.
     onSuccess: () => invalidateQueryKeys(queryClient, [WORKSHOP_KEY, MAINTENANCE_KEY]),
   })
 }

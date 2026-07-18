@@ -235,4 +235,34 @@ class WorkshopControllerTest {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("SCHEDULE_INVALID_STATE_TRANSITION"));
     }
+
+    // --- PATCH /api/v1/workshop/schedules/{id}/complete ---
+
+    @Test
+    void complete_returns204_whenLinkedMaintenanceExists() throws Exception {
+        doNothing().when(workshopScheduleService).completeLinkedMaintenance(SCHEDULE_ID);
+
+        mockMvc.perform(patch("/api/v1/workshop/schedules/{id}/complete", SCHEDULE_ID))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void complete_returns409_whenNoLinkedMaintenance() throws Exception {
+        doThrow(new ConflictException("SCHEDULE_NO_LINKED_MAINTENANCE", "No linked maintenance record"))
+                .when(workshopScheduleService).completeLinkedMaintenance(SCHEDULE_ID);
+
+        mockMvc.perform(patch("/api/v1/workshop/schedules/{id}/complete", SCHEDULE_ID))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("SCHEDULE_NO_LINKED_MAINTENANCE"));
+    }
+
+    @Test
+    void complete_returns404_whenScheduleMissing() throws Exception {
+        doThrow(new NotFoundException("SCHEDULE_NOT_FOUND", "Schedule not found"))
+                .when(workshopScheduleService).completeLinkedMaintenance(SCHEDULE_ID);
+
+        mockMvc.perform(patch("/api/v1/workshop/schedules/{id}/complete", SCHEDULE_ID))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("SCHEDULE_NOT_FOUND"));
+    }
 }

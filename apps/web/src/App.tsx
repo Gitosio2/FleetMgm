@@ -10,6 +10,7 @@ import { Vehicles } from '@/pages/Vehicles'
 import { Workers } from '@/pages/Workers'
 import { Jobs } from '@/pages/Jobs'
 import { Workshop } from '@/pages/Workshop'
+import { MaintenanceOrders } from '@/pages/MaintenanceOrders'
 import { Billing } from '@/pages/Billing'
 import { Suppliers } from '@/pages/Suppliers'
 import { SupplierInvoices } from '@/pages/SupplierInvoices'
@@ -78,6 +79,14 @@ function App() {
           }
         />
         <Route
+          path="/maintenance-orders"
+          element={
+            <ProtectedRoute allowedRoles={[...MANAGEMENT_ROLES, 'WORKSHOP_STAFF']}>
+              <MaintenanceOrders />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/billing"
           element={
             <ProtectedRoute allowedRoles={MANAGEMENT_ROLES}>
@@ -125,6 +134,7 @@ function App() {
             item.to !== '/workers' &&
             item.to !== '/jobs' &&
             item.to !== '/workshop' &&
+            item.to !== '/maintenance-orders' &&
             item.to !== '/billing' &&
             item.to !== '/supplier-invoices' &&
             item.to !== '/suppliers' &&

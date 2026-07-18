@@ -71,4 +71,13 @@ public class WorkshopController {
     public ResponseEntity<ScheduleResponse> cancel(@PathVariable UUID id) {
         return ResponseEntity.ok(workshopScheduleService.cancel(id));
     }
+
+    // Completes the linked MaintenanceRecord (the actual work), which cascades this schedule to
+    // COMPLETED via the existing ScheduleCompletionListener — no response body, see
+    // WorkshopScheduleService.completeLinkedMaintenance() for why.
+    @PatchMapping("/{id}/complete")
+    public ResponseEntity<Void> complete(@PathVariable UUID id) {
+        workshopScheduleService.completeLinkedMaintenance(id);
+        return ResponseEntity.noContent().build();
+    }
 }

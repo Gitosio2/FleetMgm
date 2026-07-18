@@ -1,10 +1,10 @@
 import { Pencil } from 'lucide-react'
 import type { WorkshopSchedule } from '@fleetmgm/api'
-import { useCancelWorkshopSchedule, useStartWorkshopSchedule } from '@fleetmgm/hooks'
+import { useCancelWorkshopSchedule, useCompleteWorkshopSchedule, useStartWorkshopSchedule } from '@fleetmgm/hooks'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { formatVehicleLabel } from '@/lib/vehicle-label'
-import { PRIORITY_LABEL } from './form-shared'
+import { CATEGORY_LABEL, PRIORITY_LABEL } from './form-shared'
 import { ScheduleStatusBadge } from './ScheduleStatusBadge'
 
 type ScheduleTableProps = {
@@ -14,9 +14,10 @@ type ScheduleTableProps = {
 
 export function ScheduleTable({ schedules, onEdit }: ScheduleTableProps) {
   const startSchedule = useStartWorkshopSchedule()
+  const completeSchedule = useCompleteWorkshopSchedule()
   const cancelSchedule = useCancelWorkshopSchedule()
 
-  const isPending = startSchedule.isPending || cancelSchedule.isPending
+  const isPending = startSchedule.isPending || completeSchedule.isPending || cancelSchedule.isPending
 
   return (
     <Table>
@@ -24,6 +25,7 @@ export function ScheduleTable({ schedules, onEdit }: ScheduleTableProps) {
         <TableRow>
           <TableHead>Vehículo</TableHead>
           <TableHead>Tipo</TableHead>
+          <TableHead>Categoría</TableHead>
           <TableHead>Fecha</TableHead>
           <TableHead>Prioridad</TableHead>
           <TableHead>Técnico</TableHead>
@@ -36,6 +38,9 @@ export function ScheduleTable({ schedules, onEdit }: ScheduleTableProps) {
           <TableRow key={schedule.id}>
             <TableCell>{formatVehicleLabel(schedule)}</TableCell>
             <TableCell>{schedule.type}</TableCell>
+            <TableCell>
+              {schedule.maintenanceCategory ? CATEGORY_LABEL[schedule.maintenanceCategory] : '—'}
+            </TableCell>
             <TableCell>{schedule.scheduledDate}</TableCell>
             <TableCell>{PRIORITY_LABEL[schedule.priority]}</TableCell>
             <TableCell>{schedule.technicianName ?? '—'}</TableCell>
@@ -64,6 +69,16 @@ export function ScheduleTable({ schedules, onEdit }: ScheduleTableProps) {
                       Iniciar
                     </Button>
                   )}
+                  {schedule.status === 'IN_PROGRESS' && (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      disabled={isPending}
+                      onClick={() => completeSchedule.mutate(schedule.id)}
+                    >
+                      Completar
+                    </Button>
+                  )}
                   {(schedule.status === 'PENDING' || schedule.status === 'IN_PROGRESS') && (
                     <Button
                       variant="outline"
@@ -76,6 +91,11 @@ export function ScheduleTable({ schedules, onEdit }: ScheduleTableProps) {
                   )}
                 </div>
                 {startSchedule.isError && startSchedule.variables === schedule.id && (
+                  <p role="alert" className="text-sm text-error">
+                    No se pudo completar la acción.
+                  </p>
+                )}
+                {completeSchedule.isError && completeSchedule.variables === schedule.id && (
                   <p role="alert" className="text-sm text-error">
                     No se pudo completar la acción.
                   </p>

@@ -281,6 +281,7 @@ export type CreateScheduleRequest = {
   type: string
   priority?: SchedulePriority | null
   notes?: string | null
+  category?: MaintenanceCategory | null
 }
 
 export type UpdateScheduleRequest = {

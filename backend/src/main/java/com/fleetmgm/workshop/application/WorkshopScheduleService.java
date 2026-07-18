@@ -13,6 +13,7 @@ import com.fleetmgm.vehicle.infrastructure.VehicleRepository;
 import com.fleetmgm.worker.domain.Worker;
 import com.fleetmgm.worker.infrastructure.WorkerRepository;
 import com.fleetmgm.workshop.domain.MaintenanceRecord;
+import com.fleetmgm.workshop.domain.MaintenanceStatus;
 import com.fleetmgm.workshop.domain.ScheduleCancelledEvent;
 import com.fleetmgm.workshop.domain.ScheduleRange;
 import com.fleetmgm.workshop.domain.SchedulePriority;
@@ -47,6 +48,7 @@ public class WorkshopScheduleService {
     private final VehicleRepository vehicleRepository;
     private final WorkerRepository workerRepository;
     private final MaintenanceRepository maintenanceRepository;
+    private final MaintenanceService maintenanceService;
     private final ScheduleMapper scheduleMapper;
     private final AuditLogRepository auditLogRepository;
     private final UserRepository userRepository;
@@ -56,6 +58,7 @@ public class WorkshopScheduleService {
                                    VehicleRepository vehicleRepository,
                                    WorkerRepository workerRepository,
                                    MaintenanceRepository maintenanceRepository,
+                                   MaintenanceService maintenanceService,
                                    ScheduleMapper scheduleMapper,
                                    AuditLogRepository auditLogRepository,
                                    UserRepository userRepository,
@@ -64,6 +67,7 @@ public class WorkshopScheduleService {
         this.vehicleRepository = vehicleRepository;
         this.workerRepository = workerRepository;
         this.maintenanceRepository = maintenanceRepository;
+        this.maintenanceService = maintenanceService;
         this.scheduleMapper = scheduleMapper;
         this.auditLogRepository = auditLogRepository;
         this.userRepository = userRepository;
@@ -97,7 +101,13 @@ public class WorkshopScheduleService {
                 .orElseThrow(() -> new NotFoundException("VEHICLE_NOT_FOUND",
                         "Vehicle " + request.vehicleId() + " not found"));
         Worker technician = resolveTechnician(request.technicianId());
-        MaintenanceRecord maintenanceRecord = resolveMaintenanceRecord(request.maintenanceRecordId());
+        // An explicit maintenanceRecordId links to an existing order (e.g. the maintenance->schedule
+        // auto-create direction via ScheduleCreationListener). Otherwise, a schedule created directly
+        // (the Agenda "Nueva entrada" flow) now always gets its own linked order at creation time,
+        // instead of staying orphaned until someone starts it — see WorkshopScheduleService.start().
+        MaintenanceRecord maintenanceRecord = request.maintenanceRecordId() != null
+                ? resolveMaintenanceRecord(request.maintenanceRecordId())
+                : maintenanceService.createFromSchedule(vehicle, technician, request.type(), request.category());
         WorkshopSchedule schedule = scheduleMapper.toEntity(request);
         schedule.setVehicle(vehicle);
         schedule.setTechnician(technician);
@@ -200,8 +210,51 @@ public class WorkshopScheduleService {
             throw new ConflictException("SCHEDULE_INVALID_STATE_TRANSITION",
                     "Workshop schedule " + id + " cannot be started from state " + schedule.getStatus());
         }
+        ensureLinkedMaintenanceStarted(schedule);
         schedule.setStatus(WorkshopStatus.IN_PROGRESS);
         return scheduleMapper.toResponse(workshopScheduleRepository.save(schedule));
+    }
+
+    // Since create() now always links a MaintenanceRecord, the null branch here is a safety net for
+    // legacy data (schedules created before this behavior existed) rather than the common case.
+    // Synchronous, same transaction as start() — unlike the fire-and-forget event listeners elsewhere
+    // in this package, a failure here must roll back the whole start() call: a schedule showing
+    // IN_PROGRESS with no started (or no) linked order would silently reproduce the exact dead end
+    // this change exists to close, just invisibly.
+    private void ensureLinkedMaintenanceStarted(WorkshopSchedule schedule) {
+        MaintenanceRecord record = schedule.getMaintenanceRecord();
+        if (record == null) {
+            MaintenanceRecord created = maintenanceService.createFromSchedule(
+                    schedule.getVehicle(), schedule.getTechnician(), schedule.getType(), null);
+            maintenanceService.start(created.getId(), null);
+            schedule.setMaintenanceRecord(created);
+        } else if (record.getStatus() == MaintenanceStatus.SCHEDULED) {
+            maintenanceService.start(record.getId(), null);
+        }
+    }
+
+    // Entry point for the Agenda "Completar" action: delegates to MaintenanceService.complete() on the
+    // linked order — the actual COMPLETED transition, event publication, and vehicle reactivation all
+    // stay exactly where they already live. ScheduleCompletionListener (unchanged) is what marks this
+    // schedule COMPLETED, via the same MaintenanceCompletedEvent cascade every other completion path
+    // already uses — this method does not set schedule.status directly.
+    //
+    // No return value: ScheduleCompletionListener runs AFTER_COMMIT (a separate REQUIRES_NEW
+    // transaction), so within this method's own transaction the schedule's status has not yet flipped
+    // to COMPLETED — returning a ScheduleResponse read here would report a stale IN_PROGRESS status.
+    // The frontend invalidates and refetches on success (same pattern as every other workshop mutation),
+    // which correctly observes COMPLETED once the AFTER_COMMIT listener has run.
+    @Transactional
+    @PreAuthorize(ROLES)
+    public void completeLinkedMaintenance(UUID id) {
+        WorkshopSchedule schedule = workshopScheduleRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("SCHEDULE_NOT_FOUND",
+                        "Workshop schedule " + id + " not found"));
+        if (schedule.getMaintenanceRecord() == null) {
+            throw new ConflictException("SCHEDULE_NO_LINKED_MAINTENANCE",
+                    "Workshop schedule " + id + " has no linked maintenance record to complete");
+        }
+        maintenanceService.complete(schedule.getMaintenanceRecord().getId(), null);
     }
 
     @Transactional
