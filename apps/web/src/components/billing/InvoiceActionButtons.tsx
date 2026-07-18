@@ -3,6 +3,7 @@ import type { ApiError, Invoice } from '@fleetmgm/api'
 import { useIssueInvoice, usePayInvoice } from '@fleetmgm/hooks'
 import { Button } from '@/components/ui/button'
 import { PdfDownloadButton } from './PdfDownloadButton'
+import { InvoiceDeleteButton } from './InvoiceDeleteButton'
 
 const INVOICE_ERROR_MESSAGES: Record<string, string> = {
   INVOICE_NO_LINE_ITEMS: 'No se puede emitir una factura sin líneas de factura.',
@@ -57,6 +58,13 @@ export function InvoiceActionButtons({ invoice, onEdit }: InvoiceActionButtonsPr
           </Button>
         )}
         <PdfDownloadButton invoiceId={invoice.id} invoiceNumber={invoice.invoiceNumber} />
+        {invoice.status !== 'PAID' && invoice.status !== 'CANCELLED' && (
+          <InvoiceDeleteButton
+            invoiceId={invoice.id}
+            invoiceNumber={invoice.invoiceNumber}
+            status={invoice.status}
+          />
+        )}
       </div>
       {error && (
         <p role="alert" className="text-sm text-error">

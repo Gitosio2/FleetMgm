@@ -76,6 +76,17 @@ export function useCreateSupplierInvoice() {
   })
 }
 
+export function useDeleteSupplierInvoice() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await apiClient.delete(`/supplier-invoices/${id}`)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [SUPPLIER_INVOICE_KEY] }),
+  })
+}
+
 export function useUpdateSupplierInvoice() {
   const queryClient = useQueryClient()
 

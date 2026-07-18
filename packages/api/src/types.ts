@@ -295,7 +295,7 @@ export type UpdateScheduleRequest = {
   notes?: string | null
 }
 
-export type InvoiceStatus = 'DRAFT' | 'ISSUED' | 'PAID' | 'OVERDUE'
+export type InvoiceStatus = 'DRAFT' | 'ISSUED' | 'PAID' | 'OVERDUE' | 'CANCELLED'
 
 export type LineItemResponse = {
   id: string

@@ -8,6 +8,7 @@ export const STATUS_LABEL: Record<InvoiceStatus, string> = {
   ISSUED: 'Emitida',
   PAID: 'Pagada',
   OVERDUE: 'Vencida',
+  CANCELLED: 'Anulada',
 }
 
 export function sumLineItemSubtotals(lineItems: LineItemResponse[]): number {

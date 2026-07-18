@@ -3,6 +3,7 @@ import { Eye, Pencil } from 'lucide-react'
 import type { ApiError, SupplierInvoice } from '@fleetmgm/api'
 import { usePaySupplierInvoice } from '@fleetmgm/hooks'
 import { Button } from '@/components/ui/button'
+import { SupplierInvoiceDeleteButton } from './SupplierInvoiceDeleteButton'
 
 const SUPPLIER_INVOICE_ERROR_MESSAGES: Record<string, string> = {
   SUPPLIER_INVOICE_INVALID_STATE_TRANSITION: 'Esta factura ya no admite esta acción.',
@@ -50,6 +51,7 @@ export function SupplierInvoiceActionButtons({ invoice, onEdit }: SupplierInvoic
             Marcar pagada
           </Button>
         )}
+        {invoice.status === 'PENDING' && <SupplierInvoiceDeleteButton invoiceId={invoice.id} />}
       </div>
       {payInvoice.isError && (
         <p role="alert" className="text-sm text-error">

@@ -144,11 +144,18 @@ public class InvoiceService {
     @PreAuthorize(ROLES)
     public void delete(UUID id) {
         Invoice invoice = findInvoiceOrThrow(id);
-        if (invoice.getStatus() != InvoiceStatus.DRAFT) {
-            throw new ConflictException("INVOICE_DELETE_NOT_ALLOWED",
+        // A DRAFT invoice never had a fiscal number assigned, so it can be truly removed. An
+        // ISSUED/OVERDUE invoice already consumed a sequential invoice_number_seq value — deleting
+        // it outright would leave a permanent gap in that sequence, which real invoicing/antifraud
+        // rules (and Verifactu) treat as suspicious. It's cancelled instead: status flips to
+        // CANCELLED but deletedAt stays null, so it remains visible in lists/audit with its number
+        // intact, and the user issues a fresh invoice separately if needed.
+        switch (invoice.getStatus()) {
+            case DRAFT -> invoice.setDeletedAt(Instant.now());
+            case ISSUED, OVERDUE -> invoice.setStatus(InvoiceStatus.CANCELLED);
+            case PAID, CANCELLED -> throw new ConflictException("INVOICE_DELETE_NOT_ALLOWED",
                     "Invoice " + id + " cannot be deleted from state " + invoice.getStatus());
         }
-        invoice.setDeletedAt(Instant.now());
         invoiceRepository.save(invoice);
         auditDeletion(invoice);
     }
