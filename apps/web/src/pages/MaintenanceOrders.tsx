@@ -26,7 +26,7 @@ export function MaintenanceOrders() {
       <div>
         <h1 className="font-display text-2xl font-semibold">Órdenes de mantenimiento</h1>
         <p className="text-on-surface-variant">
-          Registro de trabajos realizados por vehículo — consulta de estado, categoría y costo.
+          Registro de trabajos realizados por vehículo — consulta de estado, categoría y coste.
         </p>
       </div>
 

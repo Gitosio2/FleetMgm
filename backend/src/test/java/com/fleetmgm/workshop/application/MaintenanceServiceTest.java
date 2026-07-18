@@ -576,7 +576,8 @@ class MaintenanceServiceTest {
         UUID vehicleId = UUID.randomUUID();
         UUID technicianId = UUID.randomUUID();
         UpdateMaintenanceRequest request = new UpdateMaintenanceRequest(
-                vehicleId, "Brake check", "front pads", technicianId, MaintenanceCategory.CORRECTIVE);
+                vehicleId, "Brake check", "front pads", technicianId, MaintenanceCategory.CORRECTIVE,
+                new BigDecimal("150.00"));
         MaintenanceRecord record = new MaintenanceRecord();
         Vehicle vehicle = new Vehicle();
         Worker technician = new Worker();
@@ -600,7 +601,7 @@ class MaintenanceServiceTest {
     void update_throwsNotFound_whenMissing() {
         UUID id = UUID.randomUUID();
         UpdateMaintenanceRequest request = new UpdateMaintenanceRequest(
-                UUID.randomUUID(), "Brake check", null, null, MaintenanceCategory.PREVENTIVE);
+                UUID.randomUUID(), "Brake check", null, null, MaintenanceCategory.PREVENTIVE, null);
 
         when(maintenanceRepository.findById(id)).thenReturn(Optional.empty());
 

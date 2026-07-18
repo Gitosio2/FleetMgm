@@ -156,6 +156,24 @@ class MaintenanceControllerTest {
                 .andExpect(status().isOk());
     }
 
+    @Test
+    void update_returns200_whenCostProvided() throws Exception {
+        when(maintenanceService.update(eq(MAINTENANCE_ID), any())).thenReturn(sampleResponse());
+
+        mockMvc.perform(put("/api/v1/maintenance/{id}", MAINTENANCE_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"vehicleId\":\"" + VEHICLE_ID + "\",\"type\":\"Brake check\",\"category\":\"PREVENTIVE\",\"cost\":250.00}"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void update_returns400_whenCostNegative() throws Exception {
+        mockMvc.perform(put("/api/v1/maintenance/{id}", MAINTENANCE_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"vehicleId\":\"" + VEHICLE_ID + "\",\"type\":\"Brake check\",\"category\":\"PREVENTIVE\",\"cost\":-1}"))
+                .andExpect(status().isBadRequest());
+    }
+
     // --- DELETE /api/v1/maintenance/{id} ---
 
     @Test
