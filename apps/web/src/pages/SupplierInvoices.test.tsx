@@ -57,7 +57,9 @@ describe('SupplierInvoices', () => {
 
     const row2 = screen.getByRole('button', { name: withoutVehicle!.supplierName }).closest('tr')!
     expect(within(row2).getByText('Pendiente')).toBeInTheDocument()
-    expect(within(row2).getByText('—')).toBeInTheDocument()
+    // withoutVehicle has neither a supplierInvoiceNumber nor a vehicleLicensePlate, so both the
+    // "Nº factura" and "Vehículo" columns fall back to the placeholder.
+    expect(within(row2).getAllByText('—')).toHaveLength(2)
 
     const row3 = screen.getByRole('button', { name: paid!.supplierName }).closest('tr')!
     expect(within(row3).getByText('Pagada')).toBeInTheDocument()
@@ -86,9 +88,9 @@ describe('SupplierInvoices', () => {
     })
     const row = screen.getByRole('button', { name: 'Ferretería Central' }).closest('tr')!
     expect(within(row).getByText('Pendiente')).toBeInTheDocument()
-    // Both the "Vehículo" and "Vencimiento" columns fall back to the placeholder here, since
-    // neither a vehicle nor a due date was entered in this test.
-    expect(within(row).getAllByText('—')).toHaveLength(2)
+    // The "Nº factura", "Vehículo", and "Vencimiento" columns all fall back to the placeholder
+    // here, since none of supplierInvoiceNumber/vehicle/dueDate was entered in this test.
+    expect(within(row).getAllByText('—')).toHaveLength(3)
     expect(within(row).getByText(formatCurrency(48.4))).toBeInTheDocument()
   })
 

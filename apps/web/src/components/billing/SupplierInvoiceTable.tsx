@@ -16,6 +16,7 @@ export function SupplierInvoiceTable({ invoices, onEdit }: SupplierInvoiceTableP
     <Table>
       <TableHeader>
         <TableRow>
+          <TableHead>Nº factura</TableHead>
           <TableHead>Proveedor</TableHead>
           <TableHead>Categoría</TableHead>
           <TableHead>Vehículo</TableHead>
@@ -29,6 +30,7 @@ export function SupplierInvoiceTable({ invoices, onEdit }: SupplierInvoiceTableP
       <TableBody>
         {invoices.map((invoice) => (
           <TableRow key={invoice.id}>
+            <TableCell>{invoice.supplierInvoiceNumber ?? '—'}</TableCell>
             <TableCell>
               <SupplierInfoLink supplierId={invoice.supplierId} supplierName={invoice.supplierName} />
             </TableCell>
