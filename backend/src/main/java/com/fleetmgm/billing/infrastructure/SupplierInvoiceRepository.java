@@ -26,12 +26,14 @@ public interface SupplierInvoiceRepository extends JpaRepository<SupplierInvoice
     // list-view convention of QuickBooks/Xero/Stripe Invoicing: status is a filterable column,
     // not a sort bucket; see InvoiceRepository.findAllJoinFetch for the same change on the
     // client-invoice side). invoiceDate is NOT NULL for every row (no DRAFT concept here), so
-    // unlike Invoice it's a safe primary sort key directly. The service strips caller-provided
-    // sorts before calling this repository, so invoiceDate alone leaves same-date rows in
-    // whatever order Postgres feels like on a given execution — non-deterministic across page
-    // requests, which can duplicate or drop rows across pages. createdAt DESC, id DESC breaks
-    // ties deterministically without reintroducing status bucketing. Callers must pass an
-    // unsorted Pageable.
+    // unlike Invoice it's a safe primary sort key directly. category is the secondary key so
+    // same-date invoices group by expense type in the list view. supplierInvoiceNumber comes next
+    // as a human-meaningful tertiary key — but it's nullable and has no unique constraint (V7), so
+    // it CANNOT be trusted alone to break ties: two rows can share a number, or both be null, which
+    // would reproduce the exact non-deterministic-pagination bug fixed above (createdAt DESC, id
+    // DESC). Those two stay as the true final tiebreak beneath supplierInvoiceNumber, guaranteeing
+    // every row has a fully deterministic position regardless of what invoiceNumber/category data
+    // looks like. Callers must pass an unsorted Pageable.
     // supplierId/status and the four date/amount ranges are newer than vehicleId/category and use
     // CAST(:param AS string) IS NULL instead of a bare ":param IS NULL" — see AuditLogRepository's
     // comment on the same idiom: a parameter that appears ONLY in a bare IS NULL check gives
@@ -48,7 +50,8 @@ public interface SupplierInvoiceRepository extends JpaRepository<SupplierInvoice
             + "AND (CAST(:dueDateTo AS string) IS NULL OR si.dueDate <= :dueDateTo) "
             + "AND (CAST(:totalMin AS string) IS NULL OR si.total >= :totalMin) "
             + "AND (CAST(:totalMax AS string) IS NULL OR si.total <= :totalMax) "
-            + "ORDER BY si.invoiceDate DESC, si.createdAt DESC, si.id DESC")
+            + "ORDER BY si.invoiceDate DESC, si.category ASC, si.supplierInvoiceNumber ASC, "
+            + "si.createdAt DESC, si.id DESC")
     Page<SupplierInvoice> findAllJoinFetch(
             @Param("vehicleId") UUID vehicleId,
             @Param("category") ExpenseCategory category,

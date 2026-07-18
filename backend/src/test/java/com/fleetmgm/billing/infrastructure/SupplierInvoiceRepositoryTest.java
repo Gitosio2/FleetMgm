@@ -171,6 +171,58 @@ class SupplierInvoiceRepositoryTest {
     }
 
     @Test
+    void findAllJoinFetch_breaksTiesByCategoryAscending_whenInvoiceDatesMatch() {
+        Supplier supplier = persistSupplier();
+        LocalDate sameDate = LocalDate.now();
+        SupplierInvoice tollInvoice = persistInvoiceWithDateAndCategory(supplier, sameDate, ExpenseCategory.TOLL);
+        SupplierInvoice fuelInvoice = persistInvoiceWithDateAndCategory(supplier, sameDate, ExpenseCategory.FUEL);
+        SupplierInvoice maintenanceInvoice =
+                persistInvoiceWithDateAndCategory(supplier, sameDate, ExpenseCategory.MAINTENANCE);
+        entityManager.getEntityManager().clear();
+
+        Page<SupplierInvoice> result = supplierInvoiceRepository.findAllJoinFetch(null, null, null, null, null, null, null, null, null, null, PageRequest.of(0, 20));
+
+        // Same invoiceDate for all three — category ASC groups same-date rows by expense type
+        // (FUEL < MAINTENANCE < TOLL alphabetically) before falling through to createdAt/id.
+        assertThat(result.getContent()).extracting(SupplierInvoice::getId).containsExactly(
+                fuelInvoice.getId(), maintenanceInvoice.getId(), tollInvoice.getId());
+    }
+
+    @Test
+    void findAllJoinFetch_breaksTiesBySupplierInvoiceNumberAscending_whenDateAndCategoryMatch() {
+        Supplier supplier = persistSupplier();
+        LocalDate sameDate = LocalDate.now();
+        SupplierInvoice numberB = persistInvoiceWithDateAndNumber(supplier, sameDate, "FC-002");
+        SupplierInvoice numberA = persistInvoiceWithDateAndNumber(supplier, sameDate, "FC-001");
+        entityManager.getEntityManager().clear();
+
+        Page<SupplierInvoice> result = supplierInvoiceRepository.findAllJoinFetch(null, null, null, null, null, null, null, null, null, null, PageRequest.of(0, 20));
+
+        // Same invoiceDate and category (both MAINTENANCE) — supplierInvoiceNumber ASC is the next
+        // tiebreak, ranking "FC-001" before "FC-002".
+        assertThat(result.getContent()).extracting(SupplierInvoice::getId).containsExactly(
+                numberA.getId(), numberB.getId());
+    }
+
+    @Test
+    void findAllJoinFetch_staysDeterministic_whenSupplierInvoiceNumberIsDuplicatedOrNull() {
+        Supplier supplier = persistSupplier();
+        LocalDate sameDate = LocalDate.now();
+        // supplierInvoiceNumber has no unique constraint and is nullable (V7) — duplicates and
+        // nulls must not reintroduce the non-deterministic-pagination bug fixed above; createdAt/id
+        // underneath supplierInvoiceNumber must still resolve every tie.
+        SupplierInvoice firstDuplicate = persistInvoiceWithDateAndNumber(supplier, sameDate, "FC-SAME");
+        SupplierInvoice secondDuplicate = persistInvoiceWithDateAndNumber(supplier, sameDate, "FC-SAME");
+        SupplierInvoice noNumber = persistInvoiceWithDateAndNumber(supplier, sameDate, null);
+        entityManager.getEntityManager().clear();
+
+        Page<SupplierInvoice> result = supplierInvoiceRepository.findAllJoinFetch(null, null, null, null, null, null, null, null, null, null, PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).extracting(SupplierInvoice::getId).containsExactly(
+                secondDuplicate.getId(), firstDuplicate.getId(), noNumber.getId());
+    }
+
+    @Test
     void findAllJoinFetch_excludesSoftDeleted() {
         Supplier supplier = persistSupplier();
         Vehicle vehicle = persistVehicle("8888HHH");
@@ -457,6 +509,33 @@ class SupplierInvoiceRepositoryTest {
         invoice.setCategory(ExpenseCategory.MAINTENANCE);
         invoice.setInvoiceDate(invoiceDate);
         invoice.setStatus(status);
+        invoice.setSubtotal(new BigDecimal("100.00"));
+        invoice.setTaxAmount(new BigDecimal("21.00"));
+        invoice.setTotal(new BigDecimal("121.00"));
+        return entityManager.persistAndFlush(invoice);
+    }
+
+    private SupplierInvoice persistInvoiceWithDateAndCategory(
+            Supplier supplier, LocalDate invoiceDate, ExpenseCategory category) {
+        SupplierInvoice invoice = new SupplierInvoice();
+        invoice.setSupplier(supplier);
+        invoice.setCategory(category);
+        invoice.setInvoiceDate(invoiceDate);
+        invoice.setStatus(SupplierInvoiceStatus.PENDING);
+        invoice.setSubtotal(new BigDecimal("100.00"));
+        invoice.setTaxAmount(new BigDecimal("21.00"));
+        invoice.setTotal(new BigDecimal("121.00"));
+        return entityManager.persistAndFlush(invoice);
+    }
+
+    private SupplierInvoice persistInvoiceWithDateAndNumber(
+            Supplier supplier, LocalDate invoiceDate, String supplierInvoiceNumber) {
+        SupplierInvoice invoice = new SupplierInvoice();
+        invoice.setSupplier(supplier);
+        invoice.setSupplierInvoiceNumber(supplierInvoiceNumber);
+        invoice.setCategory(ExpenseCategory.MAINTENANCE);
+        invoice.setInvoiceDate(invoiceDate);
+        invoice.setStatus(SupplierInvoiceStatus.PENDING);
         invoice.setSubtotal(new BigDecimal("100.00"));
         invoice.setTaxAmount(new BigDecimal("21.00"));
         invoice.setTotal(new BigDecimal("121.00"));
