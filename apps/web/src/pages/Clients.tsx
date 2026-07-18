@@ -1,24 +1,40 @@
 import { useState } from 'react'
-import { Plus } from 'lucide-react'
 import type { Client } from '@fleetmgm/api'
 import { useClients } from '@fleetmgm/hooks'
 import { useAuthStore } from '@fleetmgm/store'
 import { Button } from '@/components/ui/button'
 import { ClientTable } from '@/components/client/ClientTable'
 import { ClientFormModal } from '@/components/client/ClientFormModal'
+import { ClientFilters } from '@/components/client/ClientFilters'
 import { MANAGEMENT_ROLES } from '@/components/layout/nav-items'
 
 const PAGE_SIZE = 20
 
 export function Clients() {
   const [page, setPage] = useState(0)
+  const [taxId, setTaxId] = useState('')
+  const [name, setName] = useState('')
   const [formOpen, setFormOpen] = useState(false)
   const [editingClient, setEditingClient] = useState<Client | undefined>(undefined)
 
   const role = useAuthStore((state) => state.role)
   const canManage = role != null && MANAGEMENT_ROLES.includes(role)
 
-  const { data, isLoading } = useClients(page, PAGE_SIZE)
+  const { data, isLoading } = useClients(
+    {
+      taxId: taxId === '' ? undefined : taxId,
+      name: name === '' ? undefined : name,
+    },
+    page,
+    PAGE_SIZE,
+  )
+
+  function resetPageAnd<T>(setter: (value: T) => void) {
+    return (value: T) => {
+      setter(value)
+      setPage(0)
+    }
+  }
 
   function openCreateForm() {
     setEditingClient(undefined)
@@ -32,20 +48,14 @@ export function Clients() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-display text-2xl font-semibold">Clientes</h1>
-          <p className="text-on-surface-variant">
-            Gestiona los clientes facturados a través de trabajos completados.
-          </p>
-        </div>
-        {canManage && (
-          <Button onClick={openCreateForm}>
-            <Plus className="size-4" />
-            Nuevo cliente
-          </Button>
-        )}
-      </div>
+      <ClientFilters
+        taxId={taxId}
+        onTaxIdChange={resetPageAnd(setTaxId)}
+        name={name}
+        onNameChange={resetPageAnd(setName)}
+        onCreate={openCreateForm}
+        canCreate={canManage}
+      />
 
       {isLoading ? (
         <p className="text-on-surface-variant">Cargando clientes…</p>

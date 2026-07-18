@@ -53,7 +53,7 @@ describe('Clients', () => {
 
     await user.click(screen.getByRole('button', { name: /nuevo cliente/i }))
     await user.type(screen.getByLabelText(/^nombre$/i), 'Nordic Freight')
-    await user.type(screen.getByLabelText(/id fiscal/i), 'B99999999')
+    await user.type(screen.getByLabelText(/^id fiscal$/i), 'B99999999')
     await user.click(screen.getByRole('button', { name: /crear cliente/i }))
 
     expect(await screen.findByText('Nordic Freight')).toBeInTheDocument()
@@ -93,6 +93,37 @@ describe('Clients', () => {
     await waitFor(() =>
       expect(screen.queryByText(FIRST_CLIENT.name)).not.toBeInTheDocument(),
     )
+  })
+
+  it('narrows the client list with the name filter', async () => {
+    loginAs('ADMIN')
+    const user = userEvent.setup()
+    renderClients()
+
+    await screen.findByText(FIRST_CLIENT.name)
+
+    await user.type(screen.getByLabelText(/buscar por nombre/i), 'Ibérica')
+
+    await waitFor(() => {
+      expect(screen.getByText('Transportes Ibérica')).toBeInTheDocument()
+    })
+    expect(screen.queryByText(FIRST_CLIENT.name)).not.toBeInTheDocument()
+  })
+
+  it('narrows the client list with the ID fiscal filter', async () => {
+    loginAs('ADMIN')
+    const user = userEvent.setup()
+    renderClients()
+
+    await screen.findByText(FIRST_CLIENT.name)
+
+    await user.type(screen.getByLabelText(/buscar por id fiscal/i), FIRST_CLIENT.taxId.slice(0, 4))
+
+    await waitFor(() => {
+      expect(screen.getByText(FIRST_CLIENT.name)).toBeInTheDocument()
+    })
+    const otherClient = SEED_CLIENTS.find((c) => c.id !== FIRST_CLIENT.id)!
+    expect(screen.queryByText(otherClient.name)).not.toBeInTheDocument()
   })
 
   it('hides management actions for the DRIVER role', async () => {

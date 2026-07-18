@@ -22,7 +22,7 @@ export function Billing() {
   const [formOpen, setFormOpen] = useState(false)
   const [editingInvoiceId, setEditingInvoiceId] = useState<string | undefined>(undefined)
 
-  const { data: clientsPage } = useClients(0, 100)
+  const { data: clientsPage } = useClients({}, 0, 100)
 
   const { data, isLoading, isError } = useInvoices(
     {

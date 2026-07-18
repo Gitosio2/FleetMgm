@@ -1,12 +1,40 @@
-import type { Client, CreateClientRequest, UpdateClientRequest } from '@fleetmgm/api'
+import { useQuery } from '@tanstack/react-query'
+import { apiClient } from '@fleetmgm/api'
+import type { Client, CreateClientRequest, PageResponse, UpdateClientRequest } from '@fleetmgm/api'
 import { createCrudHooks } from './createCrudHooks'
 
+export const CLIENT_KEY = 'clients'
+
 const clientHooks = createCrudHooks<Client, CreateClientRequest, UpdateClientRequest>(
-  'clients',
+  CLIENT_KEY,
   '/clients',
 )
 
-export const useClients = clientHooks.useList
+export type ClientFilters = {
+  name?: string
+  taxId?: string
+}
+
+// Hand-rolled instead of clientHooks.useList (createCrudHooks has no filter support, and stays
+// that way — every other CRUD entity in this app doesn't need filtering, so extending the shared
+// factory just for this one consumer isn't worth the risk). Uses the CLIENT_KEY constant the
+// factory was built with, so useCreateClient/useUpdateClient/useDeleteClient's
+// invalidateQueries({ queryKey: [CLIENT_KEY] }) still refreshes this list — same pattern as
+// useSuppliers.
+export function useClients(filters: ClientFilters = {}, page = 0, size = 20) {
+  const { name, taxId } = filters
+
+  return useQuery({
+    queryKey: [CLIENT_KEY, { ...filters, page, size }],
+    queryFn: async () => {
+      const { data } = await apiClient.get<PageResponse<Client>>('/clients', {
+        params: { name, taxId, page, size },
+      })
+      return data
+    },
+  })
+}
+
 export const useClient = clientHooks.useDetail
 export const useCreateClient = clientHooks.useCreate
 export const useUpdateClient = clientHooks.useUpdate

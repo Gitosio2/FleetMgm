@@ -64,7 +64,7 @@ export function JobFormModal({ open, onOpenChange, job }: JobFormModalProps) {
 
   const { data: vehiclesPage } = useVehicles(0, 100)
   const { data: workersPage } = useWorkers(0, 100)
-  const { data: clientsPage } = useClients(0, 100)
+  const { data: clientsPage } = useClients({}, 0, 100)
 
   const drivers = (workersPage?.content ?? []).filter(
     (worker) => worker.workerRole === 'DRIVER' || worker.workerRole === 'BOTH',

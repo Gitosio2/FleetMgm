@@ -30,8 +30,8 @@ public class ClientService {
 
     @Transactional(readOnly = true)
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ADMINISTRATIVE')")
-    public PageResponse<ClientResponse> list(Pageable pageable) {
-        return PageResponse.from(clientRepository.findAll(pageable).map(clientMapper::toResponse));
+    public PageResponse<ClientResponse> list(String name, String taxId, Pageable pageable) {
+        return PageResponse.from(clientRepository.search(name, taxId, pageable).map(clientMapper::toResponse));
     }
 
     @Transactional

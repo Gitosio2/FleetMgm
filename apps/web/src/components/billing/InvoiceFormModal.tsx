@@ -45,7 +45,7 @@ export function InvoiceFormModal({ open, onOpenChange, invoice, onCreated }: Inv
   const createInvoice = useCreateInvoice()
   const updateInvoice = useUpdateInvoice()
 
-  const { data: clientsPage } = useClients(0, 100)
+  const { data: clientsPage } = useClients({}, 0, 100)
 
   const [clientId, setClientId] = useState('')
   const [dueDate, setDueDate] = useState('')
