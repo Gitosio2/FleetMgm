@@ -24,7 +24,7 @@ export function WorkerDeleteButton({ workerId, workerLabel }: WorkerDeleteButton
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button variant="ghost" size="sm" aria-label="Eliminar trabajador" disabled={deleteWorker.isPending}>
+        <Button variant="destructive" size="sm" aria-label="Eliminar trabajador" disabled={deleteWorker.isPending}>
           <Trash2 className="size-4" />
         </Button>
       </AlertDialogTrigger>

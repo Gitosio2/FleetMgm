@@ -1,4 +1,5 @@
 import { isAxiosError } from 'axios'
+import { Banknote, Eye, Pencil, Send } from 'lucide-react'
 import type { ApiError, Invoice } from '@fleetmgm/api'
 import { useIssueInvoice, usePayInvoice } from '@fleetmgm/hooks'
 import { Button } from '@/components/ui/button'
@@ -34,27 +35,34 @@ export function InvoiceActionButtons({ invoice, onEdit }: InvoiceActionButtonsPr
   return (
     <div className="flex flex-col items-start gap-1">
       <div className="flex items-center gap-1">
-        <Button variant="ghost" size="sm" onClick={() => onEdit(invoice)}>
-          Editar
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-label={invoice.status === 'PAID' ? 'Ver' : 'Editar'}
+          onClick={() => onEdit(invoice)}
+        >
+          {invoice.status === 'PAID' ? <Eye className="size-4" /> : <Pencil className="size-4" />}
         </Button>
         {invoice.status === 'DRAFT' && (
           <Button
-            variant="default"
+            variant="ghost"
             size="sm"
+            aria-label="Emitir"
             disabled={isPending}
             onClick={() => issueInvoice.mutate(invoice.id)}
           >
-            Emitir
+            <Send className="size-4" />
           </Button>
         )}
         {invoice.status === 'ISSUED' && (
           <Button
-            variant="default"
+            variant="ghost"
             size="sm"
+            aria-label="Marcar pagada"
             disabled={isPending}
             onClick={() => payInvoice.mutate({ id: invoice.id })}
           >
-            Marcar pagada
+            <Banknote className="size-4" />
           </Button>
         )}
         <PdfDownloadButton invoiceId={invoice.id} invoiceNumber={invoice.invoiceNumber} />
