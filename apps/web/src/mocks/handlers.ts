@@ -1888,15 +1888,25 @@ export const handlers = [
       })
     }
 
+    const name = url.searchParams.get('name')
+    const nationalId = url.searchParams.get('nationalId')
+    const workerRole = url.searchParams.get('workerRole')
+
+    const source = workers.filter(
+      (worker) =>
+        (name == null || worker.fullName.toLowerCase().includes(name.toLowerCase())) &&
+        (nationalId == null || worker.nationalId.toLowerCase().includes(nationalId.toLowerCase())) &&
+        (workerRole == null || worker.workerRole === workerRole),
+    )
     const start = page * size
-    const content = workers.slice(start, start + size)
+    const content = source.slice(start, start + size)
 
     return HttpResponse.json({
       content,
       page,
       size,
-      totalElements: workers.length,
-      totalPages: Math.max(1, Math.ceil(workers.length / size)),
+      totalElements: source.length,
+      totalPages: Math.max(1, Math.ceil(source.length / size)),
     })
   }),
 

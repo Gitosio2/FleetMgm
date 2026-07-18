@@ -14,7 +14,7 @@ export function VehicleAssignmentPanel({ vehicleId, vehicleLabel, canManage }: V
   const [modalOpen, setModalOpen] = useState(false)
 
   const { data: assignment } = useVehicleAssignment(vehicleId)
-  const { data: workersPage } = useWorkers(0, 100)
+  const { data: workersPage } = useWorkers({}, 0, 100)
   const drivers = (workersPage?.content ?? []).filter(
     (worker) => worker.workerRole === 'DRIVER' || worker.workerRole === 'BOTH',
   )

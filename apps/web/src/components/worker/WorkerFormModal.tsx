@@ -11,14 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-
-const WORKER_ROLES: WorkerRole[] = ['DRIVER', 'TECHNICIAN', 'BOTH']
-
-const WORKER_ROLE_LABEL: Record<WorkerRole, string> = {
-  DRIVER: 'Conductor',
-  TECHNICIAN: 'Técnico',
-  BOTH: 'Conductor y técnico',
-}
+import { WORKER_ROLES, WORKER_ROLE_LABEL } from './worker-shared'
 
 const selectClassName =
   'flex h-11 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary-container disabled:cursor-not-allowed disabled:opacity-50'

@@ -48,6 +48,24 @@ class WorkerServiceTest {
         SecurityContextHolder.clearContext();
     }
 
+    // --- list ---
+
+    @Test
+    void list_passesNameNationalIdAndRoleFilters_toRepository_whenNotDriver() {
+        Pageable pageable = PageRequest.of(0, 20);
+        Worker entity = new Worker();
+        WorkerResponse expected = buildWorkerResponse(UUID.randomUUID());
+
+        when(workerRepository.search("Juan", "1234", WorkerRole.DRIVER, pageable))
+                .thenReturn(new PageImpl<>(List.of(entity), pageable, 1));
+        when(workerMapper.toResponse(entity)).thenReturn(expected);
+
+        var result = workerService.list("Juan", "1234", WorkerRole.DRIVER, pageable);
+
+        assertThat(result.content()).containsExactly(expected);
+        verify(workerRepository).search("Juan", "1234", WorkerRole.DRIVER, pageable);
+    }
+
     // --- create ---
 
     @Test
@@ -173,11 +191,13 @@ class WorkerServiceTest {
         when(workerMapper.toResponse(worker)).thenReturn(workerResponse);
 
         Pageable pageable = PageRequest.of(0, 20);
-        PageResponse<WorkerResponse> result = workerService.list(pageable);
+        // Filters are irrelevant on the driver branch — it never reaches workerRepository.search().
+        PageResponse<WorkerResponse> result = workerService.list("ignored", "ignored", WorkerRole.TECHNICIAN, pageable);
 
         assertThat(result.content()).hasSize(1);
         assertThat(result.content().get(0)).isEqualTo(workerResponse);
         assertThat(result.totalElements()).isEqualTo(1L);
+        verify(workerRepository, never()).search(any(), any(), any(), any());
     }
 
     // --- helpers ---
