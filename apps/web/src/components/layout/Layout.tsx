@@ -15,7 +15,7 @@ export function Layout() {
       <Sidebar />
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="shrink-0 flex items-center justify-between border-b border-outline-variant/40 px-8 py-4">
+        <header className="shrink-0 flex items-center justify-between border-b border-outline-variant/40 bg-surface-container-lowest px-8 py-4">
           <div>
             <p className="text-sm font-medium">{email}</p>
             <p className="text-xs text-on-surface-variant">{role}</p>
