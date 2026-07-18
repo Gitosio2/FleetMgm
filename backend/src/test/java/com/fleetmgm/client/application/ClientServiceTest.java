@@ -14,8 +14,12 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -32,6 +36,24 @@ class ClientServiceTest {
     @Mock ClientRepository clientRepository;
     @Mock ClientMapper clientMapper;
     @InjectMocks ClientService clientService;
+
+    // --- list ---
+
+    @Test
+    void list_passesNameAndTaxIdFilters_toRepository() {
+        Pageable pageable = PageRequest.of(0, 20);
+        Client entity = new Client();
+        ClientResponse expected = new ClientResponse(UUID.randomUUID(), "Acme", "B123", null, null, null, Instant.now());
+
+        when(clientRepository.search("Acme", "B123", pageable))
+                .thenReturn(new PageImpl<>(List.of(entity), pageable, 1));
+        when(clientMapper.toResponse(entity)).thenReturn(expected);
+
+        var result = clientService.list("Acme", "B123", pageable);
+
+        assertThat(result.content()).containsExactly(expected);
+        verify(clientRepository).search("Acme", "B123", pageable);
+    }
 
     // --- create ---
 

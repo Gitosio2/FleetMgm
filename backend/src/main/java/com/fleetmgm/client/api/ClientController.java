@@ -27,8 +27,10 @@ public class ClientController {
 
     @GetMapping
     public ResponseEntity<PageResponse<ClientResponse>> list(
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) String taxId,
             @PageableDefault(size = 20, sort = "name") Pageable pageable) {
-        return ResponseEntity.ok(clientService.list(pageable));
+        return ResponseEntity.ok(clientService.list(name, taxId, pageable));
     }
 
     @PostMapping

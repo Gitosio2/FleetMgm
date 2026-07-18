@@ -55,11 +55,21 @@ class ClientControllerTest {
     @Test
     void list_returns200_withPage() throws Exception {
         PageResponse<ClientResponse> page = new PageResponse<>(List.of(sampleResponse()), 0, 20, 1, 1);
-        when(clientService.list(any(Pageable.class))).thenReturn(page);
+        when(clientService.list(any(), any(), any(Pageable.class))).thenReturn(page);
 
         mockMvc.perform(get("/api/v1/clients"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    @Test
+    void list_passesNameAndTaxIdFilters_toService() throws Exception {
+        PageResponse<ClientResponse> page = new PageResponse<>(List.of(sampleResponse()), 0, 20, 1, 1);
+        when(clientService.list(eq("Acme"), eq("B123"), any(Pageable.class))).thenReturn(page);
+
+        mockMvc.perform(get("/api/v1/clients").param("name", "Acme").param("taxId", "B123"))
+                .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(1));
     }
 

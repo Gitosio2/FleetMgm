@@ -1569,15 +1569,23 @@ export const handlers = [
     const url = new URL(request.url)
     const page = Number(url.searchParams.get('page') ?? 0)
     const size = Number(url.searchParams.get('size') ?? 20)
+    const name = url.searchParams.get('name')
+    const taxId = url.searchParams.get('taxId')
+
+    const source = clients.filter(
+      (client) =>
+        (name == null || client.name.toLowerCase().includes(name.toLowerCase())) &&
+        (taxId == null || client.taxId.toLowerCase().includes(taxId.toLowerCase())),
+    )
     const start = page * size
-    const content = clients.slice(start, start + size)
+    const content = source.slice(start, start + size)
 
     return HttpResponse.json({
       content,
       page,
       size,
-      totalElements: clients.length,
-      totalPages: Math.max(1, Math.ceil(clients.length / size)),
+      totalElements: source.length,
+      totalPages: Math.max(1, Math.ceil(source.length / size)),
     })
   }),
 
