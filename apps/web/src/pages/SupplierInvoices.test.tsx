@@ -146,10 +146,10 @@ describe('SupplierInvoices', () => {
     const row = (await screen.findByRole('button', { name: withoutVehicle.supplierName })).closest('tr')!
     expect(within(row).getByText('Pendiente')).toBeInTheDocument()
 
-    await user.click(within(row).getByRole('button', { name: /marcar pagada/i }))
+    await user.click(within(row).getByRole('button', { name: /marcar factura de proveedor como pagada/i }))
 
     await waitFor(() => expect(within(row).getByText('Pagada')).toBeInTheDocument())
-    expect(within(row).queryByRole('button', { name: /marcar pagada/i })).not.toBeInTheDocument()
+    expect(within(row).queryByRole('button', { name: /marcar factura de proveedor como pagada/i })).not.toBeInTheDocument()
   })
 
   it('hides the "Marcar pagada" button for an already-PAID supplier invoice', async () => {
@@ -158,7 +158,7 @@ describe('SupplierInvoices', () => {
     const paid = SEED_SUPPLIER_INVOICES[2]!
     const row = (await screen.findByRole('button', { name: paid.supplierName })).closest('tr')!
 
-    expect(within(row).queryByRole('button', { name: /marcar pagada/i })).not.toBeInTheDocument()
+    expect(within(row).queryByRole('button', { name: /marcar factura de proveedor como pagada/i })).not.toBeInTheDocument()
   })
 
   it('opens a PAID supplier invoice as a read-only view', async () => {
