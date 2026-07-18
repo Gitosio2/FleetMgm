@@ -50,11 +50,25 @@ class WorkerControllerTest {
     @Test
     void list_returns200_withPage() throws Exception {
         PageResponse<WorkerResponse> page = new PageResponse<>(List.of(sampleResponse()), 0, 20, 1, 1);
-        when(workerService.list(any(Pageable.class))).thenReturn(page);
+        when(workerService.list(any(), any(), any(), any(Pageable.class))).thenReturn(page);
 
         mockMvc.perform(get("/api/v1/workers"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    @Test
+    void list_passesNameNationalIdAndRoleFilters_toService() throws Exception {
+        PageResponse<WorkerResponse> page = new PageResponse<>(List.of(sampleResponse()), 0, 20, 1, 1);
+        when(workerService.list(eq("Juan"), eq("1234"), eq(WorkerRole.DRIVER), any(Pageable.class)))
+                .thenReturn(page);
+
+        mockMvc.perform(get("/api/v1/workers")
+                        .param("name", "Juan")
+                        .param("nationalId", "1234")
+                        .param("workerRole", "DRIVER"))
+                .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(1));
     }
 

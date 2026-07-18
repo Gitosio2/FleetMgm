@@ -25,7 +25,7 @@ export function ScheduleFormModal({ open, onOpenChange, schedule }: ScheduleForm
   const updateSchedule = useUpdateWorkshopSchedule()
 
   const { data: vehiclesPage } = useVehicles({}, 0, 100)
-  const { data: workersPage } = useWorkers(0, 100)
+  const { data: workersPage } = useWorkers({}, 0, 100)
 
   const technicians = (workersPage?.content ?? []).filter(
     (worker) => worker.workerRole === 'TECHNICIAN' || worker.workerRole === 'BOTH',

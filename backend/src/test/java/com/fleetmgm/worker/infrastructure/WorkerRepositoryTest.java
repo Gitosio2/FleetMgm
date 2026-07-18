@@ -11,6 +11,8 @@ import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabas
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -71,11 +73,75 @@ class WorkerRepositoryTest {
         assertThat(workerRepository.existsByNationalId("ZZZZ")).isFalse();
     }
 
+    @Test
+    void search_narrowsByName_partialMatch_caseInsensitive_acrossFirstAndLastName_whenProvided() {
+        Worker match = entityManager.persistAndFlush(
+                buildWorker("Juan", "García", WorkerRole.DRIVER, "31111111A"));
+        entityManager.persistAndFlush(buildWorker("Ana", "López", WorkerRole.DRIVER, "31111111B"));
+        entityManager.clear();
+
+        Page<Worker> result = workerRepository.search("juan garc", null, null, PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).extracting(Worker::getId).containsExactly(match.getId());
+    }
+
+    @Test
+    void search_narrowsByNationalId_partialMatch_caseInsensitive_whenProvided() {
+        Worker match = entityManager.persistAndFlush(
+                buildWorker("Juan", "García", WorkerRole.DRIVER, "32222222A"));
+        entityManager.persistAndFlush(buildWorker("Ana", "López", WorkerRole.DRIVER, "32222222B"));
+        entityManager.clear();
+
+        Page<Worker> result = workerRepository.search(null, "32222222a", null, PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).extracting(Worker::getId).containsExactly(match.getId());
+    }
+
+    @Test
+    void search_narrowsByWorkerRole_whenProvided() {
+        Worker match = entityManager.persistAndFlush(
+                buildWorker("Juan", "García", WorkerRole.TECHNICIAN, "33333333A"));
+        entityManager.persistAndFlush(buildWorker("Ana", "López", WorkerRole.DRIVER, "33333333B"));
+        entityManager.clear();
+
+        Page<Worker> result = workerRepository.search(null, null, WorkerRole.TECHNICIAN, PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).extracting(Worker::getId).containsExactly(match.getId());
+    }
+
+    @Test
+    void search_combinesAllFilters_whenAllProvided() {
+        Worker match = entityManager.persistAndFlush(
+                buildWorker("Juan", "García", WorkerRole.BOTH, "34444444A"));
+        entityManager.persistAndFlush(buildWorker("Juan", "García", WorkerRole.DRIVER, "34444444B"));
+        entityManager.persistAndFlush(buildWorker("Ana", "López", WorkerRole.BOTH, "34444444C"));
+        entityManager.clear();
+
+        Page<Worker> result = workerRepository.search("juan", "34444444a", WorkerRole.BOTH, PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).extracting(Worker::getId).containsExactly(match.getId());
+    }
+
+    @Test
+    void search_returnsAll_whenNoFiltersProvided() {
+        entityManager.persistAndFlush(buildWorker("Juan", "García", WorkerRole.DRIVER, "35555555A"));
+        entityManager.persistAndFlush(buildWorker("Ana", "López", WorkerRole.TECHNICIAN, "35555555B"));
+        entityManager.clear();
+
+        Page<Worker> result = workerRepository.search(null, null, null, PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).hasSize(2);
+    }
+
     private Worker buildWorker(String nationalId) {
+        return buildWorker("Test", "Worker", WorkerRole.DRIVER, nationalId);
+    }
+
+    private Worker buildWorker(String firstName, String lastName, WorkerRole role, String nationalId) {
         Worker worker = new Worker();
-        worker.setFirstName("Test");
-        worker.setLastName("Worker");
-        worker.setWorkerRole(WorkerRole.DRIVER);
+        worker.setFirstName(firstName);
+        worker.setLastName(lastName);
+        worker.setWorkerRole(role);
         worker.setNationalId(nationalId);
         return worker;
     }

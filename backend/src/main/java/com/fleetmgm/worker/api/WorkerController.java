@@ -2,6 +2,7 @@ package com.fleetmgm.worker.api;
 
 import com.fleetmgm.shared.PageResponse;
 import com.fleetmgm.worker.application.WorkerService;
+import com.fleetmgm.worker.domain.WorkerRole;
 import com.fleetmgm.worker.dto.CreateWorkerRequest;
 import com.fleetmgm.worker.dto.UpdateWorkerRequest;
 import com.fleetmgm.worker.dto.WorkerResponse;
@@ -27,8 +28,11 @@ public class WorkerController {
 
     @GetMapping
     public ResponseEntity<PageResponse<WorkerResponse>> list(
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) String nationalId,
+            @RequestParam(required = false) WorkerRole workerRole,
             @PageableDefault(size = 20, sort = "lastName") Pageable pageable) {
-        return ResponseEntity.ok(workerService.list(pageable));
+        return ResponseEntity.ok(workerService.list(name, nationalId, workerRole, pageable));
     }
 
     @PostMapping
