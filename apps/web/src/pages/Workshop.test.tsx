@@ -421,6 +421,95 @@ describe('Workshop', () => {
     expect(screen.queryByText('Prueba horario igual')).not.toBeInTheDocument()
   })
 
+  it('paginates the maintenance orders table when there is more than one page', async () => {
+    loginAs('ADMIN')
+    const user = userEvent.setup()
+
+    server.use(
+      http.get('/api/v1/maintenance', ({ request }) => {
+        const page = Number(new URL(request.url).searchParams.get('page') ?? 0)
+        const record = {
+          id: `maintenance-page-${page}`,
+          vehicleId: SEED_VEHICLES[0]!.id,
+          vehicleLicensePlate: SEED_VEHICLES[0]!.licensePlate,
+          vehicleMake: SEED_VEHICLES[0]!.make,
+          vehicleModel: SEED_VEHICLES[0]!.model,
+          type: page === 0 ? 'Orden más reciente' : 'Orden más antigua',
+          description: null,
+          usageAtService: null,
+          cost: null,
+          workshopEntryDate: null,
+          workshopExitDate: null,
+          workshopEntryTime: null,
+          workshopExitTime: null,
+          technicianId: null,
+          technicianName: null,
+          status: 'SCHEDULED',
+          category: 'PREVENTIVE',
+          createdAt: '2026-07-01T09:00:00Z',
+        }
+        return HttpResponse.json({ content: [record], page, size: 20, totalElements: 21, totalPages: 2 })
+      }),
+    )
+
+    renderWorkshop()
+
+    expect(await within(maintenanceSection()).findByText('Orden más reciente')).toBeInTheDocument()
+    expect(within(maintenanceSection()).getByText('Página 1 de 2')).toBeInTheDocument()
+    expect(within(maintenanceSection()).getByRole('button', { name: /anterior/i })).toBeDisabled()
+
+    await user.click(within(maintenanceSection()).getByRole('button', { name: /siguiente/i }))
+
+    await waitFor(() =>
+      expect(within(maintenanceSection()).getByText('Orden más antigua')).toBeInTheDocument(),
+    )
+    expect(within(maintenanceSection()).getByText('Página 2 de 2')).toBeInTheDocument()
+    expect(within(maintenanceSection()).getByRole('button', { name: /siguiente/i })).toBeDisabled()
+  })
+
+  it('paginates the agenda table when there is more than one page', async () => {
+    loginAs('ADMIN')
+    const user = userEvent.setup()
+
+    server.use(
+      http.get('/api/v1/workshop/schedules', ({ request }) => {
+        const page = Number(new URL(request.url).searchParams.get('page') ?? 0)
+        const schedule = {
+          id: `schedule-page-${page}`,
+          vehicleId: SEED_VEHICLES[0]!.id,
+          vehicleLicensePlate: SEED_VEHICLES[0]!.licensePlate,
+          vehicleMake: SEED_VEHICLES[0]!.make,
+          vehicleModel: SEED_VEHICLES[0]!.model,
+          technicianId: null,
+          technicianName: null,
+          maintenanceRecordId: null,
+          maintenanceCategory: null,
+          scheduledDate: '2026-07-18',
+          scheduledStartTime: null,
+          scheduledEndTime: null,
+          type: page === 0 ? 'Entrada más reciente' : 'Entrada más antigua',
+          priority: 'MEDIUM',
+          status: 'PENDING',
+          notes: null,
+          createdAt: '2026-07-01T09:00:00Z',
+        }
+        return HttpResponse.json({ content: [schedule], page, size: 20, totalElements: 21, totalPages: 2 })
+      }),
+    )
+
+    renderWorkshop()
+
+    expect(await within(agendaSection()).findByText('Entrada más reciente')).toBeInTheDocument()
+    expect(within(agendaSection()).getByText('Página 1 de 2')).toBeInTheDocument()
+
+    await user.click(within(agendaSection()).getByRole('button', { name: /siguiente/i }))
+
+    await waitFor(() =>
+      expect(within(agendaSection()).getByText('Entrada más antigua')).toBeInTheDocument(),
+    )
+    expect(within(agendaSection()).getByText('Página 2 de 2')).toBeInTheDocument()
+  })
+
   it('shows an error message when the schedule agenda query fails', async () => {
     loginAs('ADMIN')
     server.use(

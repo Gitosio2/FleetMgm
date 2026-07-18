@@ -9,6 +9,7 @@ import com.fleetmgm.workshop.dto.StartMaintenanceRequest;
 import com.fleetmgm.workshop.dto.UpdateMaintenanceRequest;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -32,7 +33,7 @@ public class MaintenanceController {
             @RequestParam(required = false) UUID vehicleId,
             @RequestParam(required = false) Integer year,
             @RequestParam(required = false) Integer month,
-            @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
         return ResponseEntity.ok(maintenanceService.list(vehicleId, year, month, pageable));
     }
 
