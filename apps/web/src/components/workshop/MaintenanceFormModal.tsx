@@ -1,11 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import type {
-  CreateMaintenanceRequest,
-  MaintenanceCategory,
-  MaintenanceRecord,
-  UpdateMaintenanceRequest,
-} from '@fleetmgm/api'
-import { useCreateMaintenance, useUpdateMaintenance, useVehicles, useWorkers } from '@fleetmgm/hooks'
+import type { MaintenanceCategory, MaintenanceRecord, UpdateMaintenanceRequest } from '@fleetmgm/api'
+import { useUpdateMaintenance, useVehicles, useWorkers } from '@fleetmgm/hooks'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -16,30 +11,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { selectClassName, toNullableString } from './form-shared'
-
-const CATEGORY_LABEL: Record<MaintenanceCategory, string> = {
-  PREVENTIVE: 'Preventivo',
-  CORRECTIVE: 'Correctivo',
-}
+import { CATEGORY_LABEL, selectClassName, toNullableString } from './form-shared'
 
 type MaintenanceFormModalProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
-  record?: MaintenanceRecord
+  record: MaintenanceRecord
 }
 
-function todayLocalDateInputValue(): string {
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = String(now.getMonth() + 1).padStart(2, '0')
-  const day = String(now.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
+// Edit-only: creation now happens exclusively from Agenda (ScheduleFormModal), which always
+// creates its linked MaintenanceRecord at the same time — see WorkshopScheduleService.create().
 export function MaintenanceFormModal({ open, onOpenChange, record }: MaintenanceFormModalProps) {
-  const isEditing = record != null
-  const createMaintenance = useCreateMaintenance()
   const updateMaintenance = useUpdateMaintenance()
 
   const { data: vehiclesPage } = useVehicles({}, 0, 100)
@@ -54,55 +36,36 @@ export function MaintenanceFormModal({ open, onOpenChange, record }: Maintenance
   const [description, setDescription] = useState('')
   const [technicianId, setTechnicianId] = useState('')
   const [category, setCategory] = useState<MaintenanceCategory>('PREVENTIVE')
-  const [scheduledDate, setScheduledDate] = useState('')
 
   useEffect(() => {
     if (!open) {
       return
     }
-    setVehicleId(record?.vehicleId ?? '')
-    setType(record?.type ?? '')
-    setDescription(record?.description ?? '')
-    setTechnicianId(record?.technicianId ?? '')
-    setCategory(record?.category ?? 'PREVENTIVE')
-    setScheduledDate(todayLocalDateInputValue())
+    setVehicleId(record.vehicleId)
+    setType(record.type)
+    setDescription(record.description ?? '')
+    setTechnicianId(record.technicianId ?? '')
+    setCategory(record.category)
   }, [open, record])
-
-  const isPending = createMaintenance.isPending || updateMaintenance.isPending
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
-    if (record) {
-      // UpdateMaintenanceRequest has no scheduledDate field — it's only settable at creation time.
-      const request: UpdateMaintenanceRequest = {
-        vehicleId,
-        type,
-        description: toNullableString(description),
-        technicianId: toNullableString(technicianId),
-        category,
-      }
-      updateMaintenance.mutate({ id: record.id, request }, { onSuccess: () => onOpenChange(false) })
-      return
-    }
-
-    const request: CreateMaintenanceRequest = {
+    const request: UpdateMaintenanceRequest = {
       vehicleId,
       type,
       description: toNullableString(description),
       technicianId: toNullableString(technicianId),
       category,
-      scheduledDate,
     }
-
-    createMaintenance.mutate(request, { onSuccess: () => onOpenChange(false) })
+    updateMaintenance.mutate({ id: record.id, request }, { onSuccess: () => onOpenChange(false) })
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{isEditing ? 'Editar orden' : 'Nueva orden'}</DialogTitle>
+          <DialogTitle>Editar orden</DialogTitle>
         </DialogHeader>
 
         <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
@@ -177,28 +140,15 @@ export function MaintenanceFormModal({ open, onOpenChange, record }: Maintenance
             />
           </div>
 
-          {!isEditing && (
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="maintenance-scheduled-date">Fecha</Label>
-              <Input
-                id="maintenance-scheduled-date"
-                type="date"
-                value={scheduledDate}
-                onChange={(e) => setScheduledDate(e.target.value)}
-                required
-              />
-            </div>
-          )}
-
-          {(createMaintenance.isError || updateMaintenance.isError) && (
+          {updateMaintenance.isError && (
             <p role="alert" className="text-sm text-error">
               No se pudo completar la acción.
             </p>
           )}
 
           <DialogFooter>
-            <Button type="submit" disabled={isPending}>
-              {isEditing ? 'Guardar cambios' : 'Crear orden'}
+            <Button type="submit" disabled={updateMaintenance.isPending}>
+              Guardar cambios
             </Button>
           </DialogFooter>
         </form>

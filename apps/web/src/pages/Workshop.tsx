@@ -1,43 +1,29 @@
 import { useState } from 'react'
 import { Plus } from 'lucide-react'
-import type { MaintenanceRecord, ScheduleRange, WorkshopSchedule } from '@fleetmgm/api'
-import { useMaintenanceRecords, useWorkshopSchedules } from '@fleetmgm/hooks'
+import type { ScheduleRange, WorkshopSchedule } from '@fleetmgm/api'
+import { useWorkshopSchedules } from '@fleetmgm/hooks'
 import { Button } from '@/components/ui/button'
-import { DaySchedule } from '@/components/workshop/DaySchedule'
 import { ScheduleRangeSelector } from '@/components/workshop/ScheduleRangeSelector'
 import { ScheduleTable } from '@/components/workshop/ScheduleTable'
-import { MaintenanceTable } from '@/components/workshop/MaintenanceTable'
-import { MaintenanceFormModal } from '@/components/workshop/MaintenanceFormModal'
 import { ScheduleFormModal } from '@/components/workshop/ScheduleFormModal'
 
 const PAGE_SIZE = 20
 
 export function Workshop() {
   const [range, setRange] = useState<ScheduleRange>('today')
-  const [formOpen, setFormOpen] = useState(false)
+  const [schedulePage, setSchedulePage] = useState(0)
   const [scheduleFormOpen, setScheduleFormOpen] = useState(false)
-  const [editingMaintenance, setEditingMaintenance] = useState<MaintenanceRecord | undefined>(undefined)
   const [editingSchedule, setEditingSchedule] = useState<WorkshopSchedule | undefined>(undefined)
 
   const {
     data: schedulesPage,
     isLoading: schedulesLoading,
     isError: schedulesError,
-  } = useWorkshopSchedules(range, 0, PAGE_SIZE)
-  const {
-    data: maintenancePage,
-    isLoading: maintenanceLoading,
-    isError: maintenanceError,
-  } = useMaintenanceRecords(0, PAGE_SIZE)
+  } = useWorkshopSchedules(range, schedulePage, PAGE_SIZE)
 
-  function openCreateForm() {
-    setEditingMaintenance(undefined)
-    setFormOpen(true)
-  }
-
-  function openEditForm(record: MaintenanceRecord) {
-    setEditingMaintenance(record)
-    setFormOpen(true)
+  function changeRange(nextRange: ScheduleRange) {
+    setRange(nextRange)
+    setSchedulePage(0)
   }
 
   function openCreateScheduleForm() {
@@ -52,67 +38,53 @@ export function Workshop() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="font-display text-2xl font-semibold">Taller</h1>
-        <p className="text-on-surface-variant">Agenda del taller y órdenes de mantenimiento.</p>
-      </div>
-
-      <section className="flex flex-col gap-3">
-        <h2 className="font-display text-lg font-semibold">Horario del día</h2>
-        <DaySchedule />
-      </section>
-
-      <section className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <h2 className="font-display text-lg font-semibold">Agenda</h2>
-          <div className="flex items-center gap-3">
-            <ScheduleRangeSelector value={range} onChange={setRange} />
-            <Button size="sm" onClick={openCreateScheduleForm}>
-              <Plus className="size-4" />
-              Nueva entrada
-            </Button>
-          </div>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="font-display text-2xl font-semibold">Agenda</h1>
+          <p className="text-on-surface-variant">Reservas y trabajos del taller — crear, iniciar, completar y cancelar.</p>
         </div>
-        {schedulesLoading ? (
-          <p className="text-on-surface-variant">Cargando agenda…</p>
-        ) : schedulesError ? (
-          <p role="alert" className="text-sm text-error">
-            No se pudieron cargar los datos.
-          </p>
-        ) : (
-          <ScheduleTable schedules={schedulesPage?.content ?? []} onEdit={openEditScheduleForm} />
-        )}
-      </section>
-
-      <section className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <h2 className="font-display text-lg font-semibold">Órdenes de mantenimiento</h2>
-          <Button size="sm" onClick={openCreateForm}>
+        <div className="flex items-center gap-3">
+          <ScheduleRangeSelector value={range} onChange={changeRange} />
+          <Button size="sm" onClick={openCreateScheduleForm}>
             <Plus className="size-4" />
-            Nueva orden
+            Nueva entrada
           </Button>
         </div>
-        {maintenanceLoading ? (
-          <p className="text-on-surface-variant">Cargando mantenimientos…</p>
-        ) : maintenanceError ? (
-          <p role="alert" className="text-sm text-error">
-            No se pudieron cargar los datos.
-          </p>
-        ) : (
-          <MaintenanceTable records={maintenancePage?.content ?? []} onEdit={openEditForm} />
-        )}
-      </section>
+      </div>
 
-      <MaintenanceFormModal
-        open={formOpen}
-        onOpenChange={(open) => {
-          setFormOpen(open)
-          if (!open) {
-            setEditingMaintenance(undefined)
-          }
-        }}
-        record={editingMaintenance}
-      />
+      {schedulesLoading ? (
+        <p className="text-on-surface-variant">Cargando agenda…</p>
+      ) : schedulesError ? (
+        <p role="alert" className="text-sm text-error">
+          No se pudieron cargar los datos.
+        </p>
+      ) : (
+        <ScheduleTable schedules={schedulesPage?.content ?? []} onEdit={openEditScheduleForm} />
+      )}
+      {schedulesPage && schedulesPage.totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={schedulePage === 0}
+            onClick={() => setSchedulePage((current) => current - 1)}
+          >
+            Anterior
+          </Button>
+          <span className="text-sm text-on-surface-variant">
+            Página {schedulePage + 1} de {schedulesPage.totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={schedulePage + 1 >= schedulesPage.totalPages}
+            onClick={() => setSchedulePage((current) => current + 1)}
+          >
+            Siguiente
+          </Button>
+        </div>
+      )}
+
       <ScheduleFormModal
         open={scheduleFormOpen}
         onOpenChange={(open) => {

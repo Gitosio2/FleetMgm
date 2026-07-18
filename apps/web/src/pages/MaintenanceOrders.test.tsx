@@ -1,0 +1,166 @@
+import { render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { http, HttpResponse } from 'msw'
+import { beforeEach, describe, expect, it } from 'vitest'
+import { useAuthStore } from '@fleetmgm/store'
+import { resetMaintenanceMock, resetVehiclesMock, resetWorkersMock, resetWorkshopSchedulesMock, SEED_VEHICLES } from '@/mocks/handlers'
+import { server } from '@/mocks/server'
+import { MaintenanceOrders } from './MaintenanceOrders'
+
+function renderMaintenanceOrders() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  })
+
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <MaintenanceOrders />
+    </QueryClientProvider>,
+  )
+}
+
+function loginAs(role: 'ADMIN' | 'WORKSHOP_STAFF') {
+  useAuthStore.getState().login({
+    email: 'user@fleetmgm.com',
+    role,
+    accessToken: 'token',
+    refreshToken: 'refresh',
+  })
+}
+
+describe('MaintenanceOrders', () => {
+  beforeEach(() => {
+    resetMaintenanceMock()
+    resetWorkshopSchedulesMock()
+    resetVehiclesMock()
+    resetWorkersMock()
+    useAuthStore.getState().logout()
+  })
+
+  it('lists maintenance orders read-only, with no creation button', async () => {
+    loginAs('WORKSHOP_STAFF')
+    renderMaintenanceOrders()
+
+    await screen.findByText('Cambio de aceite y filtro')
+    expect(screen.getByText('Cambio de pastillas de freno')).toBeInTheDocument()
+
+    expect(screen.queryByRole('button', { name: /nueva orden/i })).not.toBeInTheDocument()
+  })
+
+  it('shows no lifecycle action buttons — only Editar', async () => {
+    loginAs('ADMIN')
+    renderMaintenanceOrders()
+
+    const row = (await screen.findByText('Cambio de aceite y filtro')).closest('tr')!
+    expect(within(row).queryByRole('button', { name: /iniciar/i })).not.toBeInTheDocument()
+    expect(within(row).queryByRole('button', { name: /completar/i })).not.toBeInTheDocument()
+    expect(within(row).queryByRole('button', { name: /cancelar/i })).not.toBeInTheDocument()
+    expect(within(row).getByRole('button', { name: /editar orden/i })).toBeInTheDocument()
+  })
+
+  it('shows the Costo column, formatted or as a dash when not yet costed', async () => {
+    loginAs('ADMIN')
+    renderMaintenanceOrders()
+
+    const costedRow = (await screen.findByText('Cambio de filtro')).closest('tr')!
+    expect(within(costedRow).getByText('85,50€')).toBeInTheDocument()
+
+    const uncostedRow = screen.getByText('Cambio de aceite y filtro').closest('tr')!
+    expect(within(uncostedRow).getByText('—')).toBeInTheDocument()
+  })
+
+  it('shows "<make> <model>" when the vehicle has no license plate', async () => {
+    loginAs('ADMIN')
+    renderMaintenanceOrders()
+
+    const row = (await screen.findByText('Cambio de filtro')).closest('tr')!
+    const [, heavyMachinery] = SEED_VEHICLES
+    expect(within(row).getByText(`${heavyMachinery!.make} ${heavyMachinery!.model}`)).toBeInTheDocument()
+  })
+
+  it('edits a maintenance order via the modal and reflects the change in the table', async () => {
+    loginAs('WORKSHOP_STAFF')
+    const user = userEvent.setup()
+    renderMaintenanceOrders()
+
+    const row = (await screen.findByText('Cambio de aceite y filtro')).closest('tr')!
+    await user.click(within(row).getByRole('button', { name: /editar orden/i }))
+
+    expect(await screen.findByRole('heading', { name: 'Editar orden' })).toBeInTheDocument()
+    expect(screen.getByLabelText(/tipo/i)).toHaveValue('Cambio de aceite y filtro')
+
+    await user.clear(screen.getByLabelText(/tipo/i))
+    await user.type(screen.getByLabelText(/tipo/i), 'Cambio de aceite sintético')
+
+    await user.click(screen.getByRole('button', { name: /guardar cambios/i }))
+
+    await waitFor(() => expect(screen.getByText('Cambio de aceite sintético')).toBeInTheDocument())
+    expect(screen.queryByText('Cambio de aceite y filtro')).not.toBeInTheDocument()
+  })
+
+  it('paginates the maintenance orders table when there is more than one page', async () => {
+    loginAs('ADMIN')
+    const user = userEvent.setup()
+
+    server.use(
+      http.get('/api/v1/maintenance', ({ request }) => {
+        const page = Number(new URL(request.url).searchParams.get('page') ?? 0)
+        const record = {
+          id: `maintenance-page-${page}`,
+          vehicleId: SEED_VEHICLES[0]!.id,
+          vehicleLicensePlate: SEED_VEHICLES[0]!.licensePlate,
+          vehicleMake: SEED_VEHICLES[0]!.make,
+          vehicleModel: SEED_VEHICLES[0]!.model,
+          type: page === 0 ? 'Orden más reciente' : 'Orden más antigua',
+          description: null,
+          usageAtService: null,
+          cost: null,
+          workshopEntryDate: null,
+          workshopExitDate: null,
+          workshopEntryTime: null,
+          workshopExitTime: null,
+          technicianId: null,
+          technicianName: null,
+          status: 'SCHEDULED',
+          category: 'PREVENTIVE',
+          createdAt: '2026-07-01T09:00:00Z',
+        }
+        return HttpResponse.json({ content: [record], page, size: 20, totalElements: 21, totalPages: 2 })
+      }),
+    )
+
+    renderMaintenanceOrders()
+
+    expect(await screen.findByText('Orden más reciente')).toBeInTheDocument()
+    expect(screen.getByText('Página 1 de 2')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /anterior/i })).toBeDisabled()
+
+    await user.click(screen.getByRole('button', { name: /siguiente/i }))
+
+    await waitFor(() => expect(screen.getByText('Orden más antigua')).toBeInTheDocument())
+    expect(screen.getByText('Página 2 de 2')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /siguiente/i })).toBeDisabled()
+  })
+
+  it('shows an error message when the maintenance query fails', async () => {
+    loginAs('ADMIN')
+    server.use(
+      http.get('/api/v1/maintenance', () =>
+        HttpResponse.json(
+          {
+            status: 500,
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Unexpected error',
+            correlationId: 'test-correlation-id',
+          },
+          { status: 500 },
+        ),
+      ),
+    )
+    renderMaintenanceOrders()
+
+    expect(await screen.findByText('No se pudieron cargar los datos.')).toBeInTheDocument()
+    expect(screen.queryByText('Cambio de aceite y filtro')).not.toBeInTheDocument()
+  })
+})

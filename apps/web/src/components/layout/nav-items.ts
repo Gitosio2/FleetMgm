@@ -1,5 +1,6 @@
 import {
   Building2,
+  CalendarClock,
   ClipboardList,
   Contact2,
   LayoutDashboard,
@@ -35,8 +36,14 @@ export const NAV_ITEMS: NavItem[] = [
     allowedRoles: [...MANAGEMENT_ROLES, 'DRIVER'],
   },
   {
-    label: 'Taller',
+    label: 'Agenda',
     to: '/workshop',
+    icon: CalendarClock,
+    allowedRoles: [...MANAGEMENT_ROLES, 'WORKSHOP_STAFF'],
+  },
+  {
+    label: 'Órdenes de mantenimiento',
+    to: '/maintenance-orders',
     icon: Wrench,
     allowedRoles: [...MANAGEMENT_ROLES, 'WORKSHOP_STAFF'],
   },

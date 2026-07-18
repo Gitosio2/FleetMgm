@@ -777,6 +777,37 @@ export function resetMaintenanceMock() {
   maintenanceRecords = [...SEED_MAINTENANCE]
 }
 
+// Mirrors the backend's MaintenanceService.createFromSchedule() — called from the schedule POST
+// handler when no maintenanceRecordId is provided, since Agenda is now the sole creation surface
+// (every schedule always gets a linked order at creation time, not just once started).
+function buildMaintenanceRecordMock(params: {
+  vehicle: Vehicle
+  technician?: Worker | null
+  type: string
+  category?: MaintenanceCategory | null
+}): MaintenanceRecordMock {
+  return {
+    id: `maintenance-${maintenanceRecords.length + 1}`,
+    vehicleId: params.vehicle.id,
+    vehicleLicensePlate: params.vehicle.licensePlate,
+    vehicleMake: params.vehicle.make,
+    vehicleModel: params.vehicle.model,
+    type: params.type,
+    description: null,
+    usageAtService: null,
+    cost: null,
+    workshopEntryDate: null,
+    workshopExitDate: null,
+    workshopEntryTime: null,
+    workshopExitTime: null,
+    technicianId: params.technician?.id ?? null,
+    technicianName: params.technician?.fullName ?? null,
+    status: 'SCHEDULED',
+    category: params.category ?? 'PREVENTIVE',
+    createdAt: new Date().toISOString(),
+  }
+}
+
 type SchedulePriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
 type WorkshopStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
 type ScheduleRangeValue = 'today' | 'week' | 'month'
@@ -816,6 +847,7 @@ type ScheduleRequestBody = {
   type: string
   priority?: SchedulePriority | null
   notes?: string | null
+  category?: MaintenanceCategory | null
 }
 
 type ScheduleUpdateRequestBody = {
@@ -2835,15 +2867,27 @@ export const handlers = [
       }
     }
 
-    const linkedMaintenance = body.maintenanceRecordId
+    // An explicit maintenanceRecordId links to an existing order; otherwise (the normal Agenda
+    // "Nueva entrada" flow) a linked order is created right here — mirrors
+    // WorkshopScheduleService.create() calling MaintenanceService.createFromSchedule().
+    let linkedMaintenance = body.maintenanceRecordId
       ? maintenanceRecords.find((record) => record.id === body.maintenanceRecordId)
       : undefined
+    if (!linkedMaintenance) {
+      linkedMaintenance = buildMaintenanceRecordMock({
+        vehicle,
+        technician,
+        type: body.type,
+        category: body.category,
+      })
+      maintenanceRecords = [...maintenanceRecords, linkedMaintenance]
+    }
 
     const newSchedule = buildWorkshopScheduleMock({
       vehicle,
       technician,
-      maintenanceRecordId: linkedMaintenance?.id,
-      maintenanceCategory: linkedMaintenance?.category,
+      maintenanceRecordId: linkedMaintenance.id,
+      maintenanceCategory: linkedMaintenance.category,
       scheduledDate: body.scheduledDate,
       scheduledStartTime: body.scheduledStartTime,
       scheduledEndTime: body.scheduledEndTime,
@@ -2961,11 +3005,103 @@ export const handlers = [
       )
     }
 
-    const updated: WorkshopScheduleMock = { ...existing, status: 'IN_PROGRESS' }
+    // Mirrors WorkshopScheduleService.start(): the linked order also starts (SCHEDULED ->
+    // IN_PROGRESS). Real data always has a link (Agenda creates it eagerly); the "no link at
+    // all" branch is a safety net for legacy-orphan data (schedule-3 seed), same as the backend.
+    let maintenanceRecordId = existing.maintenanceRecordId
+    let maintenanceCategory = existing.maintenanceCategory
+    const linkedMaintenance = maintenanceRecordId
+      ? maintenanceRecords.find((record) => record.id === maintenanceRecordId)
+      : undefined
+    if (linkedMaintenance) {
+      if (linkedMaintenance.status === 'SCHEDULED') {
+        maintenanceRecords = maintenanceRecords.map((record) =>
+          record.id === linkedMaintenance.id
+            ? { ...record, status: 'IN_PROGRESS', workshopEntryDate: new Date().toISOString().slice(0, 10), workshopEntryTime: '08:00:00' }
+            : record,
+        )
+      }
+    } else {
+      const vehicle = vehicles.find((v) => v.id === existing.vehicleId)!
+      const technician = existing.technicianId ? workers.find((w) => w.id === existing.technicianId) : undefined
+      const created = buildMaintenanceRecordMock({ vehicle, technician, type: existing.type, category: null })
+      maintenanceRecords = [...maintenanceRecords, { ...created, status: 'IN_PROGRESS' }]
+      maintenanceRecordId = created.id
+      maintenanceCategory = created.category
+    }
+
+    const updated: WorkshopScheduleMock = {
+      ...existing,
+      status: 'IN_PROGRESS',
+      maintenanceRecordId,
+      maintenanceCategory,
+    }
     workshopSchedules = workshopSchedules.map((schedule, i) => (i === index ? updated : schedule))
 
     const { rangeTags: _rangeTags, ...response } = updated
     return HttpResponse.json(response)
+  }),
+
+  http.patch('/api/v1/workshop/schedules/:id/complete', ({ params }) => {
+    const index = workshopSchedules.findIndex((schedule) => schedule.id === params.id)
+    const existing = workshopSchedules[index]
+
+    if (!existing) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'SCHEDULE_NOT_FOUND',
+          message: `Schedule ${params.id} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    const linkedMaintenance = existing.maintenanceRecordId
+      ? maintenanceRecords.find((record) => record.id === existing.maintenanceRecordId)
+      : undefined
+
+    if (!linkedMaintenance) {
+      return HttpResponse.json(
+        {
+          status: 409,
+          code: 'SCHEDULE_NO_LINKED_MAINTENANCE',
+          message: `Workshop schedule ${params.id} has no linked maintenance record to complete`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 409 },
+      )
+    }
+
+    if (linkedMaintenance.status !== 'IN_PROGRESS') {
+      return HttpResponse.json(
+        {
+          status: 409,
+          code: 'MAINTENANCE_INVALID_STATE_TRANSITION',
+          message: `Maintenance ${linkedMaintenance.id} cannot be completed from state ${linkedMaintenance.status}`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 409 },
+      )
+    }
+
+    maintenanceRecords = maintenanceRecords.map((record) =>
+      record.id === linkedMaintenance.id
+        ? {
+            ...record,
+            status: 'COMPLETED',
+            workshopExitDate: new Date().toISOString().slice(0, 10),
+            workshopExitTime: '16:00:00',
+          }
+        : record,
+    )
+
+    // Same cascade as the maintenance-complete handler: the schedule reaches COMPLETED only as a
+    // side effect of completing its linked order, never directly.
+    workshopSchedules = workshopSchedules.map((schedule, i) => (i === index ? { ...schedule, status: 'COMPLETED' } : schedule))
+
+    return new HttpResponse(null, { status: 204 })
   }),
 
   http.patch('/api/v1/workshop/schedules/:id/cancel', ({ params }) => {

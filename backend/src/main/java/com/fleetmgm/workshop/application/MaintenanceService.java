@@ -101,6 +101,22 @@ public class MaintenanceService {
         return maintenanceMapper.toResponse(saved);
     }
 
+    // Called by WorkshopScheduleService.create()/start() — creates the MaintenanceRecord that a
+    // WorkshopSchedule links to. Deliberately does NOT publish MaintenanceScheduledEvent: this record
+    // originates FROM an already-existing schedule, so publishing it would trigger
+    // ScheduleCreationListener and produce a second, duplicate WorkshopSchedule.
+    @Transactional
+    public MaintenanceRecord createFromSchedule(Vehicle vehicle, Worker technician, String type,
+                                                 MaintenanceCategory category) {
+        MaintenanceRecord record = new MaintenanceRecord();
+        record.setVehicle(vehicle);
+        record.setTechnician(technician);
+        record.setType(type);
+        record.setStatus(MaintenanceStatus.SCHEDULED);
+        record.setCategory(category != null ? category : MaintenanceCategory.PREVENTIVE);
+        return maintenanceRepository.save(record);
+    }
+
     private Worker resolveTechnician(UUID technicianId) {
         if (technicianId == null) {
             return null;

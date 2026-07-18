@@ -1,5 +1,11 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import type { CreateScheduleRequest, SchedulePriority, UpdateScheduleRequest, WorkshopSchedule } from '@fleetmgm/api'
+import type {
+  CreateScheduleRequest,
+  MaintenanceCategory,
+  SchedulePriority,
+  UpdateScheduleRequest,
+  WorkshopSchedule,
+} from '@fleetmgm/api'
 import { useCreateWorkshopSchedule, useUpdateWorkshopSchedule, useVehicles, useWorkers } from '@fleetmgm/hooks'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,7 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { PRIORITY_LABEL, selectClassName, toNullableString, toNullableTime, toTimeInputValue } from './form-shared'
+import { CATEGORY_LABEL, PRIORITY_LABEL, selectClassName, toNullableString, toNullableTime, toTimeInputValue } from './form-shared'
 
 type ScheduleFormModalProps = {
   open: boolean
@@ -39,6 +45,7 @@ export function ScheduleFormModal({ open, onOpenChange, schedule }: ScheduleForm
   const [priority, setPriority] = useState<SchedulePriority>('MEDIUM')
   const [technicianId, setTechnicianId] = useState('')
   const [notes, setNotes] = useState('')
+  const [category, setCategory] = useState<MaintenanceCategory>('PREVENTIVE')
   const [timeRangeError, setTimeRangeError] = useState(false)
 
   useEffect(() => {
@@ -53,6 +60,7 @@ export function ScheduleFormModal({ open, onOpenChange, schedule }: ScheduleForm
     setPriority(schedule?.priority ?? 'MEDIUM')
     setTechnicianId(schedule?.technicianId ?? '')
     setNotes(schedule?.notes ?? '')
+    setCategory('PREVENTIVE')
     setTimeRangeError(false)
   }, [open, schedule])
 
@@ -94,6 +102,7 @@ export function ScheduleFormModal({ open, onOpenChange, schedule }: ScheduleForm
       priority,
       technicianId: toNullableString(technicianId),
       notes: toNullableString(notes),
+      category,
     }
 
     createSchedule.mutate(request, { onSuccess: () => onOpenChange(false) })
@@ -168,6 +177,25 @@ export function ScheduleFormModal({ open, onOpenChange, schedule }: ScheduleForm
               </select>
             </div>
           </div>
+
+          {!isEditing && (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="schedule-category">Categoría</Label>
+              <select
+                id="schedule-category"
+                className={selectClassName}
+                value={category}
+                onChange={(e) => setCategory(e.target.value as MaintenanceCategory)}
+                required
+              >
+                {(Object.keys(CATEGORY_LABEL) as MaintenanceCategory[]).map((value) => (
+                  <option key={value} value={value}>
+                    {CATEGORY_LABEL[value]}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="schedule-date">Fecha</Label>

@@ -1,5 +1,6 @@
 package com.fleetmgm.workshop.dto;
 
+import com.fleetmgm.workshop.domain.MaintenanceCategory;
 import com.fleetmgm.workshop.domain.SchedulePriority;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -17,5 +18,6 @@ public record CreateScheduleRequest(
         SchedulePriority priority,
         String notes,
         LocalTime scheduledStartTime,
-        LocalTime scheduledEndTime
+        LocalTime scheduledEndTime,
+        MaintenanceCategory category
 ) {}

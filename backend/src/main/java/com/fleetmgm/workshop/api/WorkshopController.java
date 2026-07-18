@@ -8,6 +8,7 @@ import com.fleetmgm.workshop.dto.ScheduleResponse;
 import com.fleetmgm.workshop.dto.UpdateScheduleRequest;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -29,7 +30,7 @@ public class WorkshopController {
     @GetMapping
     public ResponseEntity<PageResponse<ScheduleResponse>> list(
             @RequestParam(required = false) String range,
-            @PageableDefault(size = 20, sort = "scheduledDate") Pageable pageable) {
+            @PageableDefault(size = 20, sort = "scheduledDate", direction = Sort.Direction.DESC) Pageable pageable) {
         ScheduleRange parsedRange = ScheduleRange.fromValue(range);
         return ResponseEntity.ok(workshopScheduleService.listByRange(parsedRange, pageable));
     }
@@ -69,5 +70,14 @@ public class WorkshopController {
     @PatchMapping("/{id}/cancel")
     public ResponseEntity<ScheduleResponse> cancel(@PathVariable UUID id) {
         return ResponseEntity.ok(workshopScheduleService.cancel(id));
+    }
+
+    // Completes the linked MaintenanceRecord (the actual work), which cascades this schedule to
+    // COMPLETED via the existing ScheduleCompletionListener — no response body, see
+    // WorkshopScheduleService.completeLinkedMaintenance() for why.
+    @PatchMapping("/{id}/complete")
+    public ResponseEntity<Void> complete(@PathVariable UUID id) {
+        workshopScheduleService.completeLinkedMaintenance(id);
+        return ResponseEntity.noContent().build();
     }
 }

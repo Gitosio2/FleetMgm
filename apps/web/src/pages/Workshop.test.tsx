@@ -4,13 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { http, HttpResponse } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useAuthStore } from '@fleetmgm/store'
-import {
-  resetMaintenanceMock,
-  resetVehiclesMock,
-  resetWorkersMock,
-  resetWorkshopSchedulesMock,
-  SEED_VEHICLES,
-} from '@/mocks/handlers'
+import { resetMaintenanceMock, resetVehiclesMock, resetWorkersMock, resetWorkshopSchedulesMock, SEED_VEHICLES } from '@/mocks/handlers'
 import { server } from '@/mocks/server'
 import { Workshop } from './Workshop'
 
@@ -35,20 +29,7 @@ function loginAs(role: 'ADMIN' | 'WORKSHOP_STAFF') {
   })
 }
 
-// The new "Horario del día" widget (DaySchedule) always queries the 'today' range, same as the
-// Agenda section's default range — so a schedule entry tagged 'today' (like schedule-1 and any
-// newly created entry, which are always tagged for every range) now legitimately renders twice
-// on the page. Scope queries to the specific section under test instead of relying on unscoped
-// screen.findByText/getByText, which would otherwise throw on the now-ambiguous match.
-function agendaSection() {
-  return screen.getByRole('heading', { name: 'Agenda' }).closest('section')!
-}
-
-function maintenanceSection() {
-  return screen.getByRole('heading', { name: 'Órdenes de mantenimiento' }).closest('section')!
-}
-
-describe('Workshop', () => {
+describe('Workshop (Agenda)', () => {
   beforeEach(() => {
     resetMaintenanceMock()
     resetWorkshopSchedulesMock()
@@ -62,121 +43,85 @@ describe('Workshop', () => {
     const user = userEvent.setup()
     renderWorkshop()
 
-    expect(await within(agendaSection()).findByText('Cambio de aceite')).toBeInTheDocument()
-    expect(within(agendaSection()).queryByText('Revisión de frenos')).not.toBeInTheDocument()
-    expect(within(agendaSection()).queryByText('Revisión general')).not.toBeInTheDocument()
+    expect(await screen.findByText('Cambio de aceite')).toBeInTheDocument()
+    expect(screen.queryByText('Revisión de frenos')).not.toBeInTheDocument()
+    expect(screen.queryByText('Revisión general')).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: /semana/i }))
-    await waitFor(() =>
-      expect(within(agendaSection()).getByText('Revisión de frenos')).toBeInTheDocument(),
-    )
-    expect(within(agendaSection()).queryByText('Revisión general')).not.toBeInTheDocument()
+    await waitFor(() => expect(screen.getByText('Revisión de frenos')).toBeInTheDocument())
+    expect(screen.queryByText('Revisión general')).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: /mes/i }))
-    await waitFor(() =>
-      expect(within(agendaSection()).getByText('Revisión general')).toBeInTheDocument(),
-    )
-    expect(within(agendaSection()).getByText('Cambio de aceite')).toBeInTheDocument()
-    expect(within(agendaSection()).getByText('Revisión de frenos')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByText('Revisión general')).toBeInTheDocument())
+    expect(screen.getByText('Cambio de aceite')).toBeInTheDocument()
+    expect(screen.getByText('Revisión de frenos')).toBeInTheDocument()
   })
 
-  it('WORKSHOP_STAFF sees and creates a maintenance order', async () => {
-    loginAs('WORKSHOP_STAFF')
-    const user = userEvent.setup()
-    renderWorkshop()
-
-    await screen.findByText('Cambio de aceite y filtro')
-    expect(await screen.findByText('Cambio de filtro')).toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: /nueva orden/i }))
-
-    await user.type(screen.getByLabelText(/tipo/i), 'Cambio de neumáticos')
-    await user.selectOptions(screen.getByLabelText(/vehículo/i), 'vehicle-1')
-
-    await user.click(screen.getByRole('button', { name: /crear orden/i }))
-
-    // Also creates its linked agenda entry (see the dedicated test below) — appears once in the
-    // maintenance table and once in the agenda table (also once more in the "Horario del día"
-    // widget, not asserted here — see DaySchedule.test.tsx for that widget's own coverage).
-    await waitFor(() => {
-      expect(within(maintenanceSection()).getByText('Cambio de neumáticos')).toBeInTheDocument()
-      expect(within(agendaSection()).getByText('Cambio de neumáticos')).toBeInTheDocument()
-    })
-  })
-
-  it('creating a maintenance order also creates its linked agenda entry', async () => {
-    loginAs('WORKSHOP_STAFF')
-    const user = userEvent.setup()
-    renderWorkshop()
-
-    await screen.findByText('Cambio de aceite y filtro')
-
-    await user.click(screen.getByRole('button', { name: /nueva orden/i }))
-
-    await user.type(screen.getByLabelText(/tipo/i), 'Cambio de correa de distribución')
-    await user.selectOptions(screen.getByLabelText(/vehículo/i), 'vehicle-1')
-
-    await user.click(screen.getByRole('button', { name: /crear orden/i }))
-
-    await waitFor(() => {
-      expect(
-        within(maintenanceSection()).getByText('Cambio de correa de distribución'),
-      ).toBeInTheDocument()
-      expect(within(agendaSection()).getByText('Cambio de correa de distribución')).toBeInTheDocument()
-    })
-    const scheduleRow = within(agendaSection())
-      .getByText('Cambio de correa de distribución')
-      .closest('tr')!
-    expect(within(scheduleRow).getByText('Pendiente')).toBeInTheDocument()
-  })
-
-  it('creates a workshop schedule entry directly from the agenda', async () => {
+  it('creates a workshop schedule entry with a category, which creates its linked order', async () => {
     loginAs('ADMIN')
     const user = userEvent.setup()
     renderWorkshop()
 
-    await screen.findByText('Cambio de aceite y filtro')
+    await screen.findByText('Cambio de aceite')
 
     await user.click(screen.getByRole('button', { name: /nueva entrada/i }))
 
-    await user.type(screen.getByLabelText(/tipo/i), 'Revisión de suspensión')
+    expect(screen.getByLabelText(/categoría/i)).toHaveValue('PREVENTIVE')
+
+    await user.type(screen.getByLabelText(/tipo/i), 'Rotura de transmisión')
     await user.selectOptions(screen.getByLabelText(/vehículo/i), 'vehicle-1')
+    await user.selectOptions(screen.getByLabelText(/categoría/i), 'CORRECTIVE')
     await user.type(screen.getByLabelText(/fecha/i), '2026-07-15')
 
     await user.click(screen.getByRole('button', { name: /crear entrada/i }))
 
-    await waitFor(() =>
-      expect(within(agendaSection()).getByText('Revisión de suspensión')).toBeInTheDocument(),
-    )
+    const row = (await screen.findByText('Rotura de transmisión')).closest('tr')!
+    expect(within(row).getByText('Correctivo')).toBeInTheDocument()
+    expect(within(row).getByText('Pendiente')).toBeInTheDocument()
   })
 
-  it('starting a maintenance order transitions its badge from Programado to En curso', async () => {
+  it('does not show the category selector in edit mode', async () => {
     loginAs('ADMIN')
     const user = userEvent.setup()
     renderWorkshop()
 
-    const row = (await screen.findByText('Cambio de aceite y filtro')).closest('tr')!
-    expect(within(row).getByText('Programado')).toBeInTheDocument()
+    const row = (await screen.findByText('Cambio de aceite')).closest('tr')!
+    await user.click(within(row).getByRole('button', { name: /editar entrada/i }))
+
+    expect(await screen.findByRole('heading', { name: 'Editar entrada' })).toBeInTheDocument()
+    expect(screen.queryByLabelText(/categoría/i)).not.toBeInTheDocument()
+  })
+
+  it('starting a linked schedule transitions its badge from Pendiente to En curso', async () => {
+    loginAs('ADMIN')
+    const user = userEvent.setup()
+    renderWorkshop()
+
+    const row = (await screen.findByText('Cambio de aceite')).closest('tr')!
+    expect(within(row).getByText('Pendiente')).toBeInTheDocument()
+    expect(within(row).getByText('Preventivo')).toBeInTheDocument()
 
     await user.click(within(row).getByRole('button', { name: /iniciar/i }))
 
     await waitFor(() => expect(within(row).getByText('En curso')).toBeInTheDocument())
   })
 
-  it('completing a maintenance order also completes its linked schedule (no manual schedule complete exists)', async () => {
+  it('starting an orphan schedule (no linked order) creates and starts one', async () => {
     loginAs('ADMIN')
     const user = userEvent.setup()
     renderWorkshop()
 
-    await user.click(screen.getByRole('button', { name: /semana/i }))
-    const scheduleRow = (await screen.findByText('Revisión de frenos')).closest('tr')!
-    expect(within(scheduleRow).getByText('En curso')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /mes/i }))
+    const row = (await screen.findByText('Revisión general')).closest('tr')!
+    // No linked order yet: both "Categoría" and "Técnico" render as dashes.
+    expect(within(row).getAllByText('—')).toHaveLength(2)
 
-    const maintenanceRow = (await screen.findByText('Cambio de pastillas de freno')).closest('tr')!
-    await user.click(within(maintenanceRow).getByRole('button', { name: /completar/i }))
+    await user.click(within(row).getByRole('button', { name: /iniciar/i }))
 
-    await waitFor(() => expect(within(maintenanceRow).getByText('Completado')).toBeInTheDocument())
-    await waitFor(() => expect(within(scheduleRow).getByText('Completado')).toBeInTheDocument())
+    await waitFor(() => expect(within(row).getByText('En curso')).toBeInTheDocument())
+    expect(within(row).getByText('Preventivo')).toBeInTheDocument()
+    // Only "Técnico" is still unset now that a linked order exists.
+    expect(within(row).getAllByText('—')).toHaveLength(1)
   })
 
   it('shows an error message when a double "Iniciar" click causes an invalid state transition', async () => {
@@ -184,7 +129,7 @@ describe('Workshop', () => {
     const user = userEvent.setup()
     renderWorkshop()
 
-    const row = (await screen.findByText('Cambio de aceite y filtro')).closest('tr')!
+    const row = (await screen.findByText('Cambio de aceite')).closest('tr')!
     const button = within(row).getByRole('button', { name: /iniciar/i })
 
     await Promise.all([user.click(button), user.click(button)])
@@ -194,15 +139,46 @@ describe('Workshop', () => {
     )
   })
 
-  it('shows "<make> <model>" in the maintenance list when the vehicle has no license plate', async () => {
+  it('completing an in-progress schedule transitions its badge to Completado', async () => {
     loginAs('ADMIN')
+    const user = userEvent.setup()
     renderWorkshop()
 
-    const row = (await screen.findByText('Cambio de filtro')).closest('tr')!
-    const [, heavyMachinery] = SEED_VEHICLES
-    expect(
-      within(row).getByText(`${heavyMachinery!.make} ${heavyMachinery!.model}`),
-    ).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /semana/i }))
+    const row = (await screen.findByText('Revisión de frenos')).closest('tr')!
+    expect(within(row).getByText('En curso')).toBeInTheDocument()
+
+    await user.click(within(row).getByRole('button', { name: /completar/i }))
+
+    await waitFor(() => expect(within(row).getByText('Completado')).toBeInTheDocument())
+  })
+
+  it('shows an error message when completing fails', async () => {
+    loginAs('ADMIN')
+    const user = userEvent.setup()
+    server.use(
+      http.patch('/api/v1/workshop/schedules/:id/complete', () =>
+        HttpResponse.json(
+          {
+            status: 409,
+            code: 'MAINTENANCE_INVALID_STATE_TRANSITION',
+            message: 'Cannot complete',
+            correlationId: 'test-correlation-id',
+          },
+          { status: 409 },
+        ),
+      ),
+    )
+    renderWorkshop()
+
+    await user.click(screen.getByRole('button', { name: /semana/i }))
+    const row = (await screen.findByText('Revisión de frenos')).closest('tr')!
+
+    await user.click(within(row).getByRole('button', { name: /completar/i }))
+
+    await waitFor(() =>
+      expect(within(row).getByRole('alert')).toHaveTextContent(/no se pudo completar la acción/i),
+    )
   })
 
   it('shows "<make> <model>" in the schedule list when the vehicle has no license plate', async () => {
@@ -213,33 +189,27 @@ describe('Workshop', () => {
     await user.click(screen.getByRole('button', { name: /mes/i }))
     const row = (await screen.findByText('Revisión general')).closest('tr')!
     const [, heavyMachinery] = SEED_VEHICLES
-    expect(
-      within(row).getByText(`${heavyMachinery!.make} ${heavyMachinery!.model}`),
-    ).toBeInTheDocument()
+    expect(within(row).getByText(`${heavyMachinery!.make} ${heavyMachinery!.model}`)).toBeInTheDocument()
   })
 
-  it('cancelling a scheduled maintenance order transitions its badge to Cancelado', async () => {
+  it('cancelling a pending schedule transitions its badge to Cancelado', async () => {
     loginAs('ADMIN')
     const user = userEvent.setup()
     renderWorkshop()
 
-    const row = (await screen.findByText('Cambio de aceite y filtro')).closest('tr')!
-    // maintenance-1 is linked to schedule-1 ('Cambio de aceite', visible in the default
-    // 'today' range) — cancelling the maintenance order must cascade-cancel its schedule too.
-    const scheduleRow = (await within(agendaSection()).findByText('Cambio de aceite')).closest('tr')!
+    const row = (await screen.findByText('Cambio de aceite')).closest('tr')!
 
     await user.click(within(row).getByRole('button', { name: /cancelar/i }))
 
     await waitFor(() => expect(within(row).getByText('Cancelado')).toBeInTheDocument())
-    await waitFor(() => expect(within(scheduleRow).getByText('Cancelado')).toBeInTheDocument())
   })
 
-  it('shows an error message when a double "Cancelar" click on a maintenance order causes an invalid state transition', async () => {
+  it('shows an error message when a double "Cancelar" click on a schedule causes an invalid state transition', async () => {
     loginAs('ADMIN')
     const user = userEvent.setup()
     renderWorkshop()
 
-    const row = (await screen.findByText('Cambio de aceite y filtro')).closest('tr')!
+    const row = (await screen.findByText('Cambio de aceite')).closest('tr')!
     const button = within(row).getByRole('button', { name: /cancelar/i })
 
     await Promise.all([user.click(button), user.click(button)])
@@ -249,50 +219,12 @@ describe('Workshop', () => {
     )
   })
 
-  it('cancelling a pending schedule transitions its badge to Cancelado', async () => {
-    loginAs('ADMIN')
-    const user = userEvent.setup()
-    renderWorkshop()
-
-    const row = (await within(agendaSection()).findByText('Cambio de aceite')).closest('tr')!
-    // schedule-1 is linked to maintenance-1 ('Cambio de aceite y filtro') — cancelling the
-    // schedule must cascade-cancel its linked maintenance order too (mirror direction).
-    const maintenanceRow = (await screen.findByText('Cambio de aceite y filtro')).closest('tr')!
-
-    await user.click(within(row).getByRole('button', { name: /cancelar/i }))
-
-    await waitFor(() => expect(within(row).getByText('Cancelado')).toBeInTheDocument())
-    await waitFor(() => expect(within(maintenanceRow).getByText('Cancelado')).toBeInTheDocument())
-  })
-
-  it('edits a maintenance order via the modal and reflects the change in the table', async () => {
-    loginAs('WORKSHOP_STAFF')
-    const user = userEvent.setup()
-    renderWorkshop()
-
-    const row = (await screen.findByText('Cambio de aceite y filtro')).closest('tr')!
-    await user.click(within(row).getByRole('button', { name: /editar orden/i }))
-
-    expect(await screen.findByRole('heading', { name: 'Editar orden' })).toBeInTheDocument()
-    expect(screen.getByLabelText(/tipo/i)).toHaveValue('Cambio de aceite y filtro')
-    // UpdateMaintenanceRequest has no scheduledDate field — the date input must not render in edit mode.
-    expect(screen.queryByLabelText(/fecha/i)).not.toBeInTheDocument()
-
-    await user.clear(screen.getByLabelText(/tipo/i))
-    await user.type(screen.getByLabelText(/tipo/i), 'Cambio de aceite sintético')
-
-    await user.click(screen.getByRole('button', { name: /guardar cambios/i }))
-
-    await waitFor(() => expect(screen.getByText('Cambio de aceite sintético')).toBeInTheDocument())
-    expect(screen.queryByText('Cambio de aceite y filtro')).not.toBeInTheDocument()
-  })
-
   it('edits a workshop schedule via the modal and reflects the change in the agenda', async () => {
     loginAs('ADMIN')
     const user = userEvent.setup()
     renderWorkshop()
 
-    const row = (await within(agendaSection()).findByText('Cambio de aceite')).closest('tr')!
+    const row = (await screen.findByText('Cambio de aceite')).closest('tr')!
     await user.click(within(row).getByRole('button', { name: /editar entrada/i }))
 
     expect(await screen.findByRole('heading', { name: 'Editar entrada' })).toBeInTheDocument()
@@ -303,37 +235,9 @@ describe('Workshop', () => {
     await user.click(screen.getByRole('button', { name: /guardar cambios/i }))
 
     await waitFor(() => {
-      const updatedRow = within(agendaSection()).getByText('Cambio de aceite').closest('tr')!
+      const updatedRow = screen.getByText('Cambio de aceite').closest('tr')!
       expect(within(updatedRow).getByText('Alta')).toBeInTheDocument()
     })
-  })
-
-  it('starting a workshop schedule transitions its badge from Pendiente to En curso', async () => {
-    loginAs('ADMIN')
-    const user = userEvent.setup()
-    renderWorkshop()
-
-    const row = (await within(agendaSection()).findByText('Cambio de aceite')).closest('tr')!
-    expect(within(row).getByText('Pendiente')).toBeInTheDocument()
-
-    await user.click(within(row).getByRole('button', { name: /iniciar/i }))
-
-    await waitFor(() => expect(within(row).getByText('En curso')).toBeInTheDocument())
-  })
-
-  it('shows an error message when a double "Iniciar" click on a schedule causes an invalid state transition', async () => {
-    loginAs('ADMIN')
-    const user = userEvent.setup()
-    renderWorkshop()
-
-    const row = (await within(agendaSection()).findByText('Cambio de aceite')).closest('tr')!
-    const button = within(row).getByRole('button', { name: /iniciar/i })
-
-    await Promise.all([user.click(button), user.click(button)])
-
-    await waitFor(() =>
-      expect(within(row).getByRole('alert')).toHaveTextContent(/no se pudo completar la acción/i),
-    )
   })
 
   it('prefills the schedule time inputs from an existing schedule in edit mode', async () => {
@@ -341,7 +245,7 @@ describe('Workshop', () => {
     const user = userEvent.setup()
     renderWorkshop()
 
-    const row = (await within(agendaSection()).findByText('Cambio de aceite')).closest('tr')!
+    const row = (await screen.findByText('Cambio de aceite')).closest('tr')!
     await user.click(within(row).getByRole('button', { name: /editar entrada/i }))
 
     expect(await screen.findByRole('heading', { name: 'Editar entrada' })).toBeInTheDocument()
@@ -354,7 +258,7 @@ describe('Workshop', () => {
     const user = userEvent.setup()
     renderWorkshop()
 
-    await screen.findByText('Cambio de aceite y filtro')
+    await screen.findByText('Cambio de aceite')
 
     await user.click(screen.getByRole('button', { name: /nueva entrada/i }))
 
@@ -369,7 +273,7 @@ describe('Workshop', () => {
 
     await user.click(screen.getByRole('button', { name: /crear entrada/i }))
 
-    const row = (await within(agendaSection()).findByText('Revisión de neumáticos')).closest('tr')!
+    const row = (await screen.findByText('Revisión de neumáticos')).closest('tr')!
     await user.click(within(row).getByRole('button', { name: /editar entrada/i }))
 
     expect(await screen.findByRole('heading', { name: 'Editar entrada' })).toBeInTheDocument()
@@ -382,7 +286,7 @@ describe('Workshop', () => {
     const user = userEvent.setup()
     renderWorkshop()
 
-    await screen.findByText('Cambio de aceite y filtro')
+    await screen.findByText('Cambio de aceite')
     await user.click(screen.getByRole('button', { name: /nueva entrada/i }))
 
     await user.type(screen.getByLabelText(/tipo/i), 'Prueba horario inválido')
@@ -404,7 +308,7 @@ describe('Workshop', () => {
     const user = userEvent.setup()
     renderWorkshop()
 
-    await screen.findByText('Cambio de aceite y filtro')
+    await screen.findByText('Cambio de aceite')
     await user.click(screen.getByRole('button', { name: /nueva entrada/i }))
 
     await user.type(screen.getByLabelText(/tipo/i), 'Prueba horario igual')
@@ -419,6 +323,47 @@ describe('Workshop', () => {
       /la hora de fin debe ser posterior a la hora de inicio/i,
     )
     expect(screen.queryByText('Prueba horario igual')).not.toBeInTheDocument()
+  })
+
+  it('paginates the agenda table when there is more than one page', async () => {
+    loginAs('ADMIN')
+    const user = userEvent.setup()
+
+    server.use(
+      http.get('/api/v1/workshop/schedules', ({ request }) => {
+        const page = Number(new URL(request.url).searchParams.get('page') ?? 0)
+        const schedule = {
+          id: `schedule-page-${page}`,
+          vehicleId: SEED_VEHICLES[0]!.id,
+          vehicleLicensePlate: SEED_VEHICLES[0]!.licensePlate,
+          vehicleMake: SEED_VEHICLES[0]!.make,
+          vehicleModel: SEED_VEHICLES[0]!.model,
+          technicianId: null,
+          technicianName: null,
+          maintenanceRecordId: null,
+          maintenanceCategory: null,
+          scheduledDate: '2026-07-18',
+          scheduledStartTime: null,
+          scheduledEndTime: null,
+          type: page === 0 ? 'Entrada más reciente' : 'Entrada más antigua',
+          priority: 'MEDIUM',
+          status: 'PENDING',
+          notes: null,
+          createdAt: '2026-07-01T09:00:00Z',
+        }
+        return HttpResponse.json({ content: [schedule], page, size: 20, totalElements: 21, totalPages: 2 })
+      }),
+    )
+
+    renderWorkshop()
+
+    expect(await screen.findByText('Entrada más reciente')).toBeInTheDocument()
+    expect(screen.getByText('Página 1 de 2')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /siguiente/i }))
+
+    await waitFor(() => expect(screen.getByText('Entrada más antigua')).toBeInTheDocument())
+    expect(screen.getByText('Página 2 de 2')).toBeInTheDocument()
   })
 
   it('shows an error message when the schedule agenda query fails', async () => {
@@ -438,11 +383,7 @@ describe('Workshop', () => {
     )
     renderWorkshop()
 
-    // The "Horario del día" widget also queries the schedules endpoint and fails the same way,
-    // so the error text now legitimately renders twice on the page — scope to the agenda section.
-    expect(
-      await within(agendaSection()).findByText('No se pudieron cargar los datos.'),
-    ).toBeInTheDocument()
-    expect(within(agendaSection()).queryByText('Cambio de aceite')).not.toBeInTheDocument()
+    expect(await screen.findByText('No se pudieron cargar los datos.')).toBeInTheDocument()
+    expect(screen.queryByText('Cambio de aceite')).not.toBeInTheDocument()
   })
 })

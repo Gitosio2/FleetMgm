@@ -9,11 +9,13 @@ import com.fleetmgm.workshop.domain.SchedulePriority;
 import com.fleetmgm.workshop.domain.WorkshopStatus;
 import com.fleetmgm.workshop.dto.ScheduleResponse;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -21,10 +23,12 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -56,6 +60,19 @@ class WorkshopControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content").isArray())
                 .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    @Test
+    void list_defaultsToNewestScheduledFirst() throws Exception {
+        PageResponse<ScheduleResponse> page = new PageResponse<>(List.of(sampleResponse()), 0, 20, 1, 1);
+        when(workshopScheduleService.listByRange(any(), any(Pageable.class))).thenReturn(page);
+
+        mockMvc.perform(get("/api/v1/workshop/schedules").param("range", "today")).andExpect(status().isOk());
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(workshopScheduleService).listByRange(any(), pageableCaptor.capture());
+        Sort.Order order = pageableCaptor.getValue().getSort().getOrderFor("scheduledDate");
+        assertThat(order.getDirection()).isEqualTo(Sort.Direction.DESC);
     }
 
     @Test
@@ -217,5 +234,35 @@ class WorkshopControllerTest {
         mockMvc.perform(patch("/api/v1/workshop/schedules/{id}/cancel", SCHEDULE_ID))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("SCHEDULE_INVALID_STATE_TRANSITION"));
+    }
+
+    // --- PATCH /api/v1/workshop/schedules/{id}/complete ---
+
+    @Test
+    void complete_returns204_whenLinkedMaintenanceExists() throws Exception {
+        doNothing().when(workshopScheduleService).completeLinkedMaintenance(SCHEDULE_ID);
+
+        mockMvc.perform(patch("/api/v1/workshop/schedules/{id}/complete", SCHEDULE_ID))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void complete_returns409_whenNoLinkedMaintenance() throws Exception {
+        doThrow(new ConflictException("SCHEDULE_NO_LINKED_MAINTENANCE", "No linked maintenance record"))
+                .when(workshopScheduleService).completeLinkedMaintenance(SCHEDULE_ID);
+
+        mockMvc.perform(patch("/api/v1/workshop/schedules/{id}/complete", SCHEDULE_ID))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("SCHEDULE_NO_LINKED_MAINTENANCE"));
+    }
+
+    @Test
+    void complete_returns404_whenScheduleMissing() throws Exception {
+        doThrow(new NotFoundException("SCHEDULE_NOT_FOUND", "Schedule not found"))
+                .when(workshopScheduleService).completeLinkedMaintenance(SCHEDULE_ID);
+
+        mockMvc.perform(patch("/api/v1/workshop/schedules/{id}/complete", SCHEDULE_ID))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("SCHEDULE_NOT_FOUND"));
     }
 }
