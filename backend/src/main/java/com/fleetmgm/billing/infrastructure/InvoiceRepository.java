@@ -18,9 +18,11 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
 
     // List query denormalizes client fields into InvoiceResponse — JOIN FETCH avoids N+1
     // (CLAUDE.md JPA rule). Safe with Pageable: this is a to-one join, not a to-many collection.
-    // Not-yet-PAID invoices (DRAFT/ISSUED) sort before PAID, newest first within each group —
-    // createdAt is the tie-break (not issueDate/dueDate) since DRAFT has neither populated yet.
-    // Callers must pass an unsorted Pageable — this ORDER BY is the whole point of the query.
+    // Pure chronological order, newest first — status does not influence sort (matches the
+    // list-view convention of QuickBooks/Xero/Stripe Invoicing: status is a filterable
+    // column, not a sort bucket). createdAt is used instead of issueDate/dueDate since DRAFT
+    // has neither populated yet. Callers must pass an unsorted Pageable — this ORDER BY is the
+    // whole point of the query.
     // Filters mirror SupplierInvoiceRepository.findAllJoinFetch(): clientId follows the bare
     // ":param IS NULL" idiom (precedent: that method's vehicleId, also a UUID, uses the same bare
     // form and works). status/the four date bounds/the two total bounds use
@@ -62,8 +64,7 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
             + "       THEN (SELECT COALESCE(SUM(li.subtotal), 0) FROM InvoiceLineItem li WHERE li.invoice = i) "
             + "            * (1 + i.taxRate) "
             + "       ELSE i.total END) <= :totalMax) "
-            + "ORDER BY CASE WHEN i.status = com.fleetmgm.billing.domain.InvoiceStatus.PAID THEN 1 ELSE 0 END, "
-            + "i.createdAt DESC")
+            + "ORDER BY i.createdAt DESC")
     Page<Invoice> findAllJoinFetch(
             @Param("clientId") UUID clientId,
             @Param("invoiceNumber") String invoiceNumber,
