@@ -929,11 +929,11 @@ class SupplierInvoiceServiceTest {
         SupplierInvoice invoice = new SupplierInvoice();
         SupplierInvoiceResponse expected = buildResponse(UUID.randomUUID());
 
-        when(supplierInvoiceRepository.findAllJoinFetch(null, null, null, null, null, null, null, null, null, null, pageable))
+        when(supplierInvoiceRepository.findAllJoinFetch(null, null, null, null, null, null, null, null, null, null, null, pageable))
                 .thenReturn(new PageImpl<>(List.of(invoice), pageable, 1));
         when(supplierInvoiceMapper.toResponse(invoice)).thenReturn(expected);
 
-        PageResponse<SupplierInvoiceResponse> result = supplierInvoiceService.list(null, null, null, null, null, null, null, null, null, null, pageable);
+        PageResponse<SupplierInvoiceResponse> result = supplierInvoiceService.list(null, null, null, null, null, null, null, null, null, null, null, pageable);
 
         assertThat(result.content()).containsExactly(expected);
         assertThat(result.totalElements()).isEqualTo(1);
@@ -943,6 +943,7 @@ class SupplierInvoiceServiceTest {
     void list_forwardsAllFilterParams_toRepository() {
         UUID vehicleId = UUID.randomUUID();
         UUID supplierId = UUID.randomUUID();
+        String supplierInvoiceNumber = "FC-2026-0001";
         LocalDate invoiceDateFrom = LocalDate.now().minusDays(10);
         LocalDate invoiceDateTo = LocalDate.now();
         LocalDate dueDateFrom = LocalDate.now().plusDays(1);
@@ -955,16 +956,17 @@ class SupplierInvoiceServiceTest {
 
         when(supplierInvoiceRepository.findAllJoinFetch(
                 eq(vehicleId), eq(ExpenseCategory.FUEL), eq(supplierId), eq(SupplierInvoiceStatus.PENDING),
-                eq(invoiceDateFrom), eq(invoiceDateTo), eq(dueDateFrom), eq(dueDateTo),
+                eq(supplierInvoiceNumber), eq(invoiceDateFrom), eq(invoiceDateTo), eq(dueDateFrom), eq(dueDateTo),
                 eq(totalMin), eq(totalMax), eq(pageOnly)))
                 .thenReturn(new PageImpl<>(List.of(), pageOnly, 0));
 
         supplierInvoiceService.list(vehicleId, ExpenseCategory.FUEL, supplierId, SupplierInvoiceStatus.PENDING,
-                invoiceDateFrom, invoiceDateTo, dueDateFrom, dueDateTo, totalMin, totalMax, callerPageable);
+                supplierInvoiceNumber, invoiceDateFrom, invoiceDateTo, dueDateFrom, dueDateTo, totalMin, totalMax,
+                callerPageable);
 
         verify(supplierInvoiceRepository).findAllJoinFetch(
                 eq(vehicleId), eq(ExpenseCategory.FUEL), eq(supplierId), eq(SupplierInvoiceStatus.PENDING),
-                eq(invoiceDateFrom), eq(invoiceDateTo), eq(dueDateFrom), eq(dueDateTo),
+                eq(supplierInvoiceNumber), eq(invoiceDateFrom), eq(invoiceDateTo), eq(dueDateFrom), eq(dueDateTo),
                 eq(totalMin), eq(totalMax), eq(pageOnly));
     }
 
@@ -995,7 +997,7 @@ class SupplierInvoiceServiceTest {
         SupplierInvoiceResponse mapped1 = buildResponse(invoiceId1);
         SupplierInvoiceResponse mapped2 = buildResponse(invoiceId2);
 
-        when(supplierInvoiceRepository.findAllJoinFetch(null, null, null, null, null, null, null, null, null, null, pageable))
+        when(supplierInvoiceRepository.findAllJoinFetch(null, null, null, null, null, null, null, null, null, null, null, pageable))
                 .thenReturn(new PageImpl<>(List.of(invoice1, invoice2), pageable, 2));
         when(supplierInvoiceMapper.toResponse(invoice1)).thenReturn(mapped1);
         when(supplierInvoiceMapper.toResponse(invoice2)).thenReturn(mapped2);
@@ -1005,7 +1007,7 @@ class SupplierInvoiceServiceTest {
         when(supplierInvoiceMapper.toResponse(line2)).thenReturn(response2);
         when(supplierInvoiceMapper.toResponse(line3)).thenReturn(response3);
 
-        PageResponse<SupplierInvoiceResponse> result = supplierInvoiceService.list(null, null, null, null, null, null, null, null, null, null, pageable);
+        PageResponse<SupplierInvoiceResponse> result = supplierInvoiceService.list(null, null, null, null, null, null, null, null, null, null, null, pageable);
 
         SupplierInvoiceResponse resultInvoice1 = result.content().stream()
                 .filter(r -> r.id().equals(invoiceId1)).findFirst().orElseThrow();

@@ -3328,6 +3328,7 @@ export const handlers = [
     const url = new URL(request.url)
     const page = Number(url.searchParams.get('page') ?? 0)
     const size = Number(url.searchParams.get('size') ?? 20)
+    const supplierInvoiceNumber = url.searchParams.get('supplierInvoiceNumber')
     const vehicleId = url.searchParams.get('vehicleId')
     const category = url.searchParams.get('category') as ExpenseCategory | null
     const supplierId = url.searchParams.get('supplierId')
@@ -3341,6 +3342,8 @@ export const handlers = [
 
     const source = supplierInvoices.filter(
       (invoice) =>
+        (supplierInvoiceNumber == null ||
+          (invoice.supplierInvoiceNumber ?? '').toLowerCase().includes(supplierInvoiceNumber.toLowerCase())) &&
         (vehicleId == null || invoice.vehicleId === vehicleId) &&
         (category == null || invoice.category === category) &&
         (supplierId == null || invoice.supplierId === supplierId) &&

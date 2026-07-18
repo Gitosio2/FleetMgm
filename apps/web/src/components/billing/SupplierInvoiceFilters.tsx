@@ -3,6 +3,8 @@ import { FilterBar, type FilterField } from './FilterBar'
 import { EXPENSE_CATEGORY_LABEL, STATUS_LABEL } from './supplier-invoice-shared'
 
 type SupplierInvoiceFiltersProps = {
+  supplierInvoiceNumber: string
+  onSupplierInvoiceNumberChange: (value: string) => void
   supplierId: string
   onSupplierIdChange: (value: string) => void
   category: ExpenseCategory | ''
@@ -33,6 +35,8 @@ function vehicleLabel(vehicle: Vehicle) {
 }
 
 export function SupplierInvoiceFilters({
+  supplierInvoiceNumber,
+  onSupplierInvoiceNumberChange,
   supplierId,
   onSupplierIdChange,
   category,
@@ -58,6 +62,15 @@ export function SupplierInvoiceFilters({
   onCreate,
 }: SupplierInvoiceFiltersProps) {
   const fields: FilterField[] = [
+    {
+      type: 'text',
+      key: 'supplierInvoiceNumber',
+      label: 'Nº de factura',
+      ariaLabel: 'Buscar por número de factura',
+      value: supplierInvoiceNumber,
+      onChange: onSupplierInvoiceNumberChange,
+      placeholder: 'F-2026-0456',
+    },
     {
       type: 'select',
       key: 'supplierId',

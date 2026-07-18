@@ -14,6 +14,7 @@ import type {
 export const SUPPLIER_INVOICE_KEY = 'supplier-invoices'
 
 export type SupplierInvoiceFilters = {
+  supplierInvoiceNumber?: string
   vehicleId?: string
   category?: ExpenseCategory
   supplierId?: string
@@ -28,6 +29,7 @@ export type SupplierInvoiceFilters = {
 
 export function useSupplierInvoices(filters: SupplierInvoiceFilters = {}, page = 0, size = 20) {
   const {
+    supplierInvoiceNumber,
     vehicleId,
     category,
     supplierId,
@@ -45,6 +47,7 @@ export function useSupplierInvoices(filters: SupplierInvoiceFilters = {}, page =
     queryFn: async () => {
       const { data } = await apiClient.get<PageResponse<SupplierInvoice>>('/supplier-invoices', {
         params: {
+          supplierInvoiceNumber,
           vehicleId,
           category,
           supplierId,

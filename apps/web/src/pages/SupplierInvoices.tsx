@@ -10,6 +10,7 @@ const PAGE_SIZE = 20
 
 export function SupplierInvoices() {
   const [page, setPage] = useState(0)
+  const [supplierInvoiceNumber, setSupplierInvoiceNumber] = useState('')
   const [supplierId, setSupplierId] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<ExpenseCategory | ''>('')
   const [vehicleId, setVehicleId] = useState('')
@@ -28,6 +29,7 @@ export function SupplierInvoices() {
 
   const { data, isLoading, isError } = useSupplierInvoices(
     {
+      supplierInvoiceNumber: supplierInvoiceNumber === '' ? undefined : supplierInvoiceNumber,
       supplierId: supplierId === '' ? undefined : supplierId,
       category: categoryFilter === '' ? undefined : categoryFilter,
       vehicleId: vehicleId === '' ? undefined : vehicleId,
@@ -68,6 +70,8 @@ export function SupplierInvoices() {
     <div className="flex flex-col gap-6">
       <SupplierInvoiceFilters
         onCreate={openCreateForm}
+        supplierInvoiceNumber={supplierInvoiceNumber}
+        onSupplierInvoiceNumberChange={resetPageAnd(setSupplierInvoiceNumber)}
         supplierId={supplierId}
         onSupplierIdChange={resetPageAnd(setSupplierId)}
         category={categoryFilter}
