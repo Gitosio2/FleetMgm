@@ -47,8 +47,8 @@ export function SupplierInvoiceActionButtons({ invoice, onEdit }: SupplierInvoic
           <Button
             variant="ghost"
             size="sm"
-            aria-label="Marcar factura de proveedor como pagada"
-            title="Marcar factura de proveedor como pagada"
+            aria-label="Marcar factura como pagada"
+            title="Marcar factura como pagada"
             disabled={isPending}
             onClick={() => payInvoice.mutate({ id: invoice.id })}
           >
