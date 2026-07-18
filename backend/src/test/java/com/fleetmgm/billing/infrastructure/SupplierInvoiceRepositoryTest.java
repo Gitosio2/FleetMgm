@@ -153,6 +153,24 @@ class SupplierInvoiceRepositoryTest {
     }
 
     @Test
+    void findAllJoinFetch_breaksTiesByCreatedAtDescending_whenInvoiceDatesMatch() {
+        Supplier supplier = persistSupplier();
+        LocalDate sameDate = LocalDate.now();
+        SupplierInvoice first = persistInvoiceWithInvoiceDate(supplier, SupplierInvoiceStatus.PENDING, sameDate);
+        SupplierInvoice second = persistInvoiceWithInvoiceDate(supplier, SupplierInvoiceStatus.PAID, sameDate);
+        SupplierInvoice third = persistInvoiceWithInvoiceDate(supplier, SupplierInvoiceStatus.PENDING, sameDate);
+        entityManager.getEntityManager().clear();
+
+        Page<SupplierInvoice> result = supplierInvoiceRepository.findAllJoinFetch(null, null, null, null, null, null, null, null, null, null, PageRequest.of(0, 20));
+
+        // All three rows share invoiceDate — without a createdAt fallback, Postgres is free to
+        // return them in any order, which would make rows duplicate or disappear across pages.
+        // createdAt DESC (insertion order reversed) makes the order deterministic instead.
+        assertThat(result.getContent()).extracting(SupplierInvoice::getId).containsExactly(
+                third.getId(), second.getId(), first.getId());
+    }
+
+    @Test
     void findAllJoinFetch_excludesSoftDeleted() {
         Supplier supplier = persistSupplier();
         Vehicle vehicle = persistVehicle("8888HHH");
