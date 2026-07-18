@@ -27,6 +27,7 @@ export function SupplierInvoiceDeleteButton({ invoiceId }: SupplierInvoiceDelete
           variant="destructive"
           size="sm"
           aria-label="Eliminar factura de proveedor"
+          title="Eliminar factura de proveedor"
           disabled={deleteInvoice.isPending}
         >
           <Trash2 className="size-4" />

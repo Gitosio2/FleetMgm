@@ -227,6 +227,7 @@ export function SupplierInvoiceLineItemList({ supplierInvoice }: SupplierInvoice
                           variant="ghost"
                           size="sm"
                           aria-label="Editar línea"
+                          title="Editar línea"
                           onClick={() => setEditingLineItemId(lineItem.id)}
                         >
                           <Pencil className="size-4" />
@@ -237,6 +238,7 @@ export function SupplierInvoiceLineItemList({ supplierInvoice }: SupplierInvoice
                               variant="ghost"
                               size="sm"
                               aria-label="Eliminar línea"
+                              title="Eliminar línea"
                               disabled={deleteLineItem.isPending}
                             >
                               <Trash2 className="size-4" />

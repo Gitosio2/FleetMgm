@@ -49,6 +49,7 @@ export function ScheduleTable({ schedules, onEdit }: ScheduleTableProps) {
                     variant="ghost"
                     size="sm"
                     aria-label="Editar entrada"
+                    title="Editar entrada"
                     onClick={() => onEdit(schedule)}
                   >
                     <Pencil className="size-4" />

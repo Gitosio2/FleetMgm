@@ -24,7 +24,13 @@ export function SupplierDeleteButton({ supplierId, supplierName }: SupplierDelet
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button variant="destructive" size="sm" aria-label="Eliminar proveedor" disabled={deleteSupplier.isPending}>
+        <Button
+          variant="destructive"
+          size="sm"
+          aria-label="Eliminar proveedor"
+          title="Eliminar proveedor"
+          disabled={deleteSupplier.isPending}
+        >
           <Trash2 className="size-4" />
         </Button>
       </AlertDialogTrigger>

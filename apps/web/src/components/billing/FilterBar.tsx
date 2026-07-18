@@ -86,7 +86,13 @@ export function FilterBar({ title, description, createLabel, onCreate, fields }:
               {createLabel}
             </Button>
             <CollapsibleTrigger asChild>
-              <Button variant="outline" size="sm" className="group" aria-label="Mostrar u ocultar filtros">
+              <Button
+                variant="outline"
+                size="sm"
+                className="group"
+                aria-label="Mostrar u ocultar filtros"
+                title="Mostrar u ocultar filtros"
+              >
                 <ChevronDown className="size-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
               </Button>
             </CollapsibleTrigger>

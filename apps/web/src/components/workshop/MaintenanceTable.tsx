@@ -52,6 +52,7 @@ export function MaintenanceTable({ records, onEdit }: MaintenanceTableProps) {
                     variant="ghost"
                     size="sm"
                     aria-label="Editar orden"
+                    title="Editar orden"
                     onClick={() => onEdit(record)}
                   >
                     <Pencil className="size-4" />

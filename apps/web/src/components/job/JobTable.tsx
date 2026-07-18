@@ -52,6 +52,7 @@ export function JobTable({ jobs, canManage, onEdit }: JobTableProps) {
                     variant="ghost"
                     size="sm"
                     aria-label="Editar trabajo"
+                    title="Editar trabajo"
                     onClick={() => onEdit(job)}
                   >
                     <Pencil className="size-4" />
