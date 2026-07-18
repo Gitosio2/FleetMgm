@@ -920,6 +920,16 @@ FleetMgm/
   > `apps/web`, `packages/api`, `packages/hooks`. `oxlint` sin advertencias nuevas (mismo warning preexistente
   > en `AssignmentModal.tsx`). Backend no tocado.
 
+> **Addendum (2026-07-18, rama `fix-workshop-pagination`, PR #101):** `DaySchedule`/"Horario del día" se
+> **eliminó**. Con `Agenda` y `Órdenes de mantenimiento` ya mostrando lo mismo — un pedido de mantenimiento
+> con entrada de agenda vinculada aparecía tres veces en la misma página — el tercer widget era redundancia
+> pura, no una vista con información propia. Se quitaron `DaySchedule.tsx`/`DaySchedule.test.tsx` y su montaje
+> en `Workshop.tsx`; los comentarios de `Workshop.test.tsx` que documentaban la colisión de texto entre las
+> tres tablas quedaron obsoletos y se limpiaron junto con esto. El mismo PR también agregó paginación
+> (`Anterior`/`Siguiente`, antes ausente) a `Agenda` y `Órdenes de mantenimiento`, y cambió el orden por
+> defecto del backend (`createdAt`/`scheduledDate`) de ascendente a `DESC` — sin eso, con más de 20 registros
+> las órdenes `SCHEDULED`/`IN_PROGRESS` más nuevas quedaban fuera de la página 0, invisibles.
+
 ---
 
 ### Hito 30 — Facturación (clientes): Contrato API

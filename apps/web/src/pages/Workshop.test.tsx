@@ -35,11 +35,6 @@ function loginAs(role: 'ADMIN' | 'WORKSHOP_STAFF') {
   })
 }
 
-// The new "Horario del día" widget (DaySchedule) always queries the 'today' range, same as the
-// Agenda section's default range — so a schedule entry tagged 'today' (like schedule-1 and any
-// newly created entry, which are always tagged for every range) now legitimately renders twice
-// on the page. Scope queries to the specific section under test instead of relying on unscoped
-// screen.findByText/getByText, which would otherwise throw on the now-ambiguous match.
 function agendaSection() {
   return screen.getByRole('heading', { name: 'Agenda' }).closest('section')!
 }
@@ -96,8 +91,7 @@ describe('Workshop', () => {
     await user.click(screen.getByRole('button', { name: /crear orden/i }))
 
     // Also creates its linked agenda entry (see the dedicated test below) — appears once in the
-    // maintenance table and once in the agenda table (also once more in the "Horario del día"
-    // widget, not asserted here — see DaySchedule.test.tsx for that widget's own coverage).
+    // maintenance table and once in the agenda table.
     await waitFor(() => {
       expect(within(maintenanceSection()).getByText('Cambio de neumáticos')).toBeInTheDocument()
       expect(within(agendaSection()).getByText('Cambio de neumáticos')).toBeInTheDocument()
@@ -527,8 +521,6 @@ describe('Workshop', () => {
     )
     renderWorkshop()
 
-    // The "Horario del día" widget also queries the schedules endpoint and fails the same way,
-    // so the error text now legitimately renders twice on the page — scope to the agenda section.
     expect(
       await within(agendaSection()).findByText('No se pudieron cargar los datos.'),
     ).toBeInTheDocument()

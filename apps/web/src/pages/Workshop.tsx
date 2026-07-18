@@ -3,7 +3,6 @@ import { Plus } from 'lucide-react'
 import type { MaintenanceRecord, ScheduleRange, WorkshopSchedule } from '@fleetmgm/api'
 import { useMaintenanceRecords, useWorkshopSchedules } from '@fleetmgm/hooks'
 import { Button } from '@/components/ui/button'
-import { DaySchedule } from '@/components/workshop/DaySchedule'
 import { ScheduleRangeSelector } from '@/components/workshop/ScheduleRangeSelector'
 import { ScheduleTable } from '@/components/workshop/ScheduleTable'
 import { MaintenanceTable } from '@/components/workshop/MaintenanceTable'
@@ -63,11 +62,6 @@ export function Workshop() {
         <h1 className="font-display text-2xl font-semibold">Taller</h1>
         <p className="text-on-surface-variant">Agenda del taller y órdenes de mantenimiento.</p>
       </div>
-
-      <section className="flex flex-col gap-3">
-        <h2 className="font-display text-lg font-semibold">Horario del día</h2>
-        <DaySchedule />
-      </section>
 
       <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
