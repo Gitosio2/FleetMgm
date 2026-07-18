@@ -36,6 +36,7 @@ export function SupplierTable({ suppliers, canManage, onEdit }: SupplierTablePro
                     variant="ghost"
                     size="sm"
                     aria-label="Editar proveedor"
+                    title="Editar proveedor"
                     onClick={() => onEdit(supplier)}
                   >
                     <Pencil className="size-4" />

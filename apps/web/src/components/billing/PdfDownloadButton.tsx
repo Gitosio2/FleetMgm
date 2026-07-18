@@ -16,6 +16,7 @@ export function PdfDownloadButton({ invoiceId, invoiceNumber }: PdfDownloadButto
         variant="ghost"
         size="sm"
         aria-label="Descargar PDF"
+        title="Descargar PDF"
         disabled={downloadPdf.isPending}
         onClick={() => downloadPdf.mutate({ id: invoiceId, invoiceNumber })}
       >

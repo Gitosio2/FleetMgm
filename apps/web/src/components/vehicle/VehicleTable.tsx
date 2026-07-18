@@ -53,6 +53,7 @@ export function VehicleTable({
                     variant="ghost"
                     size="sm"
                     aria-label="Editar vehículo"
+                    title="Editar vehículo"
                     onClick={() => onEdit(vehicle)}
                   >
                     <Pencil className="size-4" />
@@ -61,6 +62,7 @@ export function VehicleTable({
                     variant="ghost"
                     size="sm"
                     aria-label="Ver asignación"
+                    title="Ver asignación"
                     onClick={() => onViewAssignment(vehicle)}
                   >
                     <Users className="size-4" />
@@ -69,6 +71,7 @@ export function VehicleTable({
                     variant="ghost"
                     size="sm"
                     aria-label="Ver rentabilidad"
+                    title="Ver rentabilidad"
                     onClick={() => onViewProfitability(vehicle)}
                   >
                     <TrendingUp className="size-4" />

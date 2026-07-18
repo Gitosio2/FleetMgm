@@ -23,9 +23,12 @@ function DialogContent({
         {...props}
       >
         {children}
-        <DialogPrimitive.Close className="absolute right-4 top-4 text-on-surface-variant hover:text-on-surface">
+        <DialogPrimitive.Close
+          className="absolute right-4 top-4 text-on-surface-variant hover:text-on-surface"
+          title="Cerrar"
+        >
           <X className="size-4" />
-          <span className="sr-only">Close</span>
+          <span className="sr-only">Cerrar</span>
         </DialogPrimitive.Close>
       </DialogPrimitive.Content>
     </DialogPrimitive.Portal>

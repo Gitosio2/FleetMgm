@@ -42,6 +42,7 @@ export function WorkerTable({ workers, canManage, onEdit, assignedVehicleByDrive
                     variant="ghost"
                     size="sm"
                     aria-label="Editar trabajador"
+                    title="Editar trabajador"
                     onClick={() => onEdit(worker)}
                   >
                     <Pencil className="size-4" />

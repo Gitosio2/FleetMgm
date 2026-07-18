@@ -29,6 +29,7 @@ export function SupplierInvoiceActionButtons({ invoice, onEdit }: SupplierInvoic
   const payInvoice = usePaySupplierInvoice()
 
   const isPending = payInvoice.isPending
+  const editLabel = invoice.status === 'PAID' ? 'Ver factura de proveedor' : 'Editar factura de proveedor'
 
   return (
     <div className="flex flex-col items-start gap-1">
@@ -36,7 +37,8 @@ export function SupplierInvoiceActionButtons({ invoice, onEdit }: SupplierInvoic
         <Button
           variant="ghost"
           size="sm"
-          aria-label={invoice.status === 'PAID' ? 'Ver' : 'Editar'}
+          aria-label={editLabel}
+          title={editLabel}
           onClick={() => onEdit(invoice)}
         >
           {invoice.status === 'PAID' ? <Eye className="size-4" /> : <Pencil className="size-4" />}

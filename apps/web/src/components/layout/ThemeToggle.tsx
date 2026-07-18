@@ -22,6 +22,7 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
         checked={isDark}
         onCheckedChange={toggleTheme}
         aria-label="Cambiar entre modo claro y oscuro"
+        title="Cambiar entre modo claro y oscuro"
       />
     </div>
   )

@@ -36,6 +36,7 @@ export function ClientTable({ clients, canManage, onEdit }: ClientTableProps) {
                     variant="ghost"
                     size="sm"
                     aria-label="Editar cliente"
+                    title="Editar cliente"
                     onClick={() => onEdit(client)}
                   >
                     <Pencil className="size-4" />

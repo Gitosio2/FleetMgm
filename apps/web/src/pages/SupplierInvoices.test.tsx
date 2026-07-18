@@ -167,16 +167,19 @@ describe('SupplierInvoices', () => {
 
     const paid = SEED_SUPPLIER_INVOICES[2]!
     const row = (await screen.findByRole('button', { name: paid.supplierName })).closest('tr')!
-    expect(within(row).getByRole('button', { name: /^ver$/i })).toBeInTheDocument()
+    expect(within(row).getByRole('button', { name: /^ver factura de proveedor$/i })).toBeInTheDocument()
 
-    await user.click(within(row).getByRole('button', { name: /^ver$/i }))
+    await user.click(within(row).getByRole('button', { name: /^ver factura de proveedor$/i }))
 
     expect(await screen.findByRole('heading', { name: 'Factura de proveedor' })).toBeInTheDocument()
     expect(screen.getByLabelText(/^proveedor$/i)).toBeDisabled()
     expect(screen.getByLabelText(/^subtotal$/i)).toBeDisabled()
     expect(screen.queryByRole('button', { name: /guardar cambios/i })).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: /^cerrar$/i }))
+    // Two "Cerrar" buttons exist in a read-only dialog now: the footer button and the icon-only
+    // dialog close (its sr-only label is also "Cerrar" per the i18n fix), so getAllByRole is
+    // required — the footer button renders first in DOM order.
+    await user.click(screen.getAllByRole('button', { name: /^cerrar$/i })[0]!)
     expect(screen.queryByRole('heading', { name: 'Factura de proveedor' })).not.toBeInTheDocument()
   })
 

@@ -30,7 +30,13 @@ export function InvoiceDeleteButton({ invoiceId, invoiceNumber, status }: Invoic
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button variant="destructive" size="sm" aria-label="Eliminar factura" disabled={deleteInvoice.isPending}>
+        <Button
+          variant="destructive"
+          size="sm"
+          aria-label="Eliminar factura"
+          title="Eliminar factura"
+          disabled={deleteInvoice.isPending}
+        >
           <Trash2 className="size-4" />
         </Button>
       </AlertDialogTrigger>

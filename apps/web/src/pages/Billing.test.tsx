@@ -100,7 +100,10 @@ describe('Billing', () => {
     expect(within(dialog).getByLabelText(/teléfono/i)).toBeDisabled()
     expect(within(dialog).queryByRole('button', { name: /guardar cambios/i })).not.toBeInTheDocument()
 
-    await user.click(within(dialog).getByRole('button', { name: /cerrar/i }))
+    // Two "Cerrar" buttons exist in a read-only dialog now: the footer button and the icon-only
+    // dialog close (its sr-only label is also "Cerrar" per the i18n fix), so getAllByRole is
+    // required — the footer button renders first in DOM order.
+    await user.click(within(dialog).getAllByRole('button', { name: /cerrar/i })[0]!)
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
@@ -170,7 +173,7 @@ describe('Billing', () => {
     expect(within(dialog).getByText(formatCurrency(22.39))).toBeInTheDocument()
     expect(within(dialog).queryByText(formatCurrency(22.38))).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: /close/i }))
+    await user.click(screen.getByRole('button', { name: /cerrar/i }))
     const row = screen.getByText('INV-2026-00004').closest('tr')!
     await user.click(within(row).getByRole('button', { name: /emitir/i }))
 
@@ -204,7 +207,7 @@ describe('Billing', () => {
     await user.type(screen.getByLabelText(/precio unitario/i), '100')
     await user.click(screen.getByRole('button', { name: /agregar línea/i }))
     await waitFor(() => expect(screen.getByText('Servicio')).toBeInTheDocument())
-    await user.click(screen.getByRole('button', { name: /close/i }))
+    await user.click(screen.getByRole('button', { name: /cerrar/i }))
 
     const row = screen.getByText('INV-2026-00004').closest('tr')!
     await user.click(within(row).getByRole('button', { name: /emitir/i }))
@@ -221,7 +224,7 @@ describe('Billing', () => {
     await user.click(within(draftRow).getByRole('button', { name: /editar/i }))
     expect(await screen.findByRole('heading', { name: 'Editar factura' })).toBeInTheDocument()
     expect(screen.queryByText(/fecha de emisión/i)).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: /close/i }))
+    await user.click(screen.getByRole('button', { name: /cerrar/i }))
 
     const issued = SEED_INVOICES[1]!
     const issuedRow = screen.getByText(issued.invoiceNumber).closest('tr')!
@@ -250,7 +253,9 @@ describe('Billing', () => {
     expect(within(dialog).getByLabelText(/notas/i)).toBeDisabled()
     expect(within(dialog).queryByRole('button', { name: /guardar cambios/i })).not.toBeInTheDocument()
 
-    await user.click(within(dialog).getByRole('button', { name: /cerrar/i }))
+    // Same disambiguation as above — the footer "Cerrar" button and the icon-only dialog close
+    // both have the accessible name "Cerrar" now; the footer button is first in DOM order.
+    await user.click(within(dialog).getAllByRole('button', { name: /cerrar/i })[0]!)
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
@@ -301,7 +306,7 @@ describe('Billing', () => {
     // invoice. Close it here so the underlying table (inert while the dialog is open) becomes
     // interactive again for the "Emitir" click below.
     expect(await screen.findByText('Editar factura')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: /close/i }))
+    await user.click(screen.getByRole('button', { name: /cerrar/i }))
 
     const row = (await screen.findByText('INV-2026-00004')).closest('tr')!
     await user.click(within(row).getByRole('button', { name: /emitir/i }))
@@ -320,7 +325,7 @@ describe('Billing', () => {
     const row = (await screen.findByText(issued.invoiceNumber)).closest('tr')!
     expect(within(row).getByText('Emitida')).toBeInTheDocument()
 
-    await user.click(within(row).getByRole('button', { name: /marcar pagada/i }))
+    await user.click(within(row).getByRole('button', { name: /marcar factura como pagada/i }))
 
     await waitFor(() => expect(within(row).getByText('Pagada')).toBeInTheDocument())
   })

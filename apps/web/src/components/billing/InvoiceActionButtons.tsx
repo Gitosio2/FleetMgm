@@ -31,6 +31,7 @@ export function InvoiceActionButtons({ invoice, onEdit }: InvoiceActionButtonsPr
 
   const isPending = issueInvoice.isPending || payInvoice.isPending
   const error = issueInvoice.isError ? issueInvoice.error : payInvoice.isError ? payInvoice.error : null
+  const editLabel = invoice.status === 'PAID' ? 'Ver factura' : 'Editar factura'
 
   return (
     <div className="flex flex-col items-start gap-1">
@@ -38,7 +39,8 @@ export function InvoiceActionButtons({ invoice, onEdit }: InvoiceActionButtonsPr
         <Button
           variant="ghost"
           size="sm"
-          aria-label={invoice.status === 'PAID' ? 'Ver' : 'Editar'}
+          aria-label={editLabel}
+          title={editLabel}
           onClick={() => onEdit(invoice)}
         >
           {invoice.status === 'PAID' ? <Eye className="size-4" /> : <Pencil className="size-4" />}
@@ -47,7 +49,8 @@ export function InvoiceActionButtons({ invoice, onEdit }: InvoiceActionButtonsPr
           <Button
             variant="ghost"
             size="sm"
-            aria-label="Emitir"
+            aria-label="Emitir factura"
+            title="Emitir factura"
             disabled={isPending}
             onClick={() => issueInvoice.mutate(invoice.id)}
           >
@@ -58,7 +61,8 @@ export function InvoiceActionButtons({ invoice, onEdit }: InvoiceActionButtonsPr
           <Button
             variant="ghost"
             size="sm"
-            aria-label="Marcar pagada"
+            aria-label="Marcar factura como pagada"
+            title="Marcar factura como pagada"
             disabled={isPending}
             onClick={() => payInvoice.mutate({ id: invoice.id })}
           >
