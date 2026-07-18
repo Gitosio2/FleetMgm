@@ -528,6 +528,134 @@ class InvoiceServiceTest {
         assertThat(entity.getLinkedJob()).isEqualTo(job);
     }
 
+    // --- updateLineItem ---
+
+    @Test
+    void updateLineItem_updatesLine_whenDraft() {
+        UUID invoiceId = UUID.randomUUID();
+        UUID lineItemId = UUID.randomUUID();
+        Invoice invoice = new Invoice();
+        invoice.setStatus(InvoiceStatus.DRAFT);
+        LineItemRequest request = new LineItemRequest("Parts", new BigDecimal("2"), new BigDecimal("50.00"), null);
+        InvoiceLineItem entity = new InvoiceLineItem();
+        LineItemResponse expected = new LineItemResponse(lineItemId, "Parts",
+                new BigDecimal("2"), new BigDecimal("50.00"), new BigDecimal("100.00"), null);
+
+        when(invoiceRepository.findById(invoiceId)).thenReturn(Optional.of(invoice));
+        when(lineItemRepository.findByIdAndInvoiceId(lineItemId, invoiceId)).thenReturn(Optional.of(entity));
+        when(lineItemRepository.save(entity)).thenReturn(entity);
+        when(invoiceMapper.toResponse(entity)).thenReturn(expected);
+
+        LineItemResponse result = invoiceService.updateLineItem(invoiceId, lineItemId, request);
+
+        assertThat(result).isEqualTo(expected);
+        assertThat(entity.getSubtotal()).isEqualByComparingTo("100.00");
+    }
+
+    @Test
+    void updateLineItem_roundsSubtotalToTwoDecimals_whenMultiplicationProducesMore() {
+        UUID invoiceId = UUID.randomUUID();
+        UUID lineItemId = UUID.randomUUID();
+        Invoice invoice = new Invoice();
+        invoice.setStatus(InvoiceStatus.DRAFT);
+        // 3 * 10.005 = 30.015 -> HALF_UP to scale 2 = 30.02, not the raw scale-3 value.
+        LineItemRequest request = new LineItemRequest("Parts", new BigDecimal("3"), new BigDecimal("10.005"), null);
+        InvoiceLineItem entity = new InvoiceLineItem();
+        LineItemResponse expected = new LineItemResponse(lineItemId, "Parts",
+                new BigDecimal("3"), new BigDecimal("10.005"), new BigDecimal("30.02"), null);
+
+        when(invoiceRepository.findById(invoiceId)).thenReturn(Optional.of(invoice));
+        when(lineItemRepository.findByIdAndInvoiceId(lineItemId, invoiceId)).thenReturn(Optional.of(entity));
+        when(lineItemRepository.save(entity)).thenReturn(entity);
+        when(invoiceMapper.toResponse(entity)).thenReturn(expected);
+
+        invoiceService.updateLineItem(invoiceId, lineItemId, request);
+
+        assertThat(entity.getSubtotal()).isEqualByComparingTo("30.02");
+        assertThat(entity.getSubtotal().scale()).isEqualTo(2);
+    }
+
+    @Test
+    void updateLineItem_throwsConflict_whenInvoiceNotDraft() {
+        UUID invoiceId = UUID.randomUUID();
+        UUID lineItemId = UUID.randomUUID();
+        Invoice invoice = new Invoice();
+        invoice.setStatus(InvoiceStatus.ISSUED);
+        LineItemRequest request = new LineItemRequest("Parts", BigDecimal.ONE, new BigDecimal("50.00"), null);
+
+        when(invoiceRepository.findById(invoiceId)).thenReturn(Optional.of(invoice));
+
+        assertThatThrownBy(() -> invoiceService.updateLineItem(invoiceId, lineItemId, request))
+                .isInstanceOf(ConflictException.class)
+                .satisfies(ex -> assertThat(((ConflictException) ex).getCode())
+                        .isEqualTo("INVOICE_INVALID_STATE_TRANSITION"));
+
+        verify(lineItemRepository, never()).save(any());
+    }
+
+    @Test
+    void updateLineItem_throwsNotFound_whenLineItemDoesNotBelongToInvoice() {
+        UUID invoiceId = UUID.randomUUID();
+        UUID lineItemId = UUID.randomUUID();
+        Invoice invoice = new Invoice();
+        invoice.setStatus(InvoiceStatus.DRAFT);
+        LineItemRequest request = new LineItemRequest("Parts", BigDecimal.ONE, new BigDecimal("50.00"), null);
+
+        when(invoiceRepository.findById(invoiceId)).thenReturn(Optional.of(invoice));
+        when(lineItemRepository.findByIdAndInvoiceId(lineItemId, invoiceId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> invoiceService.updateLineItem(invoiceId, lineItemId, request))
+                .isInstanceOf(NotFoundException.class)
+                .satisfies(ex -> assertThat(((NotFoundException) ex).getCode()).isEqualTo("LINE_ITEM_NOT_FOUND"));
+
+        verify(lineItemRepository, never()).save(any());
+    }
+
+    @Test
+    void updateLineItem_throwsNotFound_whenLinkedJobMissing() {
+        UUID invoiceId = UUID.randomUUID();
+        UUID lineItemId = UUID.randomUUID();
+        UUID jobId = UUID.randomUUID();
+        Invoice invoice = new Invoice();
+        invoice.setStatus(InvoiceStatus.DRAFT);
+        InvoiceLineItem entity = new InvoiceLineItem();
+        LineItemRequest request = new LineItemRequest("Job", BigDecimal.ONE, new BigDecimal("50.00"), jobId);
+
+        when(invoiceRepository.findById(invoiceId)).thenReturn(Optional.of(invoice));
+        when(lineItemRepository.findByIdAndInvoiceId(lineItemId, invoiceId)).thenReturn(Optional.of(entity));
+        when(jobRepository.findById(jobId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> invoiceService.updateLineItem(invoiceId, lineItemId, request))
+                .isInstanceOf(NotFoundException.class)
+                .satisfies(ex -> assertThat(((NotFoundException) ex).getCode()).isEqualTo("JOB_NOT_FOUND"));
+
+        verify(lineItemRepository, never()).save(any());
+    }
+
+    @Test
+    void updateLineItem_resolvesLinkedJob_whenProvided() {
+        UUID invoiceId = UUID.randomUUID();
+        UUID lineItemId = UUID.randomUUID();
+        UUID jobId = UUID.randomUUID();
+        Invoice invoice = new Invoice();
+        invoice.setStatus(InvoiceStatus.DRAFT);
+        Job job = new Job();
+        InvoiceLineItem entity = new InvoiceLineItem();
+        LineItemRequest request = new LineItemRequest("Job", BigDecimal.ONE, new BigDecimal("50.00"), jobId);
+        LineItemResponse expected = new LineItemResponse(lineItemId, "Job",
+                BigDecimal.ONE, new BigDecimal("50.00"), new BigDecimal("50.00"), jobId);
+
+        when(invoiceRepository.findById(invoiceId)).thenReturn(Optional.of(invoice));
+        when(lineItemRepository.findByIdAndInvoiceId(lineItemId, invoiceId)).thenReturn(Optional.of(entity));
+        when(jobRepository.findById(jobId)).thenReturn(Optional.of(job));
+        when(lineItemRepository.save(entity)).thenReturn(entity);
+        when(invoiceMapper.toResponse(entity)).thenReturn(expected);
+
+        invoiceService.updateLineItem(invoiceId, lineItemId, request);
+
+        assertThat(entity.getLinkedJob()).isEqualTo(job);
+    }
+
     // --- issue ---
 
     @Test

@@ -159,6 +159,7 @@ describe('Billing', () => {
     // 18.50 at the default 21% tax rate is exactly the boundary case where plain JS float
     // arithmetic (18.5 * 0.21 = 3.884999999999999786...) rounds down to 3.88/22.38 instead of the
     // backend's exact BigDecimal HALF_UP 3.89/22.39 — a real, reproducible €0.01 mismatch.
+    await user.click(screen.getByRole('button', { name: /añadir línea/i }))
     await user.type(screen.getByLabelText(/^descripción$/i), 'Servicio')
     await user.clear(screen.getByLabelText(/cantidad/i))
     await user.type(screen.getByLabelText(/cantidad/i), '1')
@@ -201,6 +202,7 @@ describe('Billing', () => {
     // Add a 100.00 line item and issue — if "10" had been sent to the backend
     // as a raw fraction (10) instead of 0.10, the resulting total would be
     // 1100.00 (100 + 1000%) instead of 110.00 (100 + 10%).
+    await user.click(screen.getByRole('button', { name: /añadir línea/i }))
     await user.type(screen.getByLabelText(/^descripción$/i), 'Servicio')
     await user.clear(screen.getByLabelText(/cantidad/i))
     await user.type(screen.getByLabelText(/cantidad/i), '1')
@@ -269,6 +271,7 @@ describe('Billing', () => {
 
     expect(await screen.findByRole('heading', { name: 'Editar factura' })).toBeInTheDocument()
 
+    await user.click(screen.getByRole('button', { name: /añadir línea/i }))
     await user.type(screen.getByLabelText(/^descripción$/i), 'Peaje')
     await user.clear(screen.getByLabelText(/cantidad/i))
     await user.type(screen.getByLabelText(/cantidad/i), '1')

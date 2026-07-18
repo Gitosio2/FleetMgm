@@ -56,4 +56,10 @@ public interface InvoiceMapper {
     @Mapping(target = "subtotal", ignore = true)
     @Mapping(target = "linkedJob", ignore = true)
     InvoiceLineItem toEntity(LineItemRequest request);
+
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "invoice", ignore = true)
+    @Mapping(target = "subtotal", ignore = true)
+    @Mapping(target = "linkedJob", ignore = true)
+    void updateEntity(LineItemRequest request, @MappingTarget InvoiceLineItem lineItem);
 }

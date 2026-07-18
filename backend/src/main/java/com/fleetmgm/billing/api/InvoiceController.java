@@ -101,6 +101,14 @@ public class InvoiceController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
+    @PatchMapping("/{id}/line-items/{lineItemId}")
+    public ResponseEntity<LineItemResponse> updateLineItem(
+            @PathVariable UUID id,
+            @PathVariable UUID lineItemId,
+            @Valid @RequestBody LineItemRequest request) {
+        return ResponseEntity.ok(invoiceService.updateLineItem(id, lineItemId, request));
+    }
+
     @GetMapping("/{id}/pdf")
     public ResponseEntity<byte[]> exportPdf(@PathVariable UUID id) {
         // Two lookups (getById for the invoice number, generateInvoicePdf for the bytes) is simple

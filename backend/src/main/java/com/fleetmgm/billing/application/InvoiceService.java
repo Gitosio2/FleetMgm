@@ -230,6 +230,23 @@ public class InvoiceService {
         return invoiceMapper.toResponse(lineItemRepository.save(lineItem));
     }
 
+    @Transactional
+    @PreAuthorize(ROLES)
+    public LineItemResponse updateLineItem(UUID invoiceId, UUID lineItemId, LineItemRequest request) {
+        Invoice invoice = findInvoiceOrThrow(invoiceId);
+        assertIsDraft(invoice, "INVOICE_INVALID_STATE_TRANSITION",
+                "Invoice " + invoiceId + " cannot have line items updated from state " + invoice.getStatus());
+        InvoiceLineItem lineItem = lineItemRepository.findByIdAndInvoiceId(lineItemId, invoiceId)
+                .orElseThrow(() -> new NotFoundException("LINE_ITEM_NOT_FOUND",
+                        "Line item " + lineItemId + " not found on invoice " + invoiceId));
+        Job linkedJob = resolveLinkedJob(request.linkedJobId());
+
+        invoiceMapper.updateEntity(request, lineItem);
+        lineItem.setLinkedJob(linkedJob);
+        lineItem.setSubtotal(request.quantity().multiply(request.unitPrice()).setScale(MONEY_SCALE, RoundingMode.HALF_UP));
+        return invoiceMapper.toResponse(lineItemRepository.save(lineItem));
+    }
+
     // --- relation resolution helpers ---
 
     // MapStruct can't express "attach a batched/pre-fetched collection" via @Mapping, so the base
