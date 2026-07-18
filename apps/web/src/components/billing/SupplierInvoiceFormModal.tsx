@@ -27,7 +27,7 @@ export function SupplierInvoiceFormModal({ open, onOpenChange, supplierInvoice }
   const updateSupplierInvoice = useUpdateSupplierInvoice()
 
   const { data: vehiclesPage } = useVehicles(0, 100)
-  const { data: suppliersPage } = useSuppliers(0, 100)
+  const { data: suppliersPage } = useSuppliers({}, 0, 100)
   const suppliersList = suppliersPage?.content ?? []
 
   const [supplierId, setSupplierId] = useState('')

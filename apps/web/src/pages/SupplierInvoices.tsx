@@ -24,7 +24,7 @@ export function SupplierInvoices() {
   const [formOpen, setFormOpen] = useState(false)
   const [editingInvoiceId, setEditingInvoiceId] = useState<string | undefined>(undefined)
 
-  const { data: suppliersPage } = useSuppliers(0, 100)
+  const { data: suppliersPage } = useSuppliers({}, 0, 100)
   const { data: vehiclesPage } = useVehicles(0, 100)
 
   const { data, isLoading, isError } = useSupplierInvoices(

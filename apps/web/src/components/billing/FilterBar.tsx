@@ -52,9 +52,12 @@ type FilterBarProps = {
   createLabel: string
   onCreate: () => void
   fields: FilterField[]
+  // Optional — defaults to true. Lets callers (e.g. Suppliers, reachable by roles that can view
+  // but not create) hide just the create action while keeping filters usable for everyone.
+  canCreate?: boolean
 }
 
-export function FilterBar({ title, description, createLabel, onCreate, fields }: FilterBarProps) {
+export function FilterBar({ title, description, createLabel, onCreate, fields, canCreate = true }: FilterBarProps) {
   const [filtersOpen, setFiltersOpen] = useState(true)
 
   function toggleFilters() {
@@ -81,10 +84,12 @@ export function FilterBar({ title, description, createLabel, onCreate, fields }:
             <p className="text-on-surface-variant">{description}</p>
           </div>
           <div className="flex items-center gap-2">
-            <Button onClick={onCreate}>
-              <Plus className="size-4" />
-              {createLabel}
-            </Button>
+            {canCreate && (
+              <Button onClick={onCreate}>
+                <Plus className="size-4" />
+                {createLabel}
+              </Button>
+            )}
             <CollapsibleTrigger asChild>
               <Button
                 variant="outline"

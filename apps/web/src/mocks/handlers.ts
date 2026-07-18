@@ -1655,15 +1655,23 @@ export const handlers = [
     const url = new URL(request.url)
     const page = Number(url.searchParams.get('page') ?? 0)
     const size = Number(url.searchParams.get('size') ?? 20)
+    const name = url.searchParams.get('name')
+    const taxId = url.searchParams.get('taxId')
+
+    const source = suppliers.filter(
+      (supplier) =>
+        (name == null || supplier.name.toLowerCase().includes(name.toLowerCase())) &&
+        (taxId == null || (supplier.taxId ?? '').toLowerCase().includes(taxId.toLowerCase())),
+    )
     const start = page * size
-    const content = suppliers.slice(start, start + size)
+    const content = source.slice(start, start + size)
 
     return HttpResponse.json({
       content,
       page,
       size,
-      totalElements: suppliers.length,
-      totalPages: Math.max(1, Math.ceil(suppliers.length / size)),
+      totalElements: source.length,
+      totalPages: Math.max(1, Math.ceil(source.length / size)),
     })
   }),
 

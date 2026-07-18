@@ -54,11 +54,21 @@ class SupplierControllerTest {
     @Test
     void list_returns200_withPage() throws Exception {
         PageResponse<SupplierResponse> page = new PageResponse<>(List.of(sampleResponse()), 0, 20, 1, 1);
-        when(supplierService.list(any(Pageable.class))).thenReturn(page);
+        when(supplierService.list(any(), any(), any(Pageable.class))).thenReturn(page);
 
         mockMvc.perform(get("/api/v1/suppliers"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    @Test
+    void list_passesNameAndTaxIdFilters_toService() throws Exception {
+        PageResponse<SupplierResponse> page = new PageResponse<>(List.of(sampleResponse()), 0, 20, 1, 1);
+        when(supplierService.list(eq("Acme"), eq("B123"), any(Pageable.class))).thenReturn(page);
+
+        mockMvc.perform(get("/api/v1/suppliers").param("name", "Acme").param("taxId", "B123"))
+                .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(1));
     }
 
