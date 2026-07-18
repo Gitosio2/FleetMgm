@@ -1770,15 +1770,29 @@ export const handlers = [
       })
     }
 
+    const category = url.searchParams.get('category')
+    const status = url.searchParams.get('status')
+    const licensePlate = url.searchParams.get('licensePlate')
+    const vehicleSearch = url.searchParams.get('vehicle')
+
+    const source = vehicles.filter(
+      (vehicle) =>
+        (category == null || vehicle.vehicleCategory === category) &&
+        (status == null || vehicle.status === status) &&
+        (licensePlate == null ||
+          (vehicle.licensePlate?.toLowerCase().includes(licensePlate.toLowerCase()) ?? false)) &&
+        (vehicleSearch == null ||
+          `${vehicle.make} ${vehicle.model}`.toLowerCase().includes(vehicleSearch.toLowerCase())),
+    )
     const start = page * size
-    const content = vehicles.slice(start, start + size)
+    const content = source.slice(start, start + size)
 
     return HttpResponse.json({
       content,
       page,
       size,
-      totalElements: vehicles.length,
-      totalPages: Math.max(1, Math.ceil(vehicles.length / size)),
+      totalElements: source.length,
+      totalPages: Math.max(1, Math.ceil(source.length / size)),
     })
   }),
 

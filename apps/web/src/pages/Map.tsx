@@ -14,7 +14,7 @@ export function Map() {
   const [categoryFilter, setCategoryFilter] = useState<VehicleCategory | ''>('')
   const [vehicleFilter, setVehicleFilter] = useState('')
 
-  const { data: vehiclesPage } = useVehicles(0, VEHICLES_PAGE_SIZE)
+  const { data: vehiclesPage } = useVehicles({}, 0, VEHICLES_PAGE_SIZE)
 
   return (
     <div className="flex h-full flex-col gap-6">

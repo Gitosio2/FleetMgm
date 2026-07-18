@@ -1,12 +1,6 @@
 import type { VehicleStatus } from '@fleetmgm/api'
 import { cn } from '@/lib/utils'
-
-const STATUS_LABEL: Record<VehicleStatus, string> = {
-  ACTIVE: 'Activo',
-  MAINTENANCE: 'Mantenimiento',
-  INACTIVE: 'Inactivo',
-  DECOMMISSIONED: 'Dado de baja',
-}
+import { VEHICLE_STATUS_LABEL } from '@/lib/vehicle-status-label'
 
 const STATUS_CLASSNAME: Record<VehicleStatus, string> = {
   ACTIVE: 'bg-secondary-container/20 text-secondary',
@@ -27,7 +21,7 @@ export function VehicleStatusBadge({ status }: VehicleStatusBadgeProps) {
         STATUS_CLASSNAME[status],
       )}
     >
-      {STATUS_LABEL[status]}
+      {VEHICLE_STATUS_LABEL[status]}
     </span>
   )
 }

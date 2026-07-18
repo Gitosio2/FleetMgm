@@ -1,12 +1,12 @@
 import { useState } from 'react'
-import { Plus } from 'lucide-react'
-import type { Vehicle } from '@fleetmgm/api'
+import type { Vehicle, VehicleCategory, VehicleStatus } from '@fleetmgm/api'
 import { useVehicles } from '@fleetmgm/hooks'
 import { useAuthStore } from '@fleetmgm/store'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { VehicleTable } from '@/components/vehicle/VehicleTable'
 import { VehicleFormModal } from '@/components/vehicle/VehicleFormModal'
+import { VehicleFilters } from '@/components/vehicle/VehicleFilters'
 import { VehicleAssignmentPanel } from '@/components/assignment/VehicleAssignmentPanel'
 import { VehicleProfitabilityPanel } from '@/components/vehicle/VehicleProfitabilityPanel'
 import { MANAGEMENT_ROLES } from '@/components/layout/nav-items'
@@ -15,6 +15,10 @@ const PAGE_SIZE = 20
 
 export function Vehicles() {
   const [page, setPage] = useState(0)
+  const [category, setCategory] = useState<VehicleCategory | ''>('')
+  const [status, setStatus] = useState<VehicleStatus | ''>('')
+  const [licensePlate, setLicensePlate] = useState('')
+  const [vehicleSearch, setVehicleSearch] = useState('')
   const [formOpen, setFormOpen] = useState(false)
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | undefined>(undefined)
   const [assignmentVehicle, setAssignmentVehicle] = useState<Vehicle | undefined>(undefined)
@@ -23,7 +27,23 @@ export function Vehicles() {
   const role = useAuthStore((state) => state.role)
   const canManage = role != null && MANAGEMENT_ROLES.includes(role)
 
-  const { data, isLoading } = useVehicles(page, PAGE_SIZE)
+  const { data, isLoading } = useVehicles(
+    {
+      category: category === '' ? undefined : category,
+      status: status === '' ? undefined : status,
+      licensePlate: licensePlate === '' ? undefined : licensePlate,
+      vehicle: vehicleSearch === '' ? undefined : vehicleSearch,
+    },
+    page,
+    PAGE_SIZE,
+  )
+
+  function resetPageAnd<T>(setter: (value: T) => void) {
+    return (value: T) => {
+      setter(value)
+      setPage(0)
+    }
+  }
 
   function openCreateForm() {
     setEditingVehicle(undefined)
@@ -45,20 +65,18 @@ export function Vehicles() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-display text-2xl font-semibold">Vehículos</h1>
-          <p className="text-on-surface-variant">
-            Gestiona los vehículos y maquinaria pesada de la flota.
-          </p>
-        </div>
-        {canManage && (
-          <Button onClick={openCreateForm}>
-            <Plus className="size-4" />
-            Nuevo vehículo
-          </Button>
-        )}
-      </div>
+      <VehicleFilters
+        category={category}
+        onCategoryChange={resetPageAnd(setCategory)}
+        status={status}
+        onStatusChange={resetPageAnd(setStatus)}
+        licensePlate={licensePlate}
+        onLicensePlateChange={resetPageAnd(setLicensePlate)}
+        vehicle={vehicleSearch}
+        onVehicleChange={resetPageAnd(setVehicleSearch)}
+        onCreate={openCreateForm}
+        canCreate={canManage}
+      />
 
       {isLoading ? (
         <p className="text-on-surface-variant">Cargando vehículos…</p>

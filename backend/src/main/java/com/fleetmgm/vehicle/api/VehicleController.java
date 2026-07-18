@@ -2,6 +2,8 @@ package com.fleetmgm.vehicle.api;
 
 import com.fleetmgm.shared.PageResponse;
 import com.fleetmgm.vehicle.application.VehicleService;
+import com.fleetmgm.vehicle.domain.VehicleCategory;
+import com.fleetmgm.vehicle.domain.VehicleStatus;
 import com.fleetmgm.vehicle.dto.CreateVehicleRequest;
 import com.fleetmgm.vehicle.dto.UpdateVehicleRequest;
 import com.fleetmgm.vehicle.dto.VehicleResponse;
@@ -27,8 +29,12 @@ public class VehicleController {
 
     @GetMapping
     public ResponseEntity<PageResponse<VehicleResponse>> list(
+            @RequestParam(required = false) VehicleCategory category,
+            @RequestParam(required = false) VehicleStatus status,
+            @RequestParam(required = false) String licensePlate,
+            @RequestParam(required = false) String vehicle,
             @PageableDefault(size = 20, sort = "make") Pageable pageable) {
-        return ResponseEntity.ok(vehicleService.list(pageable));
+        return ResponseEntity.ok(vehicleService.list(category, status, licensePlate, vehicle, pageable));
     }
 
     @PostMapping
