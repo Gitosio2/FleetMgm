@@ -99,6 +99,65 @@ describe('MaintenanceOrders', () => {
     expect(screen.queryByText('Cambio de aceite y filtro')).not.toBeInTheDocument()
   })
 
+  it('edits the cost of a maintenance order and reflects it in the table', async () => {
+    loginAs('WORKSHOP_STAFF')
+    const user = userEvent.setup()
+    renderMaintenanceOrders()
+
+    const row = (await screen.findByText('Cambio de aceite y filtro')).closest('tr')!
+    await user.click(within(row).getByRole('button', { name: /editar orden/i }))
+
+    expect(await screen.findByRole('heading', { name: 'Editar orden' })).toBeInTheDocument()
+    const costInput = screen.getByLabelText(/coste/i)
+    expect(costInput).toHaveValue(null)
+
+    await user.type(costInput, '120.50')
+    await user.click(screen.getByRole('button', { name: /guardar cambios/i }))
+
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Editar orden' })).not.toBeInTheDocument())
+    const updatedRow = screen.getByText('Cambio de aceite y filtro').closest('tr')!
+    expect(within(updatedRow).getByText('120,50€')).toBeInTheDocument()
+  })
+
+  it('edits the cost of an in-progress maintenance order', async () => {
+    loginAs('WORKSHOP_STAFF')
+    const user = userEvent.setup()
+    renderMaintenanceOrders()
+
+    const row = (await screen.findByText('Cambio de pastillas de freno')).closest('tr')!
+    await user.click(within(row).getByRole('button', { name: /editar orden/i }))
+
+    expect(await screen.findByRole('heading', { name: 'Editar orden' })).toBeInTheDocument()
+    const costInput = screen.getByLabelText(/coste/i)
+    await user.type(costInput, '75.25')
+    await user.click(screen.getByRole('button', { name: /guardar cambios/i }))
+
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Editar orden' })).not.toBeInTheDocument())
+    const updatedRow = screen.getByText('Cambio de pastillas de freno').closest('tr')!
+    expect(within(updatedRow).getByText('75,25€')).toBeInTheDocument()
+  })
+
+  it('edits the cost of a completed maintenance order', async () => {
+    loginAs('WORKSHOP_STAFF')
+    const user = userEvent.setup()
+    renderMaintenanceOrders()
+
+    const row = (await screen.findByText('Cambio de filtro')).closest('tr')!
+    await user.click(within(row).getByRole('button', { name: /editar orden/i }))
+
+    expect(await screen.findByRole('heading', { name: 'Editar orden' })).toBeInTheDocument()
+    const costInput = screen.getByLabelText(/coste/i)
+    expect(costInput).toHaveValue(85.5)
+
+    await user.clear(costInput)
+    await user.type(costInput, '99.99')
+    await user.click(screen.getByRole('button', { name: /guardar cambios/i }))
+
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Editar orden' })).not.toBeInTheDocument())
+    const updatedRow = screen.getByText('Cambio de filtro').closest('tr')!
+    expect(within(updatedRow).getByText('99,99€')).toBeInTheDocument()
+  })
+
   it('paginates the maintenance orders table when there is more than one page', async () => {
     loginAs('ADMIN')
     const user = userEvent.setup()

@@ -704,6 +704,7 @@ type MaintenanceUpdateRequestBody = {
   description?: string | null
   technicianId?: string | null
   category: MaintenanceCategory
+  cost?: number | null
 }
 
 const TECHNICIAN_WORKER_ID = SEED_WORKERS[1]!.id
@@ -2649,6 +2650,7 @@ export const handlers = [
       technicianId: technician?.id ?? null,
       technicianName: technician?.fullName ?? null,
       category: body.category,
+      cost: body.cost ?? null,
     }
     maintenanceRecords = maintenanceRecords.map((record, i) => (i === index ? updated : record))
 

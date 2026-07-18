@@ -25,7 +25,7 @@ export function MaintenanceTable({ records, onEdit }: MaintenanceTableProps) {
           <TableHead>Categoría</TableHead>
           <TableHead>Técnico</TableHead>
           <TableHead>Estado</TableHead>
-          <TableHead>Costo</TableHead>
+          <TableHead>Coste</TableHead>
           <TableHead>Acciones</TableHead>
         </TableRow>
       </TableHeader>

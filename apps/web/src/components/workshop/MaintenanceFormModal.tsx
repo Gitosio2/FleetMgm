@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { CATEGORY_LABEL, selectClassName, toNullableString } from './form-shared'
+import { CATEGORY_LABEL, selectClassName, toNullableNumber, toNullableString } from './form-shared'
 
 type MaintenanceFormModalProps = {
   open: boolean
@@ -36,6 +36,7 @@ export function MaintenanceFormModal({ open, onOpenChange, record }: Maintenance
   const [description, setDescription] = useState('')
   const [technicianId, setTechnicianId] = useState('')
   const [category, setCategory] = useState<MaintenanceCategory>('PREVENTIVE')
+  const [cost, setCost] = useState('')
 
   useEffect(() => {
     if (!open) {
@@ -46,6 +47,7 @@ export function MaintenanceFormModal({ open, onOpenChange, record }: Maintenance
     setDescription(record.description ?? '')
     setTechnicianId(record.technicianId ?? '')
     setCategory(record.category)
+    setCost(record.cost != null ? record.cost.toFixed(2) : '')
   }, [open, record])
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -57,6 +59,7 @@ export function MaintenanceFormModal({ open, onOpenChange, record }: Maintenance
       description: toNullableString(description),
       technicianId: toNullableString(technicianId),
       category,
+      cost: toNullableNumber(cost),
     }
     updateMaintenance.mutate({ id: record.id, request }, { onSuccess: () => onOpenChange(false) })
   }
@@ -131,13 +134,33 @@ export function MaintenanceFormModal({ open, onOpenChange, record }: Maintenance
             </div>
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="maintenance-description">Descripción</Label>
-            <Input
-              id="maintenance-description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="maintenance-description">Descripción</Label>
+              <Input
+                id="maintenance-description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="maintenance-cost">Coste</Label>
+              <div className="relative">
+                <Input
+                  id="maintenance-cost"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  className="pr-8"
+                  value={cost}
+                  onChange={(e) => setCost(e.target.value)}
+                  onBlur={() => setCost((current) => (current === '' ? current : Number(current).toFixed(2)))}
+                />
+                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-on-surface-variant">
+                  €
+                </span>
+              </div>
+            </div>
           </div>
 
           {updateMaintenance.isError && (

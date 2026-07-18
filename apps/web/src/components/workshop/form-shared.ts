@@ -7,6 +7,10 @@ export function toNullableString(value: string): string | null {
   return value === '' ? null : value
 }
 
+export function toNullableNumber(value: string): number | null {
+  return value === '' ? null : Number(value)
+}
+
 // HTML <input type="time"> emits/accepts "HH:mm" (no seconds); the backend's LocalTime fields
 // expect "HH:mm:ss". Appends the missing seconds, or returns null for an empty input.
 export function toNullableTime(value: string): string | null {
