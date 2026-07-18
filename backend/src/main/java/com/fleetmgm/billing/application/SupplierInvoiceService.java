@@ -131,7 +131,13 @@ public class SupplierInvoiceService {
         assertIsPending(invoice, "SUPPLIER_INVOICE_INVALID_STATE_TRANSITION",
                 "Supplier invoice " + id + " cannot be updated from state " + invoice.getStatus());
         List<SupplierInvoiceLineItem> existingLineItems = supplierInvoiceLineItemRepository.findAllByInvoiceId(id);
-        if (request.vehicleId() != null && !existingLineItems.isEmpty()) {
+        // Only reject an actual attempt to CHANGE the header vehicle while line items exist —
+        // resubmitting the invoice's current (unchanged) vehicleId must not 409 just because some
+        // pre-existing row already violates the invariant (e.g. seed data predating this check).
+        // Comparing against the invoice's current vehicle, not "was line items empty before", keeps
+        // this a true no-op guard: any request that doesn't change the vehicle relationship passes.
+        UUID currentVehicleId = invoice.getVehicle() != null ? invoice.getVehicle().getId() : null;
+        if (request.vehicleId() != null && !request.vehicleId().equals(currentVehicleId) && !existingLineItems.isEmpty()) {
             throw new ConflictException("SUPPLIER_INVOICE_VEHICLE_LINE_ITEMS_CONFLICT",
                     "Supplier invoice " + id + " has line items and cannot also have a header vehicle — "
                             + "remove the line items first or leave the header vehicle unset");
