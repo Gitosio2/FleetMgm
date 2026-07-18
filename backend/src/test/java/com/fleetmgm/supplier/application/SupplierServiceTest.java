@@ -14,8 +14,12 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -32,6 +36,24 @@ class SupplierServiceTest {
     @Mock SupplierRepository supplierRepository;
     @Mock SupplierMapper supplierMapper;
     @InjectMocks SupplierService supplierService;
+
+    // --- list ---
+
+    @Test
+    void list_passesNameAndTaxIdFilters_toRepository() {
+        Pageable pageable = PageRequest.of(0, 20);
+        Supplier entity = new Supplier();
+        SupplierResponse expected = new SupplierResponse(UUID.randomUUID(), "Acme Parts", "B12345678", null, null, null, Instant.now());
+
+        when(supplierRepository.search("Acme", "B123", pageable))
+                .thenReturn(new PageImpl<>(List.of(entity), pageable, 1));
+        when(supplierMapper.toResponse(entity)).thenReturn(expected);
+
+        var result = supplierService.list("Acme", "B123", pageable);
+
+        assertThat(result.content()).containsExactly(expected);
+        verify(supplierRepository).search("Acme", "B123", pageable);
+    }
 
     // --- create ---
 

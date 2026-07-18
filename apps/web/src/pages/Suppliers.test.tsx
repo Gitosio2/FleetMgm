@@ -108,6 +108,37 @@ describe('Suppliers', () => {
     )
   })
 
+  it('narrows the supplier list with the name filter', async () => {
+    loginAs('ADMIN')
+    const user = userEvent.setup()
+    renderSuppliers()
+
+    await screen.findByText(SEED_SUPPLIERS[0]!.name)
+
+    await user.type(screen.getByLabelText(/buscar por nombre/i), 'Ferretería')
+
+    await waitFor(() => {
+      expect(screen.getByText('Ferretería Central')).toBeInTheDocument()
+    })
+    expect(screen.queryByText(SEED_SUPPLIERS[0]!.name)).not.toBeInTheDocument()
+  })
+
+  it('narrows the supplier list with the NIF filter', async () => {
+    loginAs('ADMIN')
+    const user = userEvent.setup()
+    renderSuppliers()
+
+    await screen.findByText(FIRST_SUPPLIER.name)
+
+    await user.type(screen.getByLabelText(/buscar por nif/i), FIRST_SUPPLIER.taxId!.slice(0, 4))
+
+    await waitFor(() => {
+      expect(screen.getByText(FIRST_SUPPLIER.name)).toBeInTheDocument()
+    })
+    const otherSupplierWithoutTaxId = SEED_SUPPLIERS.find((s) => s.taxId == null)!
+    expect(screen.queryByText(otherSupplierWithoutTaxId.name)).not.toBeInTheDocument()
+  })
+
   it('hides management actions for the DRIVER role', async () => {
     loginAs('DRIVER')
     renderSuppliers()

@@ -9,6 +9,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -83,9 +85,58 @@ class SupplierRepositoryTest {
                 .doesNotThrowAnyException();
     }
 
+    @Test
+    void search_narrowsByName_partialMatch_caseInsensitive_whenProvided() {
+        Supplier match = supplierRepository.save(buildSupplier("Acme Parts", "B55555555"));
+        buildAndSave("Ferretería Central", "B66666666");
+
+        Page<Supplier> result = supplierRepository.search("acme", null, PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).extracting(Supplier::getId).containsExactly(match.getId());
+    }
+
+    @Test
+    void search_narrowsByTaxId_partialMatch_caseInsensitive_whenProvided() {
+        Supplier match = supplierRepository.save(buildSupplier("Acme Parts", "B77777777"));
+        buildAndSave("Other Supplier", "B88888888");
+
+        Page<Supplier> result = supplierRepository.search(null, "b7777", PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).extracting(Supplier::getId).containsExactly(match.getId());
+    }
+
+    @Test
+    void search_combinesNameAndTaxId_whenBothProvided() {
+        Supplier match = supplierRepository.save(buildSupplier("Acme Parts", "B99999991"));
+        buildAndSave("Acme Parts", "B99999992");
+        buildAndSave("Other Supplier", "B99999993");
+
+        Page<Supplier> result = supplierRepository.search("acme", "b99999991", PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).extracting(Supplier::getId).containsExactly(match.getId());
+    }
+
+    @Test
+    void search_returnsAll_whenNoFiltersProvided() {
+        buildAndSave("Acme Parts", "C11111111");
+        buildAndSave("Other Supplier", "C22222222");
+
+        Page<Supplier> result = supplierRepository.search(null, null, PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).hasSize(2);
+    }
+
+    private void buildAndSave(String name, String taxId) {
+        supplierRepository.save(buildSupplier(name, taxId));
+    }
+
     private Supplier buildSupplier(String taxId) {
+        return buildSupplier("Test Supplier", taxId);
+    }
+
+    private Supplier buildSupplier(String name, String taxId) {
         Supplier supplier = new Supplier();
-        supplier.setName("Test Supplier");
+        supplier.setName(name);
         supplier.setTaxId(taxId);
         return supplier;
     }

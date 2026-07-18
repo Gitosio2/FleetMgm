@@ -30,8 +30,8 @@ public class SupplierService {
 
     @Transactional(readOnly = true)
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ADMINISTRATIVE')")
-    public PageResponse<SupplierResponse> list(Pageable pageable) {
-        return PageResponse.from(supplierRepository.findAll(pageable).map(supplierMapper::toResponse));
+    public PageResponse<SupplierResponse> list(String name, String taxId, Pageable pageable) {
+        return PageResponse.from(supplierRepository.search(name, taxId, pageable).map(supplierMapper::toResponse));
     }
 
     @Transactional

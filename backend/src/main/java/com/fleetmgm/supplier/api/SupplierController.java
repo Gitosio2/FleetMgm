@@ -27,8 +27,10 @@ public class SupplierController {
 
     @GetMapping
     public ResponseEntity<PageResponse<SupplierResponse>> list(
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) String taxId,
             @PageableDefault(size = 20, sort = "name") Pageable pageable) {
-        return ResponseEntity.ok(supplierService.list(pageable));
+        return ResponseEntity.ok(supplierService.list(name, taxId, pageable));
     }
 
     @PostMapping
