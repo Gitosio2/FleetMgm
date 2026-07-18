@@ -245,6 +245,7 @@ export type UpdateMaintenanceRequest = {
   description?: string | null
   technicianId?: string | null
   category: MaintenanceCategory
+  cost?: number | null
 }
 
 export type SchedulePriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'

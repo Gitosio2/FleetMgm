@@ -34,7 +34,6 @@ public interface MaintenanceMapper {
     @Mapping(target = "vehicle", ignore = true)
     @Mapping(target = "technician", ignore = true)
     @Mapping(target = "usageAtService", ignore = true)
-    @Mapping(target = "cost", ignore = true)
     @Mapping(target = "workshopEntryDate", ignore = true)
     @Mapping(target = "workshopExitDate", ignore = true)
     @Mapping(target = "status", ignore = true)
