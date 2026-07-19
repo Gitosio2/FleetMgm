@@ -44,8 +44,10 @@
   --color-secondary-container: #0ea5e9;
   --color-on-secondary-container: #082f49;
 
-  --color-tertiary: #b45309;
-  --color-on-tertiary: #ffffff;
+  /* #F59E0B is bright enough that white text fails WCAG AA (~2.15:1) — #451a03 (already used as
+     on-tertiary-container's text color, same contrast pairing) keeps it readable (~6.97:1). */
+  --color-tertiary: #f59e0b;
+  --color-on-tertiary: #451a03;
   --color-tertiary-container: #f59e0b;
   --color-on-tertiary-container: #451a03;
 
@@ -129,4 +131,24 @@ body {
   background-color: var(--color-background);
   color: var(--color-on-background);
   font-family: var(--font-body);
+}
+
+/* VehiclePopover (apps/web/src/components/map/VehiclePopover.tsx) owns its own card look via
+   Tailwind (radius, shadow, background) — Leaflet's default wrapper/content chrome (hardcoded
+   padding, radius, shadow, and a light-only white background) is reset here so it doesn't fight
+   that, and the tip is recolored to the same surface token the card uses so it matches in dark
+   mode too. Qualified under .leaflet-container so this always wins over leaflet.css regardless
+   of which stylesheet loads last in the bundle. */
+.leaflet-container .leaflet-popup-content-wrapper {
+  padding: 0;
+  border-radius: 1rem;
+  box-shadow: none;
+  background: transparent;
+}
+.leaflet-container .leaflet-popup-content {
+  margin: 0;
+}
+.leaflet-container .leaflet-popup-tip {
+  background: var(--color-surface-bright);
+  box-shadow: none;
 }

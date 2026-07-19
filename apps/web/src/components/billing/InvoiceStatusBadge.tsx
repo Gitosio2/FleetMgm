@@ -4,7 +4,7 @@ import { STATUS_LABEL } from './invoice-shared'
 
 const STATUS_CLASSNAME: Record<InvoiceStatus, string> = {
   DRAFT: 'bg-surface-container-high text-on-surface-variant',
-  ISSUED: 'bg-tertiary-container/40 text-tertiary',
+  ISSUED: 'bg-tertiary-container/40 text-on-tertiary-container',
   PAID: 'bg-secondary-container/20 text-secondary',
   OVERDUE: 'bg-error-container/40 text-error',
   CANCELLED: 'bg-surface-container-highest text-on-surface-variant line-through',

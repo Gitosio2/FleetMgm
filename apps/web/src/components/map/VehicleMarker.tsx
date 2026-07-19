@@ -1,16 +1,10 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import L from 'leaflet'
-import { Car, Tractor, Truck, type LucideIcon } from 'lucide-react'
 import { Marker } from 'react-leaflet'
 import type { GpsPosition, VehicleCategory } from '@fleetmgm/api'
+import { CATEGORY_ICON } from '@/lib/vehicle-category-icon'
 import { VehiclePopover } from './VehiclePopover'
-
-const CATEGORY_ICON: Record<VehicleCategory, LucideIcon> = {
-  LIGHT_VEHICLE: Car,
-  HEAVY_VEHICLE: Truck,
-  HEAVY_MACHINERY: Tractor,
-}
 
 function buildDivIcon(vehicleId: string, category: VehicleCategory) {
   const IconComponent = CATEGORY_ICON[category]
@@ -41,9 +35,23 @@ export function VehicleMarker({ position }: VehicleMarkerProps) {
     [position.vehicleId, position.vehicleCategory],
   )
 
+  // Popup children are portaled into Leaflet's popup DOM node as soon as the Popup instance
+  // exists — not gated by open/closed state (@react-leaflet/core's div-overlay renders
+  // unconditionally once `_contentNode` exists). Tracking open state explicitly here lets
+  // VehiclePopover gate its driver lookup behind an actual click, instead of firing one
+  // /vehicles/:id/assignment request per marker on every map load.
+  const [popupOpen, setPopupOpen] = useState(false)
+
   return (
-    <Marker position={[position.latitude, position.longitude]} icon={icon}>
-      <VehiclePopover position={position} />
+    <Marker
+      position={[position.latitude, position.longitude]}
+      icon={icon}
+      eventHandlers={{
+        popupopen: () => setPopupOpen(true),
+        popupclose: () => setPopupOpen(false),
+      }}
+    >
+      <VehiclePopover position={position} open={popupOpen} />
     </Marker>
   )
 }
