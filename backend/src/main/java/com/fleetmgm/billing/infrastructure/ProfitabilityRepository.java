@@ -27,6 +27,14 @@ import java.util.UUID;
  * the only dynamic part is the standard Spring Data {@link Pageable}, which Spring appends safely
  * (LIMIT/OFFSET bind parameters), so this does not violate the "no dynamic native queries" rule —
  * that rule targets string-concatenated user input, not native queries per se.
+ * <p>
+ * Every revenue subquery below filters {@code inv.status IN ('ISSUED', 'PAID', 'OVERDUE')} — an
+ * explicit allowlist, not a {@code <> 'CANCELLED'} denylist, so a future status added to
+ * {@code InvoiceStatus} doesn't silently start counting as revenue. This matters because
+ * {@code InvoiceService.delete()} cancels an ISSUED/OVERDUE invoice by flipping its status to
+ * CANCELLED without setting {@code deletedAt} (the fiscal invoice number must stay visible for
+ * audit — see that method's own comment), so {@code deleted_at IS NULL} alone is not enough to
+ * exclude it here.
  */
 public interface ProfitabilityRepository extends Repository<Vehicle, UUID> {
 
@@ -41,7 +49,8 @@ public interface ProfitabilityRepository extends Repository<Vehicle, UUID> {
                              JOIN invoices inv ON ili.invoice_id = inv.id
                              WHERE j.vehicle_id = v.id
                                AND j.deleted_at IS NULL
-                               AND inv.deleted_at IS NULL), 0) AS revenue,
+                               AND inv.deleted_at IS NULL
+                               AND inv.status IN ('ISSUED', 'PAID', 'OVERDUE')), 0) AS revenue,
                    COALESCE((SELECT SUM(mr.cost)
                              FROM maintenance_records mr
                              WHERE mr.vehicle_id = v.id
@@ -78,7 +87,8 @@ public interface ProfitabilityRepository extends Repository<Vehicle, UUID> {
                              JOIN invoices inv ON ili.invoice_id = inv.id
                              WHERE j.vehicle_id = v.id
                                AND j.deleted_at IS NULL
-                               AND inv.deleted_at IS NULL), 0) AS revenue,
+                               AND inv.deleted_at IS NULL
+                               AND inv.status IN ('ISSUED', 'PAID', 'OVERDUE')), 0) AS revenue,
                    COALESCE((SELECT SUM(mr.cost)
                              FROM maintenance_records mr
                              WHERE mr.vehicle_id = v.id
@@ -134,6 +144,7 @@ public interface ProfitabilityRepository extends Repository<Vehicle, UUID> {
                 SELECT date_trunc('month', inv.issue_date) AS month, SUM(inv.subtotal) AS revenue
                 FROM invoices inv
                 WHERE inv.deleted_at IS NULL AND inv.issue_date IS NOT NULL
+                  AND inv.status IN ('ISSUED', 'PAID', 'OVERDUE')
                 GROUP BY date_trunc('month', inv.issue_date)
             ) rev ON rev.month = month_series
             LEFT JOIN (

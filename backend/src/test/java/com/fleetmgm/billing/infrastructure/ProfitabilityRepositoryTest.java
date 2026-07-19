@@ -126,6 +126,26 @@ class ProfitabilityRepositoryTest {
     }
 
     @Test
+    void findProfitabilityByVehicle_excludesRevenue_fromCancelledInvoice() {
+        // InvoiceService.delete() cancels an ISSUED invoice by flipping status to CANCELLED
+        // without setting deletedAt (the fiscal number must stay visible) — deleted_at IS NULL
+        // alone must not be enough to keep counting it as revenue.
+        Vehicle vehicle = persistVehicle("3334CCD");
+        Client client = persistClient("77777777H");
+        Job job = persistJob(vehicle, JobStatus.COMPLETED);
+        Invoice invoice = persistInvoice(client, "INV-2026-00009", InvoiceStatus.CANCELLED);
+        persistLineItem(invoice, new BigDecimal("777.00"), job);
+
+        entityManager.getEntityManager().clear();
+
+        Page<VehicleProfitabilityProjection> result =
+                profitabilityRepository.findProfitabilityByVehicle(PageRequest.of(0, 20));
+
+        VehicleProfitabilityProjection projection = findByVehicleId(result, vehicle.getId());
+        assertThat(projection.getRevenue()).isEqualByComparingTo(BigDecimal.ZERO);
+    }
+
+    @Test
     void findProfitabilityByVehicle_attributesSharedSupplierInvoiceCosts_viaLineItems() {
         Vehicle vehicleA = persistVehicle("4444DDD");
         Vehicle vehicleB = persistVehicle("5555EEE");
@@ -257,6 +277,25 @@ class ProfitabilityRepositoryTest {
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getRevenue()).isEqualByComparingTo("1470.00");
+    }
+
+    @Test
+    void findMonthlyFinancialTrend_excludesRevenue_fromCancelledInvoice() {
+        // InvoiceService.delete() cancels an ISSUED invoice by flipping status to CANCELLED
+        // without setting deletedAt — deleted_at IS NULL alone must not count it as revenue.
+        Client client = persistClient("88888888H");
+
+        LocalDate month = LocalDate.of(2026, 7, 1);
+        persistInvoiceWithIssueDate(
+                client, "INV-2026-10010", InvoiceStatus.CANCELLED, month, new BigDecimal("640.00"));
+
+        entityManager.getEntityManager().clear();
+
+        List<MonthlyFinancialProjection> result =
+                profitabilityRepository.findMonthlyFinancialTrend(month, month);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getRevenue()).isEqualByComparingTo(BigDecimal.ZERO);
     }
 
     @Test
