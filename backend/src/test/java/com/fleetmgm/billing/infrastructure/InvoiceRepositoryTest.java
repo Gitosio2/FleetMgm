@@ -62,7 +62,7 @@ class InvoiceRepositoryTest {
         entityManager.getEntityManager().clear();
 
         Page<Invoice> result = invoiceRepository.findAllJoinFetch(
-                null, null, null, null, null, null, null, null, null, PageRequest.of(0, 20));
+                null, null, null, null, null, null, null, null, null, null, null, PageRequest.of(0, 20));
 
         assertThat(result.getContent()).hasSize(2);
     }
@@ -74,7 +74,7 @@ class InvoiceRepositoryTest {
         entityManager.getEntityManager().clear();
 
         Page<Invoice> result = invoiceRepository.findAllJoinFetch(
-                null, null, null, null, null, null, null, null, null, PageRequest.of(0, 20));
+                null, null, null, null, null, null, null, null, null, null, null, PageRequest.of(0, 20));
 
         assertThat(result.getContent()).hasSize(1);
         Invoice fetched = result.getContent().get(0);
@@ -91,7 +91,7 @@ class InvoiceRepositoryTest {
         entityManager.getEntityManager().clear();
 
         Page<Invoice> result = invoiceRepository.findAllJoinFetch(
-                null, null, null, null, null, null, null, null, null, PageRequest.of(0, 20));
+                null, null, null, null, null, null, null, null, null, null, null, PageRequest.of(0, 20));
 
         assertThat(result.getContent()).isEmpty();
     }
@@ -106,7 +106,7 @@ class InvoiceRepositoryTest {
         entityManager.getEntityManager().clear();
 
         Page<Invoice> result = invoiceRepository.findAllJoinFetch(
-                null, null, null, null, null, null, null, null, null, PageRequest.of(0, 20));
+                null, null, null, null, null, null, null, null, null, null, null, PageRequest.of(0, 20));
 
         // Pure chronological order — a PAID invoice (newestPaid) still ranks above an older
         // non-PAID one (oldestPending), proving status no longer influences the sort.
@@ -123,7 +123,7 @@ class InvoiceRepositoryTest {
         entityManager.getEntityManager().clear();
 
         Page<Invoice> result = invoiceRepository.findAllJoinFetch(
-                clientA.getId(), null, null, null, null, null, null, null, null, PageRequest.of(0, 20));
+                clientA.getId(), null, null, null, null, null, null, null, null, null, null, PageRequest.of(0, 20));
 
         assertThat(result.getContent()).extracting(Invoice::getId).containsExactly(match.getId());
     }
@@ -136,7 +136,7 @@ class InvoiceRepositoryTest {
         entityManager.getEntityManager().clear();
 
         Page<Invoice> result = invoiceRepository.findAllJoinFetch(
-                null, "inv-2026-0005", null, null, null, null, null, null, null, PageRequest.of(0, 20));
+                null, "inv-2026-0005", null, null, null, null, null, null, null, null, null, PageRequest.of(0, 20));
 
         assertThat(result.getContent()).extracting(Invoice::getId).containsExactly(match.getId());
     }
@@ -149,7 +149,7 @@ class InvoiceRepositoryTest {
         entityManager.getEntityManager().clear();
 
         Page<Invoice> result = invoiceRepository.findAllJoinFetch(
-                null, null, InvoiceStatus.DRAFT, null, null, null, null, null, null, PageRequest.of(0, 20));
+                null, null, InvoiceStatus.DRAFT, null, null, null, null, null, null, null, null, PageRequest.of(0, 20));
 
         assertThat(result.getContent()).extracting(Invoice::getId).containsExactly(draft.getId());
     }
@@ -162,7 +162,7 @@ class InvoiceRepositoryTest {
         entityManager.getEntityManager().clear();
 
         Page<Invoice> result = invoiceRepository.findAllJoinFetch(null, null, null,
-                LocalDate.now().minusDays(5), LocalDate.now().plusDays(5), null, null, null, null,
+                LocalDate.now().minusDays(5), LocalDate.now().plusDays(5), null, null, null, null, null, null,
                 PageRequest.of(0, 20));
 
         assertThat(result.getContent()).extracting(Invoice::getId).containsExactly(inRange.getId());
@@ -176,7 +176,22 @@ class InvoiceRepositoryTest {
         entityManager.getEntityManager().clear();
 
         Page<Invoice> result = invoiceRepository.findAllJoinFetch(null, null, null, null, null,
-                LocalDate.now(), LocalDate.now().plusDays(10), null, null, PageRequest.of(0, 20));
+                LocalDate.now(), LocalDate.now().plusDays(10), null, null, null, null, PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).extracting(Invoice::getId).containsExactly(inRange.getId());
+    }
+
+    @Test
+    void findAllJoinFetch_narrowsByPaymentDateRange_whenBothBoundsProvided() {
+        Client client = persistClient("25252525X");
+        Invoice inRange = persistInvoiceWithPayment(
+                client, "INV-2026-00060", LocalDate.now(), new BigDecimal("100.00"));
+        persistInvoiceWithPayment(
+                client, "INV-2026-00061", LocalDate.now().minusDays(10), new BigDecimal("100.00"));
+        entityManager.getEntityManager().clear();
+
+        Page<Invoice> result = invoiceRepository.findAllJoinFetch(null, null, null, null, null, null, null,
+                LocalDate.now().minusDays(5), LocalDate.now().plusDays(5), null, null, PageRequest.of(0, 20));
 
         assertThat(result.getContent()).extracting(Invoice::getId).containsExactly(inRange.getId());
     }
@@ -188,7 +203,7 @@ class InvoiceRepositoryTest {
         persistInvoiceWithTotal(client, "INV-2026-00051", new BigDecimal("50.00"));
         entityManager.getEntityManager().clear();
 
-        Page<Invoice> result = invoiceRepository.findAllJoinFetch(null, null, null, null, null, null, null,
+        Page<Invoice> result = invoiceRepository.findAllJoinFetch(null, null, null, null, null, null, null, null, null,
                 new BigDecimal("100.00"), new BigDecimal("200.00"), PageRequest.of(0, 20));
 
         assertThat(result.getContent()).extracting(Invoice::getId).containsExactly(inRange.getId());
@@ -212,7 +227,7 @@ class InvoiceRepositoryTest {
 
         assertThat(draftInRange.getTotal()).isEqualByComparingTo(BigDecimal.ZERO);
 
-        Page<Invoice> result = invoiceRepository.findAllJoinFetch(null, null, null, null, null, null, null,
+        Page<Invoice> result = invoiceRepository.findAllJoinFetch(null, null, null, null, null, null, null, null, null,
                 new BigDecimal("400.00"), new BigDecimal("500.00"), PageRequest.of(0, 20));
 
         assertThat(result.getContent()).extracting(Invoice::getId).containsExactly(draftInRange.getId());
@@ -228,7 +243,7 @@ class InvoiceRepositoryTest {
         Invoice issuedInRange = persistInvoiceWithTotal(client, "INV-2026-00059", new BigDecimal("450.00"));
         entityManager.getEntityManager().clear();
 
-        Page<Invoice> result = invoiceRepository.findAllJoinFetch(null, null, null, null, null, null, null,
+        Page<Invoice> result = invoiceRepository.findAllJoinFetch(null, null, null, null, null, null, null, null, null,
                 new BigDecimal("400.00"), new BigDecimal("500.00"), PageRequest.of(0, 20));
 
         assertThat(result.getContent()).extracting(Invoice::getId).containsExactly(issuedInRange.getId());
@@ -285,6 +300,7 @@ class InvoiceRepositoryTest {
                 client.getId(), null, InvoiceStatus.ISSUED,
                 LocalDate.now().minusDays(1), LocalDate.now().plusDays(1),
                 LocalDate.now().plusDays(10), LocalDate.now().plusDays(20),
+                null, null,
                 new BigDecimal("100.00"), new BigDecimal("200.00"), PageRequest.of(0, 20));
 
         assertThat(result.getContent()).extracting(Invoice::getId).containsExactly(match.getId());
@@ -296,6 +312,17 @@ class InvoiceRepositoryTest {
         invoice.setInvoiceNumber(invoiceNumber);
         invoice.setStatus(InvoiceStatus.ISSUED);
         invoice.setIssueDate(issueDate);
+        return entityManager.persistAndFlush(invoice);
+    }
+
+    private Invoice persistInvoiceWithPayment(
+            Client client, String invoiceNumber, LocalDate paymentDate, BigDecimal subtotal) {
+        Invoice invoice = new Invoice();
+        invoice.setClient(client);
+        invoice.setInvoiceNumber(invoiceNumber);
+        invoice.setStatus(InvoiceStatus.PAID);
+        invoice.setPaymentDate(paymentDate);
+        invoice.setSubtotal(subtotal);
         return entityManager.persistAndFlush(invoice);
     }
 

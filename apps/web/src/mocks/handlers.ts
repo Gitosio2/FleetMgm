@@ -3202,6 +3202,8 @@ export const handlers = [
     const issueDateTo = url.searchParams.get('issueDateTo')
     const dueDateFrom = url.searchParams.get('dueDateFrom')
     const dueDateTo = url.searchParams.get('dueDateTo')
+    const paymentDateFrom = url.searchParams.get('paymentDateFrom')
+    const paymentDateTo = url.searchParams.get('paymentDateTo')
     const totalMin = url.searchParams.get('totalMin')
     const totalMax = url.searchParams.get('totalMax')
 
@@ -3214,6 +3216,8 @@ export const handlers = [
         (issueDateTo == null || (invoice.issueDate != null && invoice.issueDate <= issueDateTo)) &&
         (dueDateFrom == null || (invoice.dueDate != null && invoice.dueDate >= dueDateFrom)) &&
         (dueDateTo == null || (invoice.dueDate != null && invoice.dueDate <= dueDateTo)) &&
+        (paymentDateFrom == null || (invoice.paymentDate != null && invoice.paymentDate >= paymentDateFrom)) &&
+        (paymentDateTo == null || (invoice.paymentDate != null && invoice.paymentDate <= paymentDateTo)) &&
         (totalMin == null || invoice.total >= Number(totalMin)) &&
         (totalMax == null || invoice.total <= Number(totalMax)),
     )

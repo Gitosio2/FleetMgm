@@ -826,12 +826,13 @@ class InvoiceServiceTest {
         Invoice invoice = new Invoice();
         InvoiceResponse expected = buildResponse(UUID.randomUUID());
 
-        when(invoiceRepository.findAllJoinFetch(null, null, null, null, null, null, null, null, null, pageable))
+        when(invoiceRepository.findAllJoinFetch(
+                null, null, null, null, null, null, null, null, null, null, null, pageable))
                 .thenReturn(new PageImpl<>(List.of(invoice), pageable, 1));
         when(invoiceMapper.toResponse(invoice)).thenReturn(expected);
 
         PageResponse<InvoiceResponse> result = invoiceService.list(
-                null, null, null, null, null, null, null, null, null, pageable);
+                null, null, null, null, null, null, null, null, null, null, null, pageable);
 
         assertThat(result.content()).containsExactly(expected);
         assertThat(result.totalElements()).isEqualTo(1);
@@ -845,6 +846,8 @@ class InvoiceServiceTest {
         LocalDate issueDateTo = LocalDate.now();
         LocalDate dueDateFrom = LocalDate.now().plusDays(1);
         LocalDate dueDateTo = LocalDate.now().plusDays(30);
+        LocalDate paymentDateFrom = LocalDate.now().minusDays(5);
+        LocalDate paymentDateTo = LocalDate.now();
         BigDecimal totalMin = new BigDecimal("50.00");
         BigDecimal totalMax = new BigDecimal("500.00");
         // Caller-supplied Sort must be stripped — same rationale as SupplierInvoiceService.list().
@@ -852,14 +855,14 @@ class InvoiceServiceTest {
         Pageable pageOnly = PageRequest.of(0, 20);
 
         when(invoiceRepository.findAllJoinFetch(clientId, invoiceNumber, InvoiceStatus.ISSUED, issueDateFrom,
-                issueDateTo, dueDateFrom, dueDateTo, totalMin, totalMax, pageOnly))
+                issueDateTo, dueDateFrom, dueDateTo, paymentDateFrom, paymentDateTo, totalMin, totalMax, pageOnly))
                 .thenReturn(new PageImpl<>(List.of(), pageOnly, 0));
 
         invoiceService.list(clientId, invoiceNumber, InvoiceStatus.ISSUED, issueDateFrom, issueDateTo,
-                dueDateFrom, dueDateTo, totalMin, totalMax, callerPageable);
+                dueDateFrom, dueDateTo, paymentDateFrom, paymentDateTo, totalMin, totalMax, callerPageable);
 
         verify(invoiceRepository).findAllJoinFetch(clientId, invoiceNumber, InvoiceStatus.ISSUED, issueDateFrom,
-                issueDateTo, dueDateFrom, dueDateTo, totalMin, totalMax, pageOnly);
+                issueDateTo, dueDateFrom, dueDateTo, paymentDateFrom, paymentDateTo, totalMin, totalMax, pageOnly);
     }
 
     @Test
@@ -889,7 +892,7 @@ class InvoiceServiceTest {
         InvoiceResponse mapped1 = buildResponse(invoiceId1);
         InvoiceResponse mapped2 = buildResponse(invoiceId2);
 
-        when(invoiceRepository.findAllJoinFetch(null, null, null, null, null, null, null, null, null, pageable))
+        when(invoiceRepository.findAllJoinFetch(null, null, null, null, null, null, null, null, null, null, null, pageable))
                 .thenReturn(new PageImpl<>(List.of(invoice1, invoice2), pageable, 2));
         when(invoiceMapper.toResponse(invoice1)).thenReturn(mapped1);
         when(invoiceMapper.toResponse(invoice2)).thenReturn(mapped2);
@@ -900,7 +903,7 @@ class InvoiceServiceTest {
         when(invoiceMapper.toResponse(line3)).thenReturn(response3);
 
         PageResponse<InvoiceResponse> result = invoiceService.list(
-                null, null, null, null, null, null, null, null, null, pageable);
+                null, null, null, null, null, null, null, null, null, null, null, pageable);
 
         InvoiceResponse resultInvoice1 = result.content().stream()
                 .filter(r -> r.id().equals(invoiceId1)).findFirst().orElseThrow();
@@ -921,13 +924,13 @@ class InvoiceServiceTest {
         Invoice invoice2 = new Invoice();
         setId(invoice2, invoiceId2);
 
-        when(invoiceRepository.findAllJoinFetch(null, null, null, null, null, null, null, null, null, pageable))
+        when(invoiceRepository.findAllJoinFetch(null, null, null, null, null, null, null, null, null, null, null, pageable))
                 .thenReturn(new PageImpl<>(List.of(invoice1, invoice2), pageable, 2));
         when(invoiceMapper.toResponse(invoice1)).thenReturn(buildResponse(invoiceId1));
         when(invoiceMapper.toResponse(invoice2)).thenReturn(buildResponse(invoiceId2));
         when(lineItemRepository.findAllByInvoiceIdIn(anyList())).thenReturn(List.of());
 
-        invoiceService.list(null, null, null, null, null, null, null, null, null, pageable);
+        invoiceService.list(null, null, null, null, null, null, null, null, null, null, null, pageable);
 
         verify(lineItemRepository, times(1)).findAllByInvoiceIdIn(anyList());
         verify(lineItemRepository, never()).findAllByInvoiceId(any());
@@ -940,13 +943,13 @@ class InvoiceServiceTest {
         Invoice invoice = new Invoice();
         setId(invoice, invoiceId);
 
-        when(invoiceRepository.findAllJoinFetch(null, null, null, null, null, null, null, null, null, pageable))
+        when(invoiceRepository.findAllJoinFetch(null, null, null, null, null, null, null, null, null, null, null, pageable))
                 .thenReturn(new PageImpl<>(List.of(invoice), pageable, 1));
         when(invoiceMapper.toResponse(invoice)).thenReturn(buildResponse(invoiceId));
         when(lineItemRepository.findAllByInvoiceIdIn(List.of(invoiceId))).thenReturn(List.of());
 
         PageResponse<InvoiceResponse> result = invoiceService.list(
-                null, null, null, null, null, null, null, null, null, pageable);
+                null, null, null, null, null, null, null, null, null, null, null, pageable);
 
         assertThat(result.content().get(0).lineItems()).isNotNull().isEmpty();
     }
