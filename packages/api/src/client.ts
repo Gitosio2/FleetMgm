@@ -5,6 +5,10 @@ export const apiClient = axios.create({
   baseURL: '/api/v1',
 })
 
+export function configureApiClient(baseURL: string): void {
+  apiClient.defaults.baseURL = baseURL.replace(/\/$/, '')
+}
+
 apiClient.interceptors.request.use((config) => {
   const { accessToken } = useAuthStore.getState()
   if (accessToken) {
@@ -29,7 +33,7 @@ async function refreshAccessToken(): Promise<string> {
     throw new Error('No refresh token available')
   }
 
-  const response = await axios.post<RefreshResponse>('/api/v1/auth/refresh', { refreshToken })
+  const response = await apiClient.post<RefreshResponse>('/auth/refresh', { refreshToken })
 
   useAuthStore.getState().setAccessToken(response.data.accessToken)
   return response.data.accessToken

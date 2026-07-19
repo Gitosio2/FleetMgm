@@ -27,7 +27,7 @@ const memoryStorage: StateStorage = {
   removeItem: () => undefined,
 }
 
-const defaultStorage = createJSONStorage(() =>
+const defaultStorage = createJSONStorage<AuthState>(() =>
   typeof localStorage === 'undefined' ? memoryStorage : localStorage,
 )
 const hasBrowserStorage = typeof localStorage !== 'undefined'
