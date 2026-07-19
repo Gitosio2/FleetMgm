@@ -20,7 +20,13 @@ export function SupplierInvoiceInfoLink({ supplierInvoiceId, supplierInvoiceNumb
       >
         {supplierInvoiceNumber}
       </button>
-      <SupplierInvoiceFormModal open={open} onOpenChange={setOpen} supplierInvoice={supplierInvoice} readOnly />
+      {/* Mounted only while open: SupplierInvoiceFormModal unconditionally calls
+          useAllVehicles()/useAllSuppliers() (fetch-every-page hooks) to populate its selects —
+          always rendering it here would fire both on every dashboard load, before any invoice is
+          ever clicked. */}
+      {open && (
+        <SupplierInvoiceFormModal open={open} onOpenChange={setOpen} supplierInvoice={supplierInvoice} readOnly />
+      )}
     </>
   )
 }

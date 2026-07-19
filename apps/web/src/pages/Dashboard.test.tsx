@@ -11,6 +11,7 @@ import {
   SEED_FLEET_SUMMARY,
   SEED_SUPPLIER_INVOICES,
 } from '@/mocks/handlers'
+import { server } from '@/mocks/server'
 import { formatCurrency } from '@/lib/currency'
 import { Dashboard } from './Dashboard'
 import { DashboardHome } from './DashboardHome'
@@ -152,6 +153,34 @@ describe('Dashboard', () => {
     expect(within(dialog).getByRole('heading', { name: 'Factura de proveedor' })).toBeInTheDocument()
     expect(within(dialog).getByLabelText(/nº factura proveedor/i)).toBeDisabled()
     expect(within(dialog).queryByRole('button', { name: /guardar cambios/i })).not.toBeInTheDocument()
+  })
+
+  it('does not fetch clients/suppliers/vehicles until an invoice link is opened', async () => {
+    const user = userEvent.setup()
+    loginAs('ADMIN')
+
+    const requestedPaths = new Set<string>()
+    server.events.on('request:start', ({ request }) => {
+      requestedPaths.add(new URL(request.url).pathname)
+    })
+
+    renderDashboard()
+
+    // InvoiceInfoLink/SupplierInvoiceInfoLink are mounted for every upcoming invoice as soon as
+    // this section renders — if InvoiceFormModal/SupplierInvoiceFormModal were unconditionally
+    // mounted alongside them (instead of gated on `open`), their useAllClients()/useAllSuppliers()/
+    // useAllVehicles() calls would already have fired by now.
+    await screen.findByText('Facturas por cobrar')
+    await screen.findByText('Facturas por pagar')
+
+    expect(requestedPaths.has('/api/v1/clients')).toBe(false)
+    expect(requestedPaths.has('/api/v1/suppliers')).toBe(false)
+    expect(requestedPaths.has('/api/v1/vehicles')).toBe(false)
+
+    const receivable = SEED_FINANCIAL_SUMMARY.upcomingReceivables[0]!
+    await user.click(await screen.findByRole('button', { name: receivable.number }))
+
+    await waitFor(() => expect(requestedPaths.has('/api/v1/clients')).toBe(true))
   })
 
   it('renders the fleet-wide monthly Ingresos/Gastos trend, defaulting to the last 6 months', async () => {

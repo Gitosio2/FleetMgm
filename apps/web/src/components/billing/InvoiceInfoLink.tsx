@@ -20,7 +20,10 @@ export function InvoiceInfoLink({ invoiceId, invoiceNumber }: InvoiceInfoLinkPro
       >
         {invoiceNumber}
       </button>
-      <InvoiceFormModal open={open} onOpenChange={setOpen} invoice={invoice} readOnly />
+      {/* Mounted only while open: InvoiceFormModal unconditionally calls useAllClients() (a
+          fetch-every-page hook) to populate its client <select> — always rendering it here would
+          fire that on every dashboard load, before any invoice is ever clicked. */}
+      {open && <InvoiceFormModal open={open} onOpenChange={setOpen} invoice={invoice} readOnly />}
     </>
   )
 }
