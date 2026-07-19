@@ -8,6 +8,7 @@ import { useAuthStore } from '@fleetmgm/store'
 import { secureAuthStorage } from './src/auth/secureStorage'
 import { resolveApiBaseUrl } from './src/config/api'
 import { LoginScreen } from './src/screens/LoginScreen'
+import { MobileMenu } from './src/components/MobileMenu'
 
 const queryClient = new QueryClient()
 
@@ -60,6 +61,9 @@ function AuthenticatedScreen() {
 
   return (
     <View style={styles.safeArea}>
+      <View style={styles.menuTrigger}>
+        <MobileMenu />
+      </View>
       <View style={styles.container}>
         <Text style={styles.title}>Sesión iniciada</Text>
         <Text style={styles.description}>El inicio de sesión móvil se ha completado.</Text>
@@ -80,6 +84,12 @@ const styles = StyleSheet.create({
   safeArea: {
     backgroundColor: '#f1f5f9',
     flex: 1,
+  },
+  menuTrigger: {
+    left: 16,
+    position: 'absolute',
+    top: 16,
+    zIndex: 1,
   },
   container: {
     alignItems: 'center',
