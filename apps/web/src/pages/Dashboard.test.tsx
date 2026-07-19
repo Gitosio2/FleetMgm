@@ -1,16 +1,18 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { render, renderHook, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { http, HttpResponse } from 'msw'
 import { afterEach, describe, expect, it } from 'vitest'
 import { useAuthStore, type AppRole } from '@fleetmgm/store'
+import { useIssueInvoice } from '@fleetmgm/hooks'
 import { server } from '@/mocks/server'
 import {
   SEED_CLIENTS,
   SEED_FINANCIAL_SUMMARY,
   SEED_FINANCIAL_TREND,
   SEED_FLEET_SUMMARY,
+  SEED_INVOICES,
 } from '@/mocks/handlers'
 import { formatCurrency } from '@/lib/currency'
 import { Dashboard } from './Dashboard'
@@ -21,11 +23,13 @@ function renderDashboard() {
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
 
-  return render(
+  const view = render(
     <QueryClientProvider client={queryClient}>
       <Dashboard />
     </QueryClientProvider>,
   )
+
+  return { ...view, queryClient }
 }
 
 function renderDashboardHomeAt(initialPath: string) {
@@ -115,6 +119,31 @@ describe('Dashboard', () => {
 
     const notOverdueRow = screen.getByText(notOverdueReceivable.number).closest('li') as HTMLElement
     expect(notOverdueRow.textContent).not.toContain('Vencida')
+  })
+
+  it('refetches the financial summary after an invoice is issued elsewhere in the app', async () => {
+    loginAs('ADMIN')
+    let requestCount = 0
+    server.use(
+      http.get('/api/v1/reports/financial-summary', () => {
+        requestCount += 1
+        return HttpResponse.json(SEED_FINANCIAL_SUMMARY)
+      }),
+    )
+    const { queryClient } = renderDashboard()
+
+    await screen.findByText('Resumen del mes')
+    expect(requestCount).toBe(1)
+
+    // Issuing lives on the Billing page, not the Dashboard — this simulates that mutation firing
+    // while the Dashboard is mounted elsewhere in the app, sharing the same QueryClient cache.
+    const draft = SEED_INVOICES[0]!
+    const { result } = renderHook(() => useIssueInvoice(), {
+      wrapper: ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>,
+    })
+    result.current.mutate(draft.id)
+
+    await waitFor(() => expect(requestCount).toBe(2))
   })
 
   it('shows the margin change in green when the current month margin exceeds the previous month', async () => {
