@@ -124,6 +124,15 @@ export function FinancialSummary({ summary }: FinancialSummaryProps) {
         invoices={summary.upcomingPayables}
         counterpartyType="SUPPLIER"
       />
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm font-medium text-on-surface-variant">Cobros del mes</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-3xl font-semibold">{formatCurrency(summary.monthlyCollections)}</p>
+        </CardContent>
+      </Card>
     </div>
   )
 }

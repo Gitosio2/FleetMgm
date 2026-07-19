@@ -121,6 +121,16 @@ describe('Dashboard', () => {
     expect(notOverdueRow.textContent).not.toContain('Vencida')
   })
 
+  it('shows the monthly cash collections in a dedicated "Cobros del mes" card', async () => {
+    loginAs('ADMIN')
+    renderDashboard()
+
+    await screen.findByText('Cobros del mes')
+
+    const collectionsCard = cardByTitle('Cobros del mes')
+    expect(collectionsCard.textContent).toContain(formatCurrency(SEED_FINANCIAL_SUMMARY.monthlyCollections))
+  })
+
   it('refetches the financial summary after an invoice is issued elsewhere in the app', async () => {
     loginAs('ADMIN')
     let requestCount = 0

@@ -115,6 +115,7 @@ class DashboardServiceTest {
         when(invoiceRepository.findUpcomingReceivables(any(), any())).thenReturn(List.of());
         when(supplierInvoiceRepository.findUpcomingPayables(any(), any())).thenReturn(List.of());
         when(profitabilityRepository.findMonthlyFinancialTrend(any(), any())).thenReturn(List.of());
+        when(invoiceRepository.sumSubtotalByPaymentDateBetween(any(), any())).thenReturn(BigDecimal.ZERO);
 
         FinancialSummaryResponse summary = dashboardService().getFinancialSummary();
 
@@ -128,6 +129,7 @@ class DashboardServiceTest {
         when(invoiceRepository.findUpcomingReceivables(any(), any())).thenReturn(List.of());
         when(supplierInvoiceRepository.findUpcomingPayables(any(), any())).thenReturn(List.of());
         when(profitabilityRepository.findMonthlyFinancialTrend(any(), any())).thenReturn(List.of());
+        when(invoiceRepository.sumSubtotalByPaymentDateBetween(any(), any())).thenReturn(BigDecimal.ZERO);
 
         dashboardService().getFinancialSummary();
 
@@ -156,6 +158,7 @@ class DashboardServiceTest {
         when(invoiceRepository.findUpcomingReceivables(any(), any())).thenReturn(List.of());
         when(supplierInvoiceRepository.findUpcomingPayables(any(), any())).thenReturn(List.of());
         when(profitabilityRepository.findMonthlyFinancialTrend(any(), any())).thenReturn(List.of());
+        when(invoiceRepository.sumSubtotalByPaymentDateBetween(any(), any())).thenReturn(BigDecimal.ZERO);
 
         dashboardService().getFinancialSummary();
 
@@ -176,6 +179,7 @@ class DashboardServiceTest {
         when(maintenanceRepository.sumCostByWorkshopEntryDateBetween(any(), any())).thenReturn(BigDecimal.ZERO);
         when(supplierInvoiceRepository.findUpcomingPayables(any(), any())).thenReturn(List.of());
         when(profitabilityRepository.findMonthlyFinancialTrend(any(), any())).thenReturn(List.of());
+        when(invoiceRepository.sumSubtotalByPaymentDateBetween(any(), any())).thenReturn(BigDecimal.ZERO);
 
         Client client = client("Acme Logistics");
         Invoice invoice = invoice(client, "INV-2026-00010", LocalDate.now().plusDays(3), new BigDecimal("500.00"));
@@ -198,6 +202,7 @@ class DashboardServiceTest {
         when(maintenanceRepository.sumCostByWorkshopEntryDateBetween(any(), any())).thenReturn(BigDecimal.ZERO);
         when(supplierInvoiceRepository.findUpcomingPayables(any(), any())).thenReturn(List.of());
         when(profitabilityRepository.findMonthlyFinancialTrend(any(), any())).thenReturn(List.of());
+        when(invoiceRepository.sumSubtotalByPaymentDateBetween(any(), any())).thenReturn(BigDecimal.ZERO);
 
         Client client = client("Transportes Ibérica");
         Invoice invoice = invoice(client, "INV-2026-00011", LocalDate.now().minusDays(2), new BigDecimal("750.00"));
@@ -215,6 +220,7 @@ class DashboardServiceTest {
         when(maintenanceRepository.sumCostByWorkshopEntryDateBetween(any(), any())).thenReturn(BigDecimal.ZERO);
         when(invoiceRepository.findUpcomingReceivables(any(), any())).thenReturn(List.of());
         when(profitabilityRepository.findMonthlyFinancialTrend(any(), any())).thenReturn(List.of());
+        when(invoiceRepository.sumSubtotalByPaymentDateBetween(any(), any())).thenReturn(BigDecimal.ZERO);
 
         Supplier supplier = supplier("Taller Mecánico Norte");
         SupplierInvoice supplierInvoice = supplierInvoice(
@@ -238,6 +244,7 @@ class DashboardServiceTest {
         when(maintenanceRepository.sumCostByWorkshopEntryDateBetween(any(), any())).thenReturn(BigDecimal.ZERO);
         when(invoiceRepository.findUpcomingReceivables(any(), any())).thenReturn(List.of());
         when(supplierInvoiceRepository.findUpcomingPayables(any(), any())).thenReturn(List.of());
+        when(invoiceRepository.sumSubtotalByPaymentDateBetween(any(), any())).thenReturn(BigDecimal.ZERO);
 
         YearMonth currentMonth = YearMonth.now();
         YearMonth previousMonth = currentMonth.minusMonths(1);
@@ -256,6 +263,7 @@ class DashboardServiceTest {
         when(maintenanceRepository.sumCostByWorkshopEntryDateBetween(any(), any())).thenReturn(BigDecimal.ZERO);
         when(invoiceRepository.findUpcomingReceivables(any(), any())).thenReturn(List.of());
         when(supplierInvoiceRepository.findUpcomingPayables(any(), any())).thenReturn(List.of());
+        when(invoiceRepository.sumSubtotalByPaymentDateBetween(any(), any())).thenReturn(BigDecimal.ZERO);
 
         YearMonth currentMonth = YearMonth.now();
         YearMonth previousMonth = currentMonth.minusMonths(1);
@@ -275,11 +283,45 @@ class DashboardServiceTest {
         when(invoiceRepository.findUpcomingReceivables(any(), any())).thenReturn(List.of());
         when(supplierInvoiceRepository.findUpcomingPayables(any(), any())).thenReturn(List.of());
         when(profitabilityRepository.findMonthlyFinancialTrend(any(), any())).thenReturn(List.of());
+        when(invoiceRepository.sumSubtotalByPaymentDateBetween(any(), any())).thenReturn(BigDecimal.ZERO);
 
         FinancialSummaryResponse summary = dashboardService().getFinancialSummary();
 
         assertThat(summary.monthlyRevenue()).isEqualByComparingTo("0");
         assertThat(summary.previousMonthMargin()).isEqualByComparingTo("0");
+    }
+
+    @Test
+    void getFinancialSummary_computesMonthlyCollections_fromPaidInvoicesByPaymentDate() {
+        when(supplierInvoiceRepository.sumTotalByInvoiceDateBetween(any(), any())).thenReturn(BigDecimal.ZERO);
+        when(maintenanceRepository.sumCostByWorkshopEntryDateBetween(any(), any())).thenReturn(BigDecimal.ZERO);
+        when(invoiceRepository.findUpcomingReceivables(any(), any())).thenReturn(List.of());
+        when(supplierInvoiceRepository.findUpcomingPayables(any(), any())).thenReturn(List.of());
+        when(profitabilityRepository.findMonthlyFinancialTrend(any(), any())).thenReturn(List.of());
+        when(invoiceRepository.sumSubtotalByPaymentDateBetween(any(), any())).thenReturn(new BigDecimal("2600.00"));
+
+        FinancialSummaryResponse summary = dashboardService().getFinancialSummary();
+
+        assertThat(summary.monthlyCollections()).isEqualByComparingTo("2600.00");
+    }
+
+    @Test
+    void getFinancialSummary_passesCurrentMonthBounds_toCollectionsQuery() {
+        when(supplierInvoiceRepository.sumTotalByInvoiceDateBetween(any(), any())).thenReturn(BigDecimal.ZERO);
+        when(maintenanceRepository.sumCostByWorkshopEntryDateBetween(any(), any())).thenReturn(BigDecimal.ZERO);
+        when(invoiceRepository.findUpcomingReceivables(any(), any())).thenReturn(List.of());
+        when(supplierInvoiceRepository.findUpcomingPayables(any(), any())).thenReturn(List.of());
+        when(profitabilityRepository.findMonthlyFinancialTrend(any(), any())).thenReturn(List.of());
+        when(invoiceRepository.sumSubtotalByPaymentDateBetween(any(), any())).thenReturn(BigDecimal.ZERO);
+
+        dashboardService().getFinancialSummary();
+
+        YearMonth currentMonth = YearMonth.now();
+        ArgumentCaptor<LocalDate> from = ArgumentCaptor.forClass(LocalDate.class);
+        ArgumentCaptor<LocalDate> to = ArgumentCaptor.forClass(LocalDate.class);
+        verify(invoiceRepository).sumSubtotalByPaymentDateBetween(from.capture(), to.capture());
+        assertThat(from.getValue()).isEqualTo(currentMonth.atDay(1));
+        assertThat(to.getValue()).isEqualTo(currentMonth.atEndOfMonth());
     }
 
     private Client client(String name) {

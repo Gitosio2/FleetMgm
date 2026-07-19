@@ -119,6 +119,7 @@ public class DashboardService {
         return new FinancialSummaryResponse(
                 monthlyCosts(),
                 revenueForMonth(trend, currentMonth),
+                monthlyCollections(),
                 marginForMonth(trend, previousMonth),
                 upcomingReceivables,
                 upcomingPayables);
@@ -131,6 +132,15 @@ public class DashboardService {
         BigDecimal supplierCosts = supplierInvoiceRepository.sumTotalByInvoiceDateBetween(monthStart, monthEnd);
         BigDecimal maintenanceCosts = maintenanceRepository.sumCostByWorkshopEntryDateBetween(monthStart, monthEnd);
         return supplierCosts.add(maintenanceCosts);
+    }
+
+    // Cash actually collected this month (PAID invoices, by paymentDate) — distinct from
+    // revenueForMonth, which is accrued by issueDate regardless of payment status.
+    private BigDecimal monthlyCollections() {
+        YearMonth currentMonth = YearMonth.now();
+        LocalDate monthStart = currentMonth.atDay(1);
+        LocalDate monthEnd = currentMonth.atEndOfMonth();
+        return invoiceRepository.sumSubtotalByPaymentDateBetween(monthStart, monthEnd);
     }
 
     // findMonthlyFinancialTrend's `month` column is `to_char(month_series, 'YYYY-MM')`, which
