@@ -67,6 +67,17 @@ export function useSupplierInvoices(filters: SupplierInvoiceFilters = {}, page =
   })
 }
 
+export function useSupplierInvoice(id: string) {
+  return useQuery({
+    queryKey: [SUPPLIER_INVOICE_KEY, id],
+    queryFn: async () => {
+      const { data } = await apiClient.get<SupplierInvoice>(`/supplier-invoices/${id}`)
+      return data
+    },
+    enabled: id !== '',
+  })
+}
+
 export function useCreateSupplierInvoice() {
   const queryClient = useQueryClient()
 

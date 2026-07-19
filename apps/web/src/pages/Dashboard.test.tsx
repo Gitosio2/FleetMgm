@@ -9,6 +9,7 @@ import {
   SEED_FINANCIAL_SUMMARY,
   SEED_FINANCIAL_TREND,
   SEED_FLEET_SUMMARY,
+  SEED_SUPPLIER_INVOICES,
 } from '@/mocks/handlers'
 import { formatCurrency } from '@/lib/currency'
 import { Dashboard } from './Dashboard'
@@ -119,6 +120,38 @@ describe('Dashboard', () => {
     const dialog = await screen.findByRole('dialog')
     expect(within(dialog).getByRole('heading', { name: 'Datos del cliente' })).toBeInTheDocument()
     expect(within(dialog).getByLabelText(/teléfono/i)).toHaveValue(client.phone)
+  })
+
+  it('opens the invoice modal in read-only mode from the invoice code in "Facturas por cobrar"', async () => {
+    const user = userEvent.setup()
+    loginAs('ADMIN')
+    renderDashboard()
+
+    const receivable = SEED_FINANCIAL_SUMMARY.upcomingReceivables[0]!
+
+    await user.click(await screen.findByRole('button', { name: receivable.number }))
+
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByRole('heading', { name: 'Factura' })).toBeInTheDocument()
+    expect(within(dialog).queryByRole('button', { name: /guardar cambios/i })).not.toBeInTheDocument()
+    expect(within(dialog).queryByRole('button', { name: /crear factura/i })).not.toBeInTheDocument()
+  })
+
+  it('opens the supplier invoice modal in read-only mode from the invoice code in "Facturas por pagar", even though it is still PENDING (normally editable)', async () => {
+    const user = userEvent.setup()
+    loginAs('ADMIN')
+    renderDashboard()
+
+    const payable = SEED_FINANCIAL_SUMMARY.upcomingPayables[0]!
+    const supplierInvoice = SEED_SUPPLIER_INVOICES.find((si) => si.id === payable.id)!
+    expect(supplierInvoice.status).toBe('PENDING')
+
+    await user.click(await screen.findByRole('button', { name: payable.number }))
+
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByRole('heading', { name: 'Factura de proveedor' })).toBeInTheDocument()
+    expect(within(dialog).getByLabelText(/nº factura proveedor/i)).toBeDisabled()
+    expect(within(dialog).queryByRole('button', { name: /guardar cambios/i })).not.toBeInTheDocument()
   })
 
   it('renders the fleet-wide monthly Ingresos/Gastos trend, defaulting to the last 6 months', async () => {

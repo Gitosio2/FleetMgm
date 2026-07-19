@@ -19,9 +19,15 @@ type SupplierInvoiceFormModalProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   supplierInvoice?: SupplierInvoice
+  readOnly?: boolean
 }
 
-export function SupplierInvoiceFormModal({ open, onOpenChange, supplierInvoice }: SupplierInvoiceFormModalProps) {
+export function SupplierInvoiceFormModal({
+  open,
+  onOpenChange,
+  supplierInvoice,
+  readOnly = false,
+}: SupplierInvoiceFormModalProps) {
   const isEditing = supplierInvoice != null
   const createSupplierInvoice = useCreateSupplierInvoice()
   const updateSupplierInvoice = useUpdateSupplierInvoice()
@@ -61,8 +67,11 @@ export function SupplierInvoiceFormModal({ open, onOpenChange, supplierInvoice }
   const isPending = createSupplierInvoice.isPending || updateSupplierInvoice.isPending
   // A PAID invoice is immutable — the backend already rejects update()/addLineItem() with 409
   // SUPPLIER_INVOICE_INVALID_STATE_TRANSITION for it; this surfaces that constraint as a read-only
-  // view instead of letting the user fill out the form only to have the save fail.
-  const isReadOnly = supplierInvoice?.status === 'PAID'
+  // view instead of letting the user fill out the form only to have the save fail. The explicit
+  // `readOnly` prop (mirrors ClientFormModal/SupplierFormModal's own readOnly) forces the same
+  // locked-down view regardless of status — used by SupplierInvoiceInfoLink to open a PENDING
+  // invoice from the dashboard's "Facturas por pagar" card in consult-only mode.
+  const isReadOnly = readOnly || supplierInvoice?.status === 'PAID'
 
   // Subtotal is the "source" amount (what the supplier states pre-tax) — editing it or the tax
   // recomputes Total. Editing Total directly does the inverse: it recomputes Subtotal, holding the
@@ -307,7 +316,7 @@ export function SupplierInvoiceFormModal({ open, onOpenChange, supplierInvoice }
         {isEditing && !supplierInvoice.vehicleId && (
           <div className="mt-6 flex flex-col gap-2 border-t border-outline-variant/40 pt-4">
             <h3 className="font-display text-sm font-semibold">Líneas por vehículo</h3>
-            <SupplierInvoiceLineItemList supplierInvoice={supplierInvoice} />
+            <SupplierInvoiceLineItemList supplierInvoice={supplierInvoice} readOnly={isReadOnly} />
           </div>
         )}
 

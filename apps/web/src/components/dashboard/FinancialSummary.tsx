@@ -2,6 +2,8 @@ import type { FinancialSummary as FinancialSummaryData, UpcomingInvoice } from '
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ClientInfoLink } from '@/components/client/ClientInfoLink'
 import { SupplierInfoLink } from '@/components/supplier/SupplierInfoLink'
+import { InvoiceInfoLink } from '@/components/billing/InvoiceInfoLink'
+import { SupplierInvoiceInfoLink } from '@/components/billing/SupplierInvoiceInfoLink'
 import { formatCurrency } from '@/lib/currency'
 
 type FinancialSummaryProps = {
@@ -28,7 +30,11 @@ function UpcomingInvoicesCard({ title, invoices, counterpartyType }: UpcomingInv
             {invoices.map((invoice) => (
               <li key={invoice.id} className="flex items-center justify-between gap-2 text-sm">
                 <div className="flex flex-col">
-                  <span className="font-medium">{invoice.number}</span>
+                  {counterpartyType === 'CLIENT' ? (
+                    <InvoiceInfoLink invoiceId={invoice.id} invoiceNumber={invoice.number} />
+                  ) : (
+                    <SupplierInvoiceInfoLink supplierInvoiceId={invoice.id} supplierInvoiceNumber={invoice.number} />
+                  )}
                   {counterpartyType === 'CLIENT' ? (
                     <ClientInfoLink clientId={invoice.counterpartyId} clientName={invoice.counterparty} />
                   ) : (

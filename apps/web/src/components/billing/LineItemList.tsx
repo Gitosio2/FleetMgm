@@ -10,13 +10,14 @@ import { formatCurrency } from '@/lib/currency'
 
 type LineItemListProps = {
   invoice: Invoice
+  readOnly?: boolean
 }
 
-export function LineItemList({ invoice }: LineItemListProps) {
+export function LineItemList({ invoice, readOnly = false }: LineItemListProps) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [isAdding, setIsAdding] = useState(false)
 
-  const canAddLineItem = invoice.status === 'DRAFT'
+  const canAddLineItem = !readOnly && invoice.status === 'DRAFT'
 
   return (
     <div className="flex flex-col gap-3">
