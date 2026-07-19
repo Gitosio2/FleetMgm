@@ -96,6 +96,14 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
     // (createdAt ASC) is an arbitrary but deterministic tie-break when more than one exists.
     Optional<Invoice> findFirstByClientIdAndStatusOrderByCreatedAtAsc(UUID clientId, InvoiceStatus status);
 
+    // Dashboard "Cobros del mes" card — cash actually collected this month, as opposed to
+    // monthlyRevenue (accrued by issueDate, any status). Deliberately subtotal (not total, which
+    // includes IVA) so it's directly comparable to monthlyRevenue on the same tax-exclusive basis.
+    @Query("SELECT COALESCE(SUM(i.subtotal), 0) FROM Invoice i "
+            + "WHERE i.status = com.fleetmgm.billing.domain.InvoiceStatus.PAID "
+            + "AND i.paymentDate BETWEEN :from AND :to")
+    BigDecimal sumSubtotalByPaymentDateBetween(@Param("from") LocalDate from, @Param("to") LocalDate to);
+
     // Backs InvoiceNumberGenerator's INV-<year>-<00001> numbering scheme. A native scalar query
     // is the simplest correct option here — no EntityManager/JdbcTemplate precedent exists
     // elsewhere in this codebase, and every other repository in this project is a plain

@@ -57,12 +57,16 @@ class DashboardControllerTest {
                 UUID.randomUUID(), "F-2026-0456", UUID.randomUUID(), "Taller Mecánico Norte",
                 new BigDecimal("121.00"), LocalDate.now().minusDays(1), true);
         FinancialSummaryResponse summary = new FinancialSummaryResponse(
-                new BigDecimal("8420.50"), List.of(receivable), List.of(payable));
+                new BigDecimal("8420.50"), new BigDecimal("9500.00"), new BigDecimal("6200.00"),
+                new BigDecimal("2000.00"), List.of(receivable), List.of(payable));
         when(dashboardService.getFinancialSummary()).thenReturn(summary);
 
         mockMvc.perform(get("/api/v1/reports/financial-summary"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.monthlyCosts").value(8420.50))
+                .andExpect(jsonPath("$.monthlyRevenue").value(9500.00))
+                .andExpect(jsonPath("$.monthlyCollections").value(6200.00))
+                .andExpect(jsonPath("$.previousMonthMargin").value(2000.00))
                 .andExpect(jsonPath("$.upcomingReceivables[0].number").value("INV-2026-00010"))
                 .andExpect(jsonPath("$.upcomingReceivables[0].counterparty").value("Acme Logistics"))
                 .andExpect(jsonPath("$.upcomingReceivables[0].overdue").value(false))

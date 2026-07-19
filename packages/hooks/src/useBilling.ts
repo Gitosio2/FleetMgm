@@ -10,6 +10,7 @@ import type {
   UpdateInvoiceRequest,
 } from '@fleetmgm/api'
 import { invalidateQueryKeys } from './invalidateQueryKeys'
+import { FINANCIAL_SUMMARY_KEY } from './useDashboard'
 
 export const INVOICE_KEY = 'invoices'
 
@@ -121,7 +122,10 @@ export function useIssueInvoice() {
       const { data } = await apiClient.patch<Invoice>(`/invoices/${id}/issue`)
       return data
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [INVOICE_KEY] }),
+    // Issuing is the moment an invoice starts counting toward monthly revenue (issueDate is set
+    // here, and the dashboard's revenue query groups by issueDate) — without invalidating
+    // FINANCIAL_SUMMARY_KEY the "Resumen del mes" card keeps showing its pre-issuance cache.
+    onSuccess: () => invalidateQueryKeys(queryClient, [INVOICE_KEY, FINANCIAL_SUMMARY_KEY]),
   })
 }
 
@@ -133,7 +137,10 @@ export function usePayInvoice() {
       const { data } = await apiClient.patch<Invoice>(`/invoices/${id}/pay`, { paymentDate })
       return data
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [INVOICE_KEY] }),
+    // Paying an invoice removes it from the dashboard's upcoming-receivables list (it stops
+    // matching the backend's ISSUED-only filter) — invalidate FINANCIAL_SUMMARY_KEY too so the
+    // dashboard card refetches.
+    onSuccess: () => invalidateQueryKeys(queryClient, [INVOICE_KEY, FINANCIAL_SUMMARY_KEY]),
   })
 }
 

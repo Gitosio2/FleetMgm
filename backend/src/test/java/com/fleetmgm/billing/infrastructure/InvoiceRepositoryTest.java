@@ -439,6 +439,45 @@ class InvoiceRepositoryTest {
         assertThat(result).extracting(Invoice::getId).containsExactly(earlier.getId(), later.getId());
     }
 
+    @Test
+    void sumSubtotalByPaymentDateBetween_sumsOnlyPaidInvoices_withinRange() {
+        Client client = persistClient("10101010J");
+        persistInvoiceWithPayment(client, "INV-2026-00030", InvoiceStatus.PAID,
+                LocalDate.of(2026, 6, 15), new BigDecimal("1000.00"));
+        persistInvoiceWithPayment(client, "INV-2026-00031", InvoiceStatus.PAID,
+                LocalDate.of(2026, 6, 20), new BigDecimal("500.00"));
+        // ISSUED (not yet paid) and PAID-but-outside-range must not count.
+        persistInvoiceWithDueDate(client, "INV-2026-00032", InvoiceStatus.ISSUED, LocalDate.now().plusDays(5));
+        persistInvoiceWithPayment(client, "INV-2026-00033", InvoiceStatus.PAID,
+                LocalDate.of(2026, 7, 1), new BigDecimal("999.00"));
+        entityManager.getEntityManager().clear();
+
+        BigDecimal result = invoiceRepository.sumSubtotalByPaymentDateBetween(
+                LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 30));
+
+        assertThat(result).isEqualByComparingTo("1500.00");
+    }
+
+    @Test
+    void sumSubtotalByPaymentDateBetween_returnsZero_notNull_whenNoPaidInvoicesInRange() {
+        BigDecimal result = invoiceRepository.sumSubtotalByPaymentDateBetween(
+                LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 30));
+
+        assertThat(result).isNotNull();
+        assertThat(result).isEqualByComparingTo(BigDecimal.ZERO);
+    }
+
+    private Invoice persistInvoiceWithPayment(
+            Client client, String invoiceNumber, InvoiceStatus status, LocalDate paymentDate, BigDecimal subtotal) {
+        Invoice invoice = new Invoice();
+        invoice.setClient(client);
+        invoice.setInvoiceNumber(invoiceNumber);
+        invoice.setStatus(status);
+        invoice.setPaymentDate(paymentDate);
+        invoice.setSubtotal(subtotal);
+        return entityManager.persistAndFlush(invoice);
+    }
+
     private Invoice persistInvoiceWithDueDate(Client client, String invoiceNumber, InvoiceStatus status, LocalDate dueDate) {
         Invoice invoice = new Invoice();
         invoice.setClient(client);

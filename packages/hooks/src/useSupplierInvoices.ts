@@ -10,6 +10,8 @@ import type {
   SupplierLineItemResponse,
   UpdateSupplierInvoiceRequest,
 } from '@fleetmgm/api'
+import { invalidateQueryKeys } from './invalidateQueryKeys'
+import { FINANCIAL_SUMMARY_KEY } from './useDashboard'
 
 export const SUPPLIER_INVOICE_KEY = 'supplier-invoices'
 
@@ -75,7 +77,10 @@ export function useCreateSupplierInvoice() {
       const { data } = await apiClient.post<SupplierInvoice>('/supplier-invoices', request)
       return data
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [SUPPLIER_INVOICE_KEY] }),
+    // Unlike a client Invoice, a supplier invoice has no DRAFT state — total/invoiceDate are set
+    // directly on creation, so it counts toward monthly costs immediately. Invalidate
+    // FINANCIAL_SUMMARY_KEY so the dashboard's "Resumen del mes" card doesn't keep a stale cache.
+    onSuccess: () => invalidateQueryKeys(queryClient, [SUPPLIER_INVOICE_KEY, FINANCIAL_SUMMARY_KEY]),
   })
 }
 
@@ -86,7 +91,8 @@ export function useDeleteSupplierInvoice() {
     mutationFn: async (id: string) => {
       await apiClient.delete(`/supplier-invoices/${id}`)
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [SUPPLIER_INVOICE_KEY] }),
+    // Soft-deleting removes the invoice's total from the monthly cost sum.
+    onSuccess: () => invalidateQueryKeys(queryClient, [SUPPLIER_INVOICE_KEY, FINANCIAL_SUMMARY_KEY]),
   })
 }
 
@@ -98,7 +104,8 @@ export function useUpdateSupplierInvoice() {
       const { data } = await apiClient.put<SupplierInvoice>(`/supplier-invoices/${id}`, request)
       return data
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [SUPPLIER_INVOICE_KEY] }),
+    // total/invoiceDate can change here, both of which feed the monthly cost sum.
+    onSuccess: () => invalidateQueryKeys(queryClient, [SUPPLIER_INVOICE_KEY, FINANCIAL_SUMMARY_KEY]),
   })
 }
 
@@ -110,7 +117,9 @@ export function usePaySupplierInvoice() {
       const { data } = await apiClient.patch<SupplierInvoice>(`/supplier-invoices/${id}/pay`, { paymentDate })
       return data
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [SUPPLIER_INVOICE_KEY] }),
+    // Paying removes it from the dashboard's upcoming-payables list — invalidate
+    // FINANCIAL_SUMMARY_KEY too so the dashboard card refetches.
+    onSuccess: () => invalidateQueryKeys(queryClient, [SUPPLIER_INVOICE_KEY, FINANCIAL_SUMMARY_KEY]),
   })
 }
 
