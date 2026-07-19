@@ -178,6 +178,27 @@ describe('Dashboard', () => {
     expect(summaryCard.textContent).toContain(`+${formatCurrency(monthlyMargin)}`)
   })
 
+  it('shows a negative percentage instead of NaN% when the current month has no revenue data', async () => {
+    loginAs('ADMIN')
+    const summaryWithoutRevenue = {
+      monthlyCosts: SEED_FINANCIAL_SUMMARY.monthlyCosts,
+      previousMonthMargin: SEED_FINANCIAL_SUMMARY.previousMonthMargin,
+      upcomingReceivables: SEED_FINANCIAL_SUMMARY.upcomingReceivables,
+      upcomingPayables: SEED_FINANCIAL_SUMMARY.upcomingPayables,
+    }
+    server.use(http.get('/api/v1/reports/financial-summary', () => HttpResponse.json(summaryWithoutRevenue)))
+    renderDashboard()
+
+    await screen.findByText('Resumen del mes')
+    const summaryCard = cardByTitle('Resumen del mes')
+
+    // monthlyRevenue missing -> monthlyMargin normalizes to 0 -> change vs. previousMonthMargin
+    // (900) is -100%, not NaN%.
+    expect(summaryCard.textContent).not.toContain('NaN')
+    const changeText = within(summaryCard).getByText('-100.0%')
+    expect(changeText.className).toContain('text-error')
+  })
+
   it('opens a read-only client modal from the "Facturas por cobrar" list', async () => {
     const user = userEvent.setup()
     loginAs('ADMIN')

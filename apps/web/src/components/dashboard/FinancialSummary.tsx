@@ -5,9 +5,16 @@ import { SupplierInfoLink } from '@/components/supplier/SupplierInfoLink'
 import { formatCurrency } from '@/lib/currency'
 import { cn } from '@/lib/utils'
 
-// "—" formula guard: previousMargin === 0 would divide by zero, so that case shows the euro
-// difference instead of a percentage. Color logic never divides — it always compares the two
-// margins directly, independent of this display-only guard.
+// Callers normalize both margins with this before passing them to formatMarginChange/
+// marginChangeColor — missing/undefined API fields (or NaN from an unrelated computation)
+// otherwise propagate into "NaN%"/"NaN€" instead of a sensible zero-based fallback.
+function toSafeNumber(value: number): number {
+  return Number.isFinite(value) ? value : 0
+}
+
+// previousMargin === 0 would divide by zero, so that case shows the euro difference instead of
+// a percentage. Color logic never divides — it always compares the two margins directly,
+// independent of this display-only guard.
 function formatMarginChange(currentMargin: number, previousMargin: number): string {
   if (previousMargin === 0) {
     const diff = currentMargin - previousMargin
@@ -76,7 +83,8 @@ function UpcomingInvoicesCard({ title, invoices, counterpartyType }: UpcomingInv
 }
 
 export function FinancialSummary({ summary }: FinancialSummaryProps) {
-  const monthlyMargin = summary.monthlyRevenue - summary.monthlyCosts
+  const monthlyMargin = toSafeNumber(summary.monthlyRevenue - summary.monthlyCosts)
+  const previousMonthMargin = toSafeNumber(summary.previousMonthMargin)
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -97,9 +105,9 @@ export function FinancialSummary({ summary }: FinancialSummaryProps) {
             <div className="flex items-center justify-between border-t border-outline-variant pt-2 text-sm">
               <span className="text-on-surface-variant">Beneficio vs. mes anterior</span>
               <span
-                className={cn('text-lg font-semibold', marginChangeColor(monthlyMargin, summary.previousMonthMargin))}
+                className={cn('text-lg font-semibold', marginChangeColor(monthlyMargin, previousMonthMargin))}
               >
-                {formatMarginChange(monthlyMargin, summary.previousMonthMargin)}
+                {formatMarginChange(monthlyMargin, previousMonthMargin)}
               </span>
             </div>
           </div>
