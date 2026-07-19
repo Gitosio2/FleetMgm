@@ -44,7 +44,7 @@ export function VehiclePopover({ position, open }: VehiclePopoverProps) {
       >
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5">
-            <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-tertiary-container text-on-tertiary-container">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-tertiary text-on-tertiary">
               <Icon size={22} />
             </span>
             <span className="font-semibold text-on-surface">{vehicleLabel}</span>
@@ -60,7 +60,7 @@ export function VehiclePopover({ position, open }: VehiclePopoverProps) {
         <div className="flex items-center gap-2 border-t border-outline-variant pt-2">
           {assignment ? (
             <>
-              <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-tertiary-container text-xs font-bold text-on-tertiary-container">
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-tertiary text-xs font-bold text-on-tertiary">
                 {initials(assignment.driverName)}
               </span>
               <span className="font-medium text-on-surface">{assignment.driverName}</span>
