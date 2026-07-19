@@ -217,14 +217,10 @@ class ProfitabilityRepositoryTest {
         LocalDate monthOne = LocalDate.of(2026, 5, 1);
         LocalDate monthTwo = LocalDate.of(2026, 6, 1);
 
-        Job jobOne = persistJob(vehicle, JobStatus.COMPLETED);
-        Invoice invoiceOne = persistInvoiceWithIssueDate(client, "INV-2026-10001", InvoiceStatus.ISSUED, monthOne);
-        persistLineItem(invoiceOne, new BigDecimal("500.00"), jobOne);
+        persistInvoiceWithIssueDate(client, "INV-2026-10001", InvoiceStatus.ISSUED, monthOne, new BigDecimal("500.00"));
         persistMaintenanceRecordOnDate(vehicle, new BigDecimal("100.00"), monthOne);
 
-        Job jobTwo = persistJob(vehicle, JobStatus.COMPLETED);
-        Invoice invoiceTwo = persistInvoiceWithIssueDate(client, "INV-2026-10002", InvoiceStatus.ISSUED, monthTwo);
-        persistLineItem(invoiceTwo, new BigDecimal("300.00"), jobTwo);
+        persistInvoiceWithIssueDate(client, "INV-2026-10002", InvoiceStatus.ISSUED, monthTwo, new BigDecimal("300.00"));
         persistSupplierInvoiceOnDate(vehicle, new BigDecimal("50.00"), monthTwo);
 
         entityManager.getEntityManager().clear();
@@ -243,17 +239,35 @@ class ProfitabilityRepositoryTest {
     }
 
     @Test
+    void findMonthlyFinancialTrend_includesRevenue_regardlessOfLineItemJobLink() {
+        // Fleet-wide revenue is invoices.subtotal directly — unlike findProfitabilityByVehicle
+        // (which needs the Job link to attribute revenue to a vehicle), this total has no
+        // per-vehicle attribution to make, so a line item with no linkedJob must still count here.
+        Client client = persistClient("77777777G");
+
+        LocalDate month = LocalDate.of(2026, 7, 1);
+        Invoice invoice = persistInvoiceWithIssueDate(
+                client, "INV-2026-10009", InvoiceStatus.ISSUED, month, new BigDecimal("1470.00"));
+        persistLineItem(invoice, new BigDecimal("1470.00"), null);
+
+        entityManager.getEntityManager().clear();
+
+        List<MonthlyFinancialProjection> result =
+                profitabilityRepository.findMonthlyFinancialTrend(month, month);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getRevenue()).isEqualByComparingTo("1470.00");
+    }
+
+    @Test
     void findMonthlyFinancialTrend_zeroFillsMonths_withNoActivity() {
-        Vehicle vehicle = persistVehicle("9992BBB");
         Client client = persistClient("55555555E");
 
         LocalDate monthOne = LocalDate.of(2026, 4, 1);
         LocalDate monthThree = LocalDate.of(2026, 6, 1);
         // monthTwo (2026-05) intentionally has zero activity — must still appear with 0/0.
 
-        Job job = persistJob(vehicle, JobStatus.COMPLETED);
-        Invoice invoice = persistInvoiceWithIssueDate(client, "INV-2026-10003", InvoiceStatus.ISSUED, monthOne);
-        persistLineItem(invoice, new BigDecimal("200.00"), job);
+        persistInvoiceWithIssueDate(client, "INV-2026-10003", InvoiceStatus.ISSUED, monthOne, new BigDecimal("200.00"));
 
         entityManager.getEntityManager().clear();
 
@@ -268,20 +282,14 @@ class ProfitabilityRepositoryTest {
 
     @Test
     void findMonthlyFinancialTrend_excludesRecords_outsideDateRange() {
-        Vehicle vehicle = persistVehicle("9993CCC");
         Client client = persistClient("66666666F");
 
         LocalDate beforeRange = LocalDate.of(2026, 1, 1);
         LocalDate inRange = LocalDate.of(2026, 3, 1);
         LocalDate afterRange = LocalDate.of(2026, 5, 1);
 
-        Job jobBefore = persistJob(vehicle, JobStatus.COMPLETED);
-        Invoice invoiceBefore = persistInvoiceWithIssueDate(client, "INV-2026-10004", InvoiceStatus.ISSUED, beforeRange);
-        persistLineItem(invoiceBefore, new BigDecimal("999.00"), jobBefore);
-
-        Job jobAfter = persistJob(vehicle, JobStatus.COMPLETED);
-        Invoice invoiceAfter = persistInvoiceWithIssueDate(client, "INV-2026-10005", InvoiceStatus.ISSUED, afterRange);
-        persistLineItem(invoiceAfter, new BigDecimal("888.00"), jobAfter);
+        persistInvoiceWithIssueDate(client, "INV-2026-10004", InvoiceStatus.ISSUED, beforeRange, new BigDecimal("999.00"));
+        persistInvoiceWithIssueDate(client, "INV-2026-10005", InvoiceStatus.ISSUED, afterRange, new BigDecimal("888.00"));
 
         entityManager.getEntityManager().clear();
 
@@ -347,12 +355,14 @@ class ProfitabilityRepositoryTest {
         return entityManager.persistAndFlush(invoice);
     }
 
-    private Invoice persistInvoiceWithIssueDate(Client client, String invoiceNumber, InvoiceStatus status, LocalDate issueDate) {
+    private Invoice persistInvoiceWithIssueDate(
+            Client client, String invoiceNumber, InvoiceStatus status, LocalDate issueDate, BigDecimal subtotal) {
         Invoice invoice = new Invoice();
         invoice.setClient(client);
         invoice.setInvoiceNumber(invoiceNumber);
         invoice.setStatus(status);
         invoice.setIssueDate(issueDate);
+        invoice.setSubtotal(subtotal);
         return entityManager.persistAndFlush(invoice);
     }
 

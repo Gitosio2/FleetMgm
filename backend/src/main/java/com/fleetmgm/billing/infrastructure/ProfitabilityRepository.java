@@ -108,13 +108,19 @@ public interface ProfitabilityRepository extends Repository<Vehicle, UUID> {
      * <p>
      * {@code generate_series} builds the month spine so every month in [from, to] appears in the
      * result even with zero activity (COALESCE guards the two LEFT JOINs) — the chart's X-axis
-     * needs every month present for the 3/6/12-month selector to render consistently. Revenue
-     * reuses the same {@code invoice_line_items -> jobs -> invoices} formula as
-     * {@link #findProfitabilityByVehicle}, just grouped by month instead of by vehicle. Costs
-     * reuses the same two sources as {@code DashboardService.monthlyCosts()}
-     * (maintenance_records.cost + supplier_invoices.total) — not the per-vehicle query's extra
-     * supplier_invoice_line_items source, which only exists to split a single supplier invoice
-     * across multiple vehicles and has no bearing on the fleet-wide total.
+     * needs every month present for the 3/6/12-month selector to render consistently. Revenue is
+     * {@code invoices.subtotal} directly, summed per month of {@code issue_date} — matching Spanish
+     * IVA law's accrual criterion ("criterio de devengo": revenue is recognised at issuance,
+     * regardless of payment status), the standard most invoicing tools use. Deliberately NOT the
+     * {@code invoice_line_items -> jobs} formula {@link #findProfitabilityByVehicle} uses — that
+     * join exists there only to attribute revenue to a specific vehicle, and excluding a line item
+     * with no {@code linked_job_id} (e.g. a manually-entered line with no Job) would silently drop
+     * real invoiced revenue from this fleet-wide total, which has no per-vehicle attribution to
+     * make in the first place. Costs reuses the same two sources as
+     * {@code DashboardService.monthlyCosts()} (maintenance_records.cost + supplier_invoices.total)
+     * — not the per-vehicle query's extra supplier_invoice_line_items source, which only exists to
+     * split a single supplier invoice across multiple vehicles and has no bearing on the fleet-wide
+     * total.
      * <p>
      * {@code :from}/{@code :to} are the only dynamic parts, bound via Spring Data (no string
      * concatenation), so this does not violate the "no dynamic native queries" rule.
@@ -125,11 +131,9 @@ public interface ProfitabilityRepository extends Repository<Vehicle, UUID> {
                    COALESCE(cost.costs, 0) AS costs
             FROM generate_series(date_trunc('month', CAST(:from AS date)), date_trunc('month', CAST(:to AS date)), interval '1 month') AS month_series
             LEFT JOIN (
-                SELECT date_trunc('month', inv.issue_date) AS month, SUM(ili.subtotal) AS revenue
-                FROM invoice_line_items ili
-                JOIN jobs j ON ili.linked_job_id = j.id
-                JOIN invoices inv ON ili.invoice_id = inv.id
-                WHERE j.deleted_at IS NULL AND inv.deleted_at IS NULL AND inv.issue_date IS NOT NULL
+                SELECT date_trunc('month', inv.issue_date) AS month, SUM(inv.subtotal) AS revenue
+                FROM invoices inv
+                WHERE inv.deleted_at IS NULL AND inv.issue_date IS NOT NULL
                 GROUP BY date_trunc('month', inv.issue_date)
             ) rev ON rev.month = month_series
             LEFT JOIN (
