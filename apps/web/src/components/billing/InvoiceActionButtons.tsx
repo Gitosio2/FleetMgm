@@ -1,24 +1,10 @@
-import { isAxiosError } from 'axios'
 import { Banknote, Eye, Pencil, Send } from 'lucide-react'
-import type { ApiError, Invoice } from '@fleetmgm/api'
+import type { Invoice } from '@fleetmgm/api'
 import { useIssueInvoice, usePayInvoice } from '@fleetmgm/hooks'
 import { Button } from '@/components/ui/button'
 import { PdfDownloadButton } from './PdfDownloadButton'
 import { InvoiceDeleteButton } from './InvoiceDeleteButton'
-
-const INVOICE_ERROR_MESSAGES: Record<string, string> = {
-  INVOICE_NO_LINE_ITEMS: 'No se puede emitir una factura sin líneas de factura.',
-  INVOICE_INVALID_STATE_TRANSITION: 'La factura ya no admite esta acción.',
-}
-
-const DEFAULT_INVOICE_ERROR_MESSAGE = 'No se pudo completar la acción.'
-
-function resolveInvoiceErrorMessage(error: unknown): string {
-  if (isAxiosError<ApiError>(error) && error.response?.data.code) {
-    return INVOICE_ERROR_MESSAGES[error.response.data.code] ?? DEFAULT_INVOICE_ERROR_MESSAGE
-  }
-  return DEFAULT_INVOICE_ERROR_MESSAGE
-}
+import { resolveInvoiceErrorMessage } from './invoice-shared'
 
 type InvoiceActionButtonsProps = {
   invoice: Invoice

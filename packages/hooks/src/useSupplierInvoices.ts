@@ -69,6 +69,17 @@ export function useSupplierInvoices(filters: SupplierInvoiceFilters = {}, page =
   })
 }
 
+export function useSupplierInvoice(id: string) {
+  return useQuery({
+    queryKey: [SUPPLIER_INVOICE_KEY, id],
+    queryFn: async () => {
+      const { data } = await apiClient.get<SupplierInvoice>(`/supplier-invoices/${id}`)
+      return data
+    },
+    enabled: id !== '',
+  })
+}
+
 export function useCreateSupplierInvoice() {
   const queryClient = useQueryClient()
 
@@ -117,8 +128,9 @@ export function usePaySupplierInvoice() {
       const { data } = await apiClient.patch<SupplierInvoice>(`/supplier-invoices/${id}/pay`, { paymentDate })
       return data
     },
-    // Paying removes it from the dashboard's upcoming-payables list — invalidate
-    // FINANCIAL_SUMMARY_KEY too so the dashboard card refetches.
+    // Paying an invoice removes it from the dashboard's upcoming-payables list (it stops matching
+    // the backend's PENDING-only filter) — invalidate FINANCIAL_SUMMARY_KEY too so the dashboard
+    // card refetches, whether the mutation was triggered from the table or the card.
     onSuccess: () => invalidateQueryKeys(queryClient, [SUPPLIER_INVOICE_KEY, FINANCIAL_SUMMARY_KEY]),
   })
 }

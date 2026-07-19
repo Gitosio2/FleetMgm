@@ -139,7 +139,7 @@ export function usePayInvoice() {
     },
     // Paying an invoice removes it from the dashboard's upcoming-receivables list (it stops
     // matching the backend's ISSUED-only filter) — invalidate FINANCIAL_SUMMARY_KEY too so the
-    // dashboard card refetches.
+    // dashboard card refetches, whether the mutation was triggered from the table or the card.
     onSuccess: () => invalidateQueryKeys(queryClient, [INVOICE_KEY, FINANCIAL_SUMMARY_KEY]),
   })
 }

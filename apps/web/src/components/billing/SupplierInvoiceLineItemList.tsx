@@ -27,6 +27,7 @@ const inlineSelectClassName =
 
 type SupplierInvoiceLineItemListProps = {
   supplierInvoice: SupplierInvoice
+  readOnly?: boolean
 }
 
 type EditLineItemFormProps = {
@@ -127,7 +128,7 @@ function EditLineItemRow({ invoiceId, lineItem, vehicles, onDone }: EditLineItem
   )
 }
 
-export function SupplierInvoiceLineItemList({ supplierInvoice }: SupplierInvoiceLineItemListProps) {
+export function SupplierInvoiceLineItemList({ supplierInvoice, readOnly = false }: SupplierInvoiceLineItemListProps) {
   const addLineItem = useAddSupplierLineItem()
   const deleteLineItem = useDeleteSupplierLineItem()
   const { data: vehicles = [] } = useAllVehicles()
@@ -138,7 +139,7 @@ export function SupplierInvoiceLineItemList({ supplierInvoice }: SupplierInvoice
   const [subtotal, setSubtotal] = useState('')
   const [editingLineItemId, setEditingLineItemId] = useState<string | null>(null)
 
-  const canAddLineItem = supplierInvoice.status === 'PENDING'
+  const canAddLineItem = !readOnly && supplierInvoice.status === 'PENDING'
 
   const allocatedTotal = supplierInvoice.lineItems.reduce((sum, lineItem) => sum + lineItem.subtotal, 0)
   const remaining = supplierInvoice.subtotal - allocatedTotal

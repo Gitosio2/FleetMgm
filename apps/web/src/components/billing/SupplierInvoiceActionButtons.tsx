@@ -1,24 +1,9 @@
-import { isAxiosError } from 'axios'
 import { Banknote, Eye, Pencil } from 'lucide-react'
-import type { ApiError, SupplierInvoice } from '@fleetmgm/api'
+import type { SupplierInvoice } from '@fleetmgm/api'
 import { usePaySupplierInvoice } from '@fleetmgm/hooks'
 import { Button } from '@/components/ui/button'
 import { SupplierInvoiceDeleteButton } from './SupplierInvoiceDeleteButton'
-
-const SUPPLIER_INVOICE_ERROR_MESSAGES: Record<string, string> = {
-  SUPPLIER_INVOICE_INVALID_STATE_TRANSITION: 'Esta factura ya no admite esta acción.',
-  SUPPLIER_INVOICE_ALLOCATION_INCOMPLETE:
-    'Las líneas de esta factura no suman el subtotal — completa la asignación por vehículo antes de marcarla como pagada.',
-}
-
-const DEFAULT_SUPPLIER_INVOICE_ERROR_MESSAGE = 'No se pudo completar la acción.'
-
-function resolveSupplierInvoiceErrorMessage(error: unknown): string {
-  if (isAxiosError<ApiError>(error) && error.response?.data.code) {
-    return SUPPLIER_INVOICE_ERROR_MESSAGES[error.response.data.code] ?? DEFAULT_SUPPLIER_INVOICE_ERROR_MESSAGE
-  }
-  return DEFAULT_SUPPLIER_INVOICE_ERROR_MESSAGE
-}
+import { resolveSupplierInvoiceErrorMessage } from './supplier-invoice-shared'
 
 type SupplierInvoiceActionButtonsProps = {
   invoice: SupplierInvoice

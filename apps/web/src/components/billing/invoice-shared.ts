@@ -1,4 +1,5 @@
-import type { Invoice, InvoiceStatus, LineItemResponse } from '@fleetmgm/api'
+import { isAxiosError } from 'axios'
+import type { ApiError, Invoice, InvoiceStatus, LineItemResponse } from '@fleetmgm/api'
 
 // Moved here from InvoiceStatusBadge for the same reason as the supplier-invoice equivalent
 // (see supplier-invoice-shared.ts) — now also consumed by the status filter dropdown
@@ -43,4 +44,20 @@ export function displayInvoiceTotal(invoice: Invoice): number {
   }
   const subtotal = sumLineItemSubtotals(invoice.lineItems)
   return computeTaxAndTotal(subtotal, invoice.taxRate).total
+}
+
+// Moved here from InvoiceActionButtons so PayInvoiceButton (dashboard card) can reuse the same
+// pay-error copy instead of duplicating the map.
+const INVOICE_ERROR_MESSAGES: Record<string, string> = {
+  INVOICE_NO_LINE_ITEMS: 'No se puede emitir una factura sin líneas de factura.',
+  INVOICE_INVALID_STATE_TRANSITION: 'La factura ya no admite esta acción.',
+}
+
+const DEFAULT_INVOICE_ERROR_MESSAGE = 'No se pudo completar la acción.'
+
+export function resolveInvoiceErrorMessage(error: unknown): string {
+  if (isAxiosError<ApiError>(error) && error.response?.data.code) {
+    return INVOICE_ERROR_MESSAGES[error.response.data.code] ?? DEFAULT_INVOICE_ERROR_MESSAGE
+  }
+  return DEFAULT_INVOICE_ERROR_MESSAGE
 }

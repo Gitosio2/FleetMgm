@@ -37,10 +37,17 @@ type InvoiceFormModalProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   invoice?: Invoice
-  onCreated: (invoice: Invoice) => void
+  onCreated?: (invoice: Invoice) => void
+  readOnly?: boolean
 }
 
-export function InvoiceFormModal({ open, onOpenChange, invoice, onCreated }: InvoiceFormModalProps) {
+export function InvoiceFormModal({
+  open,
+  onOpenChange,
+  invoice,
+  onCreated,
+  readOnly = false,
+}: InvoiceFormModalProps) {
   const isEditing = invoice != null
   const createInvoice = useCreateInvoice()
   const updateInvoice = useUpdateInvoice()
@@ -78,7 +85,10 @@ export function InvoiceFormModal({ open, onOpenChange, invoice, onCreated }: Inv
   // invoice is still DRAFT — this surfaces that constraint as a read-only view instead of letting
   // the user fill out the form only to have the save fail (mirrors SupplierInvoiceFormModal's
   // isReadOnly, whose equivalent condition is status === 'PAID' since that domain has no ISSUED).
-  const isReadOnly = isEditing && !isDraft
+  // The explicit `readOnly` prop (mirrors ClientFormModal/SupplierFormModal's own readOnly) forces
+  // the same locked-down view regardless of status — used by InvoiceInfoLink to open a DRAFT
+  // invoice from the dashboard's "Facturas por cobrar" card in consult-only mode.
+  const isReadOnly = readOnly || (isEditing && !isDraft)
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -101,7 +111,7 @@ export function InvoiceFormModal({ open, onOpenChange, invoice, onCreated }: Inv
       // a client invoice can't be created with an amount in one step (CreateInvoiceRequest has no
       // line items), so this lets the user add line items immediately instead of having to close
       // the modal, find the invoice in the list, and reopen it via "Editar".
-      createInvoice.mutate(request, { onSuccess: (createdInvoice) => onCreated(createdInvoice) })
+      createInvoice.mutate(request, { onSuccess: (createdInvoice) => onCreated?.(createdInvoice) })
     }
   }
 
@@ -194,10 +204,11 @@ export function InvoiceFormModal({ open, onOpenChange, invoice, onCreated }: Inv
         {isEditing && (
           <div className="mt-6 flex flex-col gap-2 border-t border-outline-variant/40 pt-4">
             <h3 className="font-display text-sm font-semibold">Líneas de factura</h3>
-            {/* LineItemList itself only shows the "add line" form when status === 'DRAFT' — the
-                table of existing lines is always rendered, so ISSUED/PAID invoices show them
-                read-only here instead of not being shown at all. */}
-            <LineItemList invoice={invoice} />
+            {/* LineItemList itself only shows the "add line" form when status === 'DRAFT' and
+                !readOnly — the table of existing lines is always rendered, so ISSUED/PAID
+                invoices (or a forced-readOnly DRAFT one) show them read-only instead of not
+                being shown at all. */}
+            <LineItemList invoice={invoice} readOnly={isReadOnly} />
           </div>
         )}
 

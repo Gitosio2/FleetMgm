@@ -13,6 +13,7 @@ import {
   SEED_FINANCIAL_TREND,
   SEED_FLEET_SUMMARY,
   SEED_INVOICES,
+  SEED_SUPPLIER_INVOICES,
 } from '@/mocks/handlers'
 import { formatCurrency } from '@/lib/currency'
 import { Dashboard } from './Dashboard'
@@ -251,6 +252,145 @@ describe('Dashboard', () => {
     const dialog = await screen.findByRole('dialog')
     expect(within(dialog).getByRole('heading', { name: 'Datos del cliente' })).toBeInTheDocument()
     expect(within(dialog).getByLabelText(/teléfono/i)).toHaveValue(client.phone)
+  })
+
+  it('opens the invoice modal in read-only mode from the invoice code in "Facturas por cobrar"', async () => {
+    const user = userEvent.setup()
+    loginAs('ADMIN')
+    renderDashboard()
+
+    const receivable = SEED_FINANCIAL_SUMMARY.upcomingReceivables[0]!
+
+    await user.click(await screen.findByRole('button', { name: receivable.number }))
+
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByRole('heading', { name: 'Factura' })).toBeInTheDocument()
+    expect(within(dialog).queryByRole('button', { name: /guardar cambios/i })).not.toBeInTheDocument()
+    expect(within(dialog).queryByRole('button', { name: /crear factura/i })).not.toBeInTheDocument()
+  })
+
+  it('opens the supplier invoice modal in read-only mode from the invoice code in "Facturas por pagar", even though it is still PENDING (normally editable)', async () => {
+    const user = userEvent.setup()
+    loginAs('ADMIN')
+    renderDashboard()
+
+    const payable = SEED_FINANCIAL_SUMMARY.upcomingPayables[0]!
+    const supplierInvoice = SEED_SUPPLIER_INVOICES.find((si) => si.id === payable.id)!
+    expect(supplierInvoice.status).toBe('PENDING')
+
+    await user.click(await screen.findByRole('button', { name: payable.number }))
+
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByRole('heading', { name: 'Factura de proveedor' })).toBeInTheDocument()
+    expect(within(dialog).getByLabelText(/nº factura proveedor/i)).toBeDisabled()
+    expect(within(dialog).queryByRole('button', { name: /guardar cambios/i })).not.toBeInTheDocument()
+  })
+
+  it('does not fetch clients/suppliers/vehicles until an invoice link is opened', async () => {
+    const user = userEvent.setup()
+    loginAs('ADMIN')
+
+    const requestedPaths = new Set<string>()
+    server.events.on('request:start', ({ request }) => {
+      requestedPaths.add(new URL(request.url).pathname)
+    })
+
+    renderDashboard()
+
+    // InvoiceInfoLink/SupplierInvoiceInfoLink are mounted for every upcoming invoice as soon as
+    // this section renders — if InvoiceFormModal/SupplierInvoiceFormModal were unconditionally
+    // mounted alongside them (instead of gated on `open`), their useAllClients()/useAllSuppliers()/
+    // useAllVehicles() calls would already have fired by now.
+    await screen.findByText('Facturas por cobrar')
+    await screen.findByText('Facturas por pagar')
+
+    expect(requestedPaths.has('/api/v1/clients')).toBe(false)
+    expect(requestedPaths.has('/api/v1/suppliers')).toBe(false)
+    expect(requestedPaths.has('/api/v1/vehicles')).toBe(false)
+
+    const receivable = SEED_FINANCIAL_SUMMARY.upcomingReceivables[0]!
+    await user.click(await screen.findByRole('button', { name: receivable.number }))
+
+    await waitFor(() => expect(requestedPaths.has('/api/v1/clients')).toBe(true))
+  })
+
+  it('shows a "Marcar factura como pagada" button for each row in the upcoming invoice lists', async () => {
+    loginAs('ADMIN')
+    renderDashboard()
+
+    const receivable = SEED_FINANCIAL_SUMMARY.upcomingReceivables[0]!
+    const payable = SEED_FINANCIAL_SUMMARY.upcomingPayables[0]!
+
+    const receivableRow = (await screen.findByText(receivable.number)).closest('li') as HTMLElement
+    expect(within(receivableRow).getByRole('button', { name: /marcar factura como pagada/i })).toBeInTheDocument()
+
+    const payableRow = screen.getByText(payable.number).closest('li') as HTMLElement
+    expect(within(payableRow).getByRole('button', { name: /marcar factura como pagada/i })).toBeInTheDocument()
+  })
+
+  it('pays a receivable from "Facturas por cobrar" and the row disappears once the dashboard refetches', async () => {
+    const user = userEvent.setup()
+    loginAs('ADMIN')
+
+    // invoice-2 is a real, ISSUED invoice in SEED_INVOICES, so the real PATCH /invoices/:id/pay
+    // handler succeeds unmodified — only the summary endpoint is overridden here, call-count
+    // branched, to prove the post-pay refetch actually happens (without the FINANCIAL_SUMMARY_KEY
+    // invalidation fix, the count would stay at 1 and this row would never disappear).
+    let financialSummaryCallCount = 0
+    server.use(
+      http.get('/api/v1/reports/financial-summary', () => {
+        financialSummaryCallCount++
+        if (financialSummaryCallCount === 1) {
+          return HttpResponse.json(SEED_FINANCIAL_SUMMARY)
+        }
+        return HttpResponse.json({
+          ...SEED_FINANCIAL_SUMMARY,
+          upcomingReceivables: SEED_FINANCIAL_SUMMARY.upcomingReceivables.filter(
+            (invoice) => invoice.id !== 'invoice-2',
+          ),
+        })
+      }),
+    )
+
+    renderDashboard()
+
+    const row = (await screen.findByText('INV-2026-00002')).closest('li') as HTMLElement
+    await user.click(within(row).getByRole('button', { name: /marcar factura como pagada/i }))
+
+    await waitFor(() => expect(screen.queryByText('INV-2026-00002')).not.toBeInTheDocument())
+    expect(financialSummaryCallCount).toBeGreaterThanOrEqual(2)
+  })
+
+  it('pays a payable from "Facturas por pagar" and the row disappears once the dashboard refetches', async () => {
+    const user = userEvent.setup()
+    loginAs('ADMIN')
+
+    // supplier-invoice-1 is a real, PENDING supplier invoice in SEED_SUPPLIER_INVOICES with a
+    // header vehicleId (so it never hits the per-line-item allocation guard) — same rationale as
+    // the receivable test above, mirrored for the payables card/hook.
+    let financialSummaryCallCount = 0
+    server.use(
+      http.get('/api/v1/reports/financial-summary', () => {
+        financialSummaryCallCount++
+        if (financialSummaryCallCount === 1) {
+          return HttpResponse.json(SEED_FINANCIAL_SUMMARY)
+        }
+        return HttpResponse.json({
+          ...SEED_FINANCIAL_SUMMARY,
+          upcomingPayables: SEED_FINANCIAL_SUMMARY.upcomingPayables.filter(
+            (invoice) => invoice.id !== 'supplier-invoice-1',
+          ),
+        })
+      }),
+    )
+
+    renderDashboard()
+
+    const row = (await screen.findByText('F-2026-0456')).closest('li') as HTMLElement
+    await user.click(within(row).getByRole('button', { name: /marcar factura como pagada/i }))
+
+    await waitFor(() => expect(screen.queryByText('F-2026-0456')).not.toBeInTheDocument())
+    expect(financialSummaryCallCount).toBeGreaterThanOrEqual(2)
   })
 
   it('renders the fleet-wide monthly Ingresos/Gastos trend, defaulting to the last 6 months', async () => {
