@@ -117,6 +117,10 @@ export function FinancialSummary({ summary }: FinancialSummaryProps) {
               <span className="text-on-surface-variant">Gastos</span>
               <span className="font-medium">{formatCurrency(summary.monthlyCosts)}</span>
             </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-on-surface-variant">Cobros</span>
+              <span className="font-medium">{formatCurrency(summary.monthlyCollections)}</span>
+            </div>
             <div className="flex items-center justify-between border-t border-outline-variant pt-2 text-sm">
               <span className="text-on-surface-variant">Beneficio vs. mes anterior</span>
               <span
@@ -139,15 +143,6 @@ export function FinancialSummary({ summary }: FinancialSummaryProps) {
         invoices={summary.upcomingPayables}
         counterpartyType="SUPPLIER"
       />
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm font-medium text-on-surface-variant">Cobros del mes</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-3xl font-semibold">{formatCurrency(summary.monthlyCollections)}</p>
-        </CardContent>
-      </Card>
     </div>
   )
 }

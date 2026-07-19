@@ -108,6 +108,8 @@ describe('Dashboard', () => {
     expect(summaryCard.textContent).toContain(formatCurrency(SEED_FINANCIAL_SUMMARY.monthlyRevenue))
     expect(summaryCard.textContent).toContain('Gastos')
     expect(summaryCard.textContent).toContain(formatCurrency(SEED_FINANCIAL_SUMMARY.monthlyCosts))
+    expect(summaryCard.textContent).toContain('Cobros')
+    expect(summaryCard.textContent).toContain(formatCurrency(SEED_FINANCIAL_SUMMARY.monthlyCollections))
 
     expect(screen.getByText('Facturas por cobrar')).toBeInTheDocument()
     expect(screen.getByText('Facturas por pagar')).toBeInTheDocument()
@@ -120,16 +122,6 @@ describe('Dashboard', () => {
 
     const notOverdueRow = screen.getByText(notOverdueReceivable.number).closest('li') as HTMLElement
     expect(notOverdueRow.textContent).not.toContain('Vencida')
-  })
-
-  it('shows the monthly cash collections in a dedicated "Cobros del mes" card', async () => {
-    loginAs('ADMIN')
-    renderDashboard()
-
-    await screen.findByText('Cobros del mes')
-
-    const collectionsCard = cardByTitle('Cobros del mes')
-    expect(collectionsCard.textContent).toContain(formatCurrency(SEED_FINANCIAL_SUMMARY.monthlyCollections))
   })
 
   it('refetches the financial summary after an invoice is issued elsewhere in the app', async () => {
