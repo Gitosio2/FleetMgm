@@ -47,11 +47,13 @@ public class InvoiceController {
             @RequestParam(required = false) LocalDate issueDateTo,
             @RequestParam(required = false) LocalDate dueDateFrom,
             @RequestParam(required = false) LocalDate dueDateTo,
+            @RequestParam(required = false) LocalDate paymentDateFrom,
+            @RequestParam(required = false) LocalDate paymentDateTo,
             @RequestParam(required = false) BigDecimal totalMin,
             @RequestParam(required = false) BigDecimal totalMax,
             @PageableDefault(size = 20) Pageable pageable) {
         return ResponseEntity.ok(invoiceService.list(clientId, invoiceNumber, status, issueDateFrom, issueDateTo,
-                dueDateFrom, dueDateTo, totalMin, totalMax, pageable));
+                dueDateFrom, dueDateTo, paymentDateFrom, paymentDateTo, totalMin, totalMax, pageable));
     }
 
     @PostMapping

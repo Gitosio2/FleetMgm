@@ -22,6 +22,7 @@ export function InvoiceTable({ invoices, onEdit }: InvoiceTableProps) {
           <TableHead>Total</TableHead>
           <TableHead>Emisión</TableHead>
           <TableHead>Vencimiento</TableHead>
+          <TableHead>Fecha de pago</TableHead>
           <TableHead>Acciones</TableHead>
         </TableRow>
       </TableHeader>
@@ -38,6 +39,7 @@ export function InvoiceTable({ invoices, onEdit }: InvoiceTableProps) {
             <TableCell>{formatCurrency(displayInvoiceTotal(invoice))}</TableCell>
             <TableCell>{invoice.issueDate ?? '—'}</TableCell>
             <TableCell>{invoice.dueDate ?? '—'}</TableCell>
+            <TableCell>{invoice.paymentDate ?? '—'}</TableCell>
             <TableCell>
               <InvoiceActionButtons invoice={invoice} onEdit={onEdit} />
             </TableCell>

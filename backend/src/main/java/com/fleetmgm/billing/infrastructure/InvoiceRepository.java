@@ -25,7 +25,7 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
     // whole point of the query.
     // Filters mirror SupplierInvoiceRepository.findAllJoinFetch(): clientId follows the bare
     // ":param IS NULL" idiom (precedent: that method's vehicleId, also a UUID, uses the same bare
-    // form and works). status/the four date bounds/the two total bounds use
+    // form and works). status/the six date bounds/the two total bounds use
     // "CAST(:param AS string) IS NULL" instead — see AuditLogRepository's comment on that idiom:
     // a parameter that appears ONLY in a bare IS NULL check gives Postgres no type context to
     // infer from, even for enums, and fails 500 on every request that leaves it null. invoiceNumber
@@ -54,6 +54,8 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
             + "AND (CAST(:issueDateTo AS string) IS NULL OR i.issueDate <= :issueDateTo) "
             + "AND (CAST(:dueDateFrom AS string) IS NULL OR i.dueDate >= :dueDateFrom) "
             + "AND (CAST(:dueDateTo AS string) IS NULL OR i.dueDate <= :dueDateTo) "
+            + "AND (CAST(:paymentDateFrom AS string) IS NULL OR i.paymentDate >= :paymentDateFrom) "
+            + "AND (CAST(:paymentDateTo AS string) IS NULL OR i.paymentDate <= :paymentDateTo) "
             + "AND (CAST(:totalMin AS string) IS NULL OR "
             + "     (CASE WHEN i.status = com.fleetmgm.billing.domain.InvoiceStatus.DRAFT "
             + "       THEN (SELECT COALESCE(SUM(li.subtotal), 0) FROM InvoiceLineItem li WHERE li.invoice = i) "
@@ -73,6 +75,8 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
             @Param("issueDateTo") LocalDate issueDateTo,
             @Param("dueDateFrom") LocalDate dueDateFrom,
             @Param("dueDateTo") LocalDate dueDateTo,
+            @Param("paymentDateFrom") LocalDate paymentDateFrom,
+            @Param("paymentDateTo") LocalDate paymentDateTo,
             @Param("totalMin") BigDecimal totalMin,
             @Param("totalMax") BigDecimal totalMax,
             Pageable pageable);
@@ -91,6 +95,14 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
     // append a line item to, instead of creating a new invoice per completed job. Oldest-first
     // (createdAt ASC) is an arbitrary but deterministic tie-break when more than one exists.
     Optional<Invoice> findFirstByClientIdAndStatusOrderByCreatedAtAsc(UUID clientId, InvoiceStatus status);
+
+    // Dashboard "Cobros del mes" card — cash actually collected this month, as opposed to
+    // monthlyRevenue (accrued by issueDate, any status). Deliberately subtotal (not total, which
+    // includes IVA) so it's directly comparable to monthlyRevenue on the same tax-exclusive basis.
+    @Query("SELECT COALESCE(SUM(i.subtotal), 0) FROM Invoice i "
+            + "WHERE i.status = com.fleetmgm.billing.domain.InvoiceStatus.PAID "
+            + "AND i.paymentDate BETWEEN :from AND :to")
+    BigDecimal sumSubtotalByPaymentDateBetween(@Param("from") LocalDate from, @Param("to") LocalDate to);
 
     // Backs InvoiceNumberGenerator's INV-<year>-<00001> numbering scheme. A native scalar query
     // is the simplest correct option here — no EntityManager/JdbcTemplate precedent exists

@@ -17,6 +17,8 @@ export function Billing() {
   const [issueDateTo, setIssueDateTo] = useState('')
   const [dueDateFrom, setDueDateFrom] = useState('')
   const [dueDateTo, setDueDateTo] = useState('')
+  const [paymentDateFrom, setPaymentDateFrom] = useState('')
+  const [paymentDateTo, setPaymentDateTo] = useState('')
   const [totalMin, setTotalMin] = useState('')
   const [totalMax, setTotalMax] = useState('')
   const [formOpen, setFormOpen] = useState(false)
@@ -33,6 +35,8 @@ export function Billing() {
       issueDateTo: issueDateTo === '' ? undefined : issueDateTo,
       dueDateFrom: dueDateFrom === '' ? undefined : dueDateFrom,
       dueDateTo: dueDateTo === '' ? undefined : dueDateTo,
+      paymentDateFrom: paymentDateFrom === '' ? undefined : paymentDateFrom,
+      paymentDateTo: paymentDateTo === '' ? undefined : paymentDateTo,
       totalMin: totalMin === '' ? undefined : Number(totalMin),
       totalMax: totalMax === '' ? undefined : Number(totalMax),
     },
@@ -84,6 +88,10 @@ export function Billing() {
         onDueDateFromChange={resetPageAnd(setDueDateFrom)}
         dueDateTo={dueDateTo}
         onDueDateToChange={resetPageAnd(setDueDateTo)}
+        paymentDateFrom={paymentDateFrom}
+        onPaymentDateFromChange={resetPageAnd(setPaymentDateFrom)}
+        paymentDateTo={paymentDateTo}
+        onPaymentDateToChange={resetPageAnd(setPaymentDateTo)}
         totalMin={totalMin}
         onTotalMinChange={resetPageAnd(setTotalMin)}
         totalMax={totalMax}

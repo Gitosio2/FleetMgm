@@ -22,13 +22,26 @@ export type InvoiceFilters = {
   issueDateTo?: string
   dueDateFrom?: string
   dueDateTo?: string
+  paymentDateFrom?: string
+  paymentDateTo?: string
   totalMin?: number
   totalMax?: number
 }
 
 export function useInvoices(filters: InvoiceFilters = {}, page = 0, size = 20) {
-  const { invoiceNumber, clientId, status, issueDateFrom, issueDateTo, dueDateFrom, dueDateTo, totalMin, totalMax } =
-    filters
+  const {
+    invoiceNumber,
+    clientId,
+    status,
+    issueDateFrom,
+    issueDateTo,
+    dueDateFrom,
+    dueDateTo,
+    paymentDateFrom,
+    paymentDateTo,
+    totalMin,
+    totalMax,
+  } = filters
 
   return useQuery({
     queryKey: [INVOICE_KEY, { ...filters, page, size }],
@@ -42,6 +55,8 @@ export function useInvoices(filters: InvoiceFilters = {}, page = 0, size = 20) {
           issueDateTo,
           dueDateFrom,
           dueDateTo,
+          paymentDateFrom,
+          paymentDateTo,
           totalMin,
           totalMax,
           page,
@@ -107,7 +122,10 @@ export function useIssueInvoice() {
       const { data } = await apiClient.patch<Invoice>(`/invoices/${id}/issue`)
       return data
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [INVOICE_KEY] }),
+    // Issuing is the moment an invoice starts counting toward monthly revenue (issueDate is set
+    // here, and the dashboard's revenue query groups by issueDate) — without invalidating
+    // FINANCIAL_SUMMARY_KEY the "Resumen del mes" card keeps showing its pre-issuance cache.
+    onSuccess: () => invalidateQueryKeys(queryClient, [INVOICE_KEY, FINANCIAL_SUMMARY_KEY]),
   })
 }
 

@@ -5,5 +5,6 @@ const currencyFormatter = new Intl.NumberFormat('es-ES', {
 })
 
 export function formatCurrency(value: number): string {
-  return `${currencyFormatter.format(value)}€`
+  const safeValue = Number.isFinite(value) ? value : 0
+  return `${currencyFormatter.format(safeValue)}€`
 }
