@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatVehicleLabel } from './vehicle-label'
+import { formatVehicleLabel, formatVehicleSelectLabel } from './vehicle-label'
 
 describe('formatVehicleLabel', () => {
   it('returns the license plate when present', () => {
@@ -30,5 +30,27 @@ describe('formatVehicleLabel', () => {
         vehicleModel: null,
       }),
     ).toBe('—')
+  })
+})
+
+describe('formatVehicleSelectLabel', () => {
+  it('puts the license plate first, followed by make and model', () => {
+    expect(
+      formatVehicleSelectLabel({
+        make: 'Toyota',
+        model: 'Hilux',
+        licensePlate: '1234ABC',
+      }),
+    ).toBe('1234ABC - Toyota Hilux')
+  })
+
+  it('falls back to "<make> <model>" when there is no license plate', () => {
+    expect(
+      formatVehicleSelectLabel({
+        make: 'Caterpillar',
+        model: '320 Excavator',
+        licensePlate: null,
+      }),
+    ).toBe('Caterpillar 320 Excavator')
   })
 })

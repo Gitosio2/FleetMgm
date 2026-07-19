@@ -21,9 +21,10 @@ type VehicleSelectSource = {
   licensePlate: string | null
 }
 
-// "<make> <model> - <plate>", or just "<make> <model>" for vehicles without a plate (heavy
-// machinery) — the label JobFormModal's own vehicle <select> already used, centralized here
-// (same rationale as WORKER_ROLE_LABEL in worker-shared.ts) so JobFilters' select matches it.
+// "<plate> - <make> <model>", or just "<make> <model>" for vehicles without a plate (heavy
+// machinery) — shared by JobFormModal's and JobFilters' vehicle <select>s (same rationale as
+// WORKER_ROLE_LABEL in worker-shared.ts) so both stay in sync from one place.
 export function formatVehicleSelectLabel(vehicle: VehicleSelectSource): string {
-  return `${vehicle.make} ${vehicle.model}${vehicle.licensePlate ? ` - ${vehicle.licensePlate}` : ''}`
+  const makeModel = `${vehicle.make} ${vehicle.model}`
+  return vehicle.licensePlate ? `${vehicle.licensePlate} - ${makeModel}` : makeModel
 }
