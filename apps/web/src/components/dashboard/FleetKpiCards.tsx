@@ -54,7 +54,9 @@ export function FleetKpiCards({ summary }: FleetKpiCardsProps) {
         <CardContent>
           <p className="text-3xl font-semibold">{summary.pendingMaintenance}</p>
           {summary.pendingMaintenanceDueSoon > 0 && (
-            <p className="mt-1 text-sm text-tertiary">{summary.pendingMaintenanceDueSoon} vencen en 48 horas</p>
+            <p className="mt-1 text-sm text-on-tertiary-container">
+              {summary.pendingMaintenanceDueSoon} vencen en 48 horas
+            </p>
           )}
         </CardContent>
       </Card>

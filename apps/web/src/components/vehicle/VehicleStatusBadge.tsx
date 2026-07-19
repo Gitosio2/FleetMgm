@@ -4,7 +4,7 @@ import { VEHICLE_STATUS_LABEL } from '@/lib/vehicle-status-label'
 
 const STATUS_CLASSNAME: Record<VehicleStatus, string> = {
   ACTIVE: 'bg-secondary-container/20 text-secondary',
-  MAINTENANCE: 'bg-tertiary-container/40 text-tertiary',
+  MAINTENANCE: 'bg-tertiary-container/40 text-on-tertiary-container',
   INACTIVE: 'bg-surface-container-high text-on-surface-variant',
   DECOMMISSIONED: 'bg-error-container/40 text-error',
 }

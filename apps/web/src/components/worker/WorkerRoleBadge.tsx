@@ -9,7 +9,7 @@ const ROLE_LABEL: Record<WorkerRole, string> = {
 
 const ROLE_CLASSNAME: Record<WorkerRole, string> = {
   DRIVER: 'bg-secondary-container/20 text-secondary',
-  TECHNICIAN: 'bg-tertiary-container/40 text-tertiary',
+  TECHNICIAN: 'bg-tertiary-container/40 text-on-tertiary-container',
   BOTH: 'bg-primary-container/40 text-primary',
 }
 

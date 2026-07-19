@@ -4,7 +4,7 @@ import { STATUS_LABEL } from './form-shared'
 
 const STATUS_CLASSNAME: Record<MaintenanceStatus, string> = {
   SCHEDULED: 'bg-surface-container-high text-on-surface-variant',
-  IN_PROGRESS: 'bg-tertiary-container/40 text-tertiary',
+  IN_PROGRESS: 'bg-tertiary-container/40 text-on-tertiary-container',
   COMPLETED: 'bg-secondary-container/20 text-secondary',
   CANCELLED: 'bg-error-container/40 text-error',
 }
