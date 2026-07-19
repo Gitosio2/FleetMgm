@@ -124,6 +124,21 @@ describe('Dashboard', () => {
     expect(notOverdueRow.textContent).not.toContain('Vencida')
   })
 
+  it('explains what each figure counts when the "Resumen del mes" info icon is focused', async () => {
+    loginAs('ADMIN')
+    renderDashboard()
+
+    await screen.findByText('Resumen del mes')
+    const infoTrigger = screen.getByRole('button', { name: /qué se cuenta en este resumen/i })
+    // Focus (not hover) opens the tooltip immediately in Radix — no artificial delay to wait out.
+    infoTrigger.focus()
+
+    // Radix renders the tooltip content twice (a positioned copy plus a visually-hidden
+    // accessibility copy) — at least one match confirms the explanation is shown.
+    const matches = await screen.findAllByText(/facturas a clientes emitidas este mes/i)
+    expect(matches.length).toBeGreaterThan(0)
+  })
+
   it('refetches the financial summary after an invoice is issued elsewhere in the app', async () => {
     loginAs('ADMIN')
     let requestCount = 0
