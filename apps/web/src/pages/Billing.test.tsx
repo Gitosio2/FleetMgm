@@ -73,14 +73,27 @@ describe('Billing', () => {
 
     const [draft, issued, paid] = SEED_INVOICES
 
+    // DRAFT has neither issueDate nor paymentDate — both cells fall back to the placeholder.
     const draftRow = (await screen.findByText(draft!.invoiceNumber)).closest('tr')!
-    expect(within(draftRow).getByText('—')).toBeInTheDocument()
+    expect(within(draftRow).getAllByText('—')).toHaveLength(2)
 
     const issuedRow = screen.getByText(issued!.invoiceNumber).closest('tr')!
     expect(within(issuedRow).getByText(issued!.issueDate!)).toBeInTheDocument()
 
     const paidRow = screen.getByText(paid!.invoiceNumber).closest('tr')!
     expect(within(paidRow).getByText(paid!.issueDate!)).toBeInTheDocument()
+  })
+
+  it('shows the payment date column in the invoice table, with a placeholder for unpaid invoices', async () => {
+    renderBilling()
+
+    const [, issued, paid] = SEED_INVOICES
+
+    const issuedRow = (await screen.findByText(issued!.invoiceNumber)).closest('tr')!
+    expect(within(issuedRow).getByText('—')).toBeInTheDocument()
+
+    const paidRow = screen.getByText(paid!.invoiceNumber).closest('tr')!
+    expect(within(paidRow).getByText(paid!.paymentDate!)).toBeInTheDocument()
   })
 
   it('opens a read-only client modal from the invoice table, with no save button', async () => {
@@ -446,6 +459,23 @@ describe('Billing', () => {
     })
     expect(screen.queryByText(issued!.invoiceNumber)).not.toBeInTheDocument()
     expect(screen.queryByText(paid!.invoiceNumber)).not.toBeInTheDocument()
+  })
+
+  it('narrows the invoice list with the payment date range filter', async () => {
+    const user = userEvent.setup()
+    renderBilling()
+
+    const [draft, issued, paid] = SEED_INVOICES
+    await screen.findByText(draft!.invoiceNumber)
+
+    await user.type(screen.getByLabelText(/^pago desde$/i), '2026-06-25')
+    await user.type(screen.getByLabelText(/^pago hasta$/i), '2026-06-30')
+
+    await waitFor(() => {
+      expect(screen.getByText(paid!.invoiceNumber)).toBeInTheDocument()
+    })
+    expect(screen.queryByText(issued!.invoiceNumber)).not.toBeInTheDocument()
+    expect(screen.queryByText(draft!.invoiceNumber)).not.toBeInTheDocument()
   })
 
   it('narrows the invoice list with the total amount range filter', async () => {

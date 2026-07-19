@@ -56,7 +56,8 @@ class InvoiceControllerTest {
     @Test
     void list_returns200_withPage() throws Exception {
         PageResponse<InvoiceResponse> page = new PageResponse<>(List.of(sampleResponse()), 0, 20, 1, 1);
-        when(invoiceService.list(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(Pageable.class)))
+        when(invoiceService.list(
+                any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(Pageable.class)))
                 .thenReturn(page);
 
         mockMvc.perform(get("/api/v1/invoices"))
@@ -73,6 +74,7 @@ class InvoiceControllerTest {
                 eq(CLIENT_ID), eq("INV-2026-00"), eq(InvoiceStatus.ISSUED),
                 eq(LocalDate.parse("2026-01-01")), eq(LocalDate.parse("2026-12-31")),
                 eq(LocalDate.parse("2026-02-01")), eq(LocalDate.parse("2026-11-30")),
+                eq(LocalDate.parse("2026-03-01")), eq(LocalDate.parse("2026-03-31")),
                 eq(new BigDecimal("50")), eq(new BigDecimal("200")), any(Pageable.class)))
                 .thenReturn(page);
 
@@ -84,6 +86,8 @@ class InvoiceControllerTest {
                         .param("issueDateTo", "2026-12-31")
                         .param("dueDateFrom", "2026-02-01")
                         .param("dueDateTo", "2026-11-30")
+                        .param("paymentDateFrom", "2026-03-01")
+                        .param("paymentDateTo", "2026-03-31")
                         .param("totalMin", "50")
                         .param("totalMax", "200"))
                 .andExpect(status().isOk())

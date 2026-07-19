@@ -17,6 +17,10 @@ type InvoiceFiltersProps = {
   onDueDateFromChange: (value: string) => void
   dueDateTo: string
   onDueDateToChange: (value: string) => void
+  paymentDateFrom: string
+  onPaymentDateFromChange: (value: string) => void
+  paymentDateTo: string
+  onPaymentDateToChange: (value: string) => void
   totalMin: string
   onTotalMinChange: (value: string) => void
   totalMax: string
@@ -40,6 +44,10 @@ export function InvoiceFilters({
   onDueDateFromChange,
   dueDateTo,
   onDueDateToChange,
+  paymentDateFrom,
+  onPaymentDateFromChange,
+  paymentDateTo,
+  onPaymentDateToChange,
   totalMin,
   onTotalMinChange,
   totalMax,
@@ -115,6 +123,22 @@ export function InvoiceFilters({
       ariaLabel: 'Vencimiento hasta',
       value: dueDateTo,
       onChange: onDueDateToChange,
+    },
+    {
+      type: 'date',
+      key: 'paymentDateFrom',
+      label: 'Pago desde',
+      ariaLabel: 'Pago desde',
+      value: paymentDateFrom,
+      onChange: onPaymentDateFromChange,
+    },
+    {
+      type: 'date',
+      key: 'paymentDateTo',
+      label: 'Pago hasta',
+      ariaLabel: 'Pago hasta',
+      value: paymentDateTo,
+      onChange: onPaymentDateToChange,
     },
     {
       type: 'number',
