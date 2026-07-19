@@ -34,6 +34,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -71,8 +72,11 @@ public class MaintenanceService {
 
     @Transactional(readOnly = true)
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ADMINISTRATIVE', 'WORKSHOP_STAFF')")
-    public PageResponse<MaintenanceResponse> list(UUID vehicleId, Integer year, Integer month, Pageable pageable) {
-        return PageResponse.from(maintenanceRepository.findAllJoinFetch(vehicleId, year, month, pageable)
+    public PageResponse<MaintenanceResponse> list(UUID vehicleId, Integer year, Integer month, String type,
+            MaintenanceCategory category, MaintenanceStatus status, UUID technicianId,
+            BigDecimal costFrom, BigDecimal costTo, Pageable pageable) {
+        return PageResponse.from(maintenanceRepository.findAllJoinFetch(vehicleId, year, month, type, category,
+                status, technicianId, costFrom, costTo, pageable)
                 .map(maintenanceMapper::toResponse));
     }
 

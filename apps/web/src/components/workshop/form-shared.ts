@@ -1,4 +1,4 @@
-import type { MaintenanceCategory, SchedulePriority } from '@fleetmgm/api'
+import type { MaintenanceCategory, MaintenanceStatus, SchedulePriority } from '@fleetmgm/api'
 
 export const selectClassName =
   'flex h-11 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary-container disabled:cursor-not-allowed disabled:opacity-50'
@@ -36,4 +36,16 @@ export const PRIORITY_LABEL: Record<SchedulePriority, string> = {
 export const CATEGORY_LABEL: Record<MaintenanceCategory, string> = {
   PREVENTIVE: 'Preventivo',
   CORRECTIVE: 'Correctivo',
+}
+
+// Centralized here (rather than duplicated) since it's now consumed in two places —
+// MaintenanceStatusBadge and the status filter dropdown (MaintenanceFilters) — same rationale as
+// JOB_STATUS_LABEL in job-shared.ts.
+export const MAINTENANCE_STATUSES: MaintenanceStatus[] = ['SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']
+
+export const STATUS_LABEL: Record<MaintenanceStatus, string> = {
+  SCHEDULED: 'Programado',
+  IN_PROGRESS: 'En curso',
+  COMPLETED: 'Completado',
+  CANCELLED: 'Cancelado',
 }

@@ -1,12 +1,6 @@
 import type { MaintenanceStatus } from '@fleetmgm/api'
 import { cn } from '@/lib/utils'
-
-const STATUS_LABEL: Record<MaintenanceStatus, string> = {
-  SCHEDULED: 'Programado',
-  IN_PROGRESS: 'En curso',
-  COMPLETED: 'Completado',
-  CANCELLED: 'Cancelado',
-}
+import { STATUS_LABEL } from './form-shared'
 
 const STATUS_CLASSNAME: Record<MaintenanceStatus, string> = {
   SCHEDULED: 'bg-surface-container-high text-on-surface-variant',

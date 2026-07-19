@@ -518,11 +518,12 @@ class MaintenanceServiceTest {
         MaintenanceRecord record = new MaintenanceRecord();
         MaintenanceResponse expected = buildResponse(UUID.randomUUID());
 
-        when(maintenanceRepository.findAllJoinFetch(null, null, null, pageable))
+        when(maintenanceRepository.findAllJoinFetch(null, null, null, null, null, null, null, null, null, pageable))
                 .thenReturn(new PageImpl<>(List.of(record), pageable, 1));
         when(maintenanceMapper.toResponse(record)).thenReturn(expected);
 
-        PageResponse<MaintenanceResponse> result = maintenanceService.list(null, null, null, pageable);
+        PageResponse<MaintenanceResponse> result = maintenanceService.list(
+                null, null, null, null, null, null, null, null, null, pageable);
 
         assertThat(result.content()).containsExactly(expected);
         assertThat(result.totalElements()).isEqualTo(1);
@@ -535,11 +536,34 @@ class MaintenanceServiceTest {
         MaintenanceRecord record = new MaintenanceRecord();
         MaintenanceResponse expected = buildResponse(UUID.randomUUID());
 
-        when(maintenanceRepository.findAllJoinFetch(vehicleId, 2026, 7, pageable))
+        when(maintenanceRepository.findAllJoinFetch(
+                vehicleId, 2026, 7, null, null, null, null, null, null, pageable))
                 .thenReturn(new PageImpl<>(List.of(record), pageable, 1));
         when(maintenanceMapper.toResponse(record)).thenReturn(expected);
 
-        PageResponse<MaintenanceResponse> result = maintenanceService.list(vehicleId, 2026, 7, pageable);
+        PageResponse<MaintenanceResponse> result = maintenanceService.list(
+                vehicleId, 2026, 7, null, null, null, null, null, null, pageable);
+
+        assertThat(result.content()).containsExactly(expected);
+    }
+
+    @Test
+    void list_forwardsTypeCategoryStatusTechnicianAndCostFilters() {
+        Pageable pageable = PageRequest.of(0, 20);
+        UUID technicianId = UUID.randomUUID();
+        BigDecimal costFrom = new BigDecimal("50.00");
+        BigDecimal costTo = new BigDecimal("150.00");
+        MaintenanceRecord record = new MaintenanceRecord();
+        MaintenanceResponse expected = buildResponse(UUID.randomUUID());
+
+        when(maintenanceRepository.findAllJoinFetch(null, null, null, "Oil change", MaintenanceCategory.CORRECTIVE,
+                MaintenanceStatus.IN_PROGRESS, technicianId, costFrom, costTo, pageable))
+                .thenReturn(new PageImpl<>(List.of(record), pageable, 1));
+        when(maintenanceMapper.toResponse(record)).thenReturn(expected);
+
+        PageResponse<MaintenanceResponse> result = maintenanceService.list(null, null, null, "Oil change",
+                MaintenanceCategory.CORRECTIVE, MaintenanceStatus.IN_PROGRESS, technicianId, costFrom, costTo,
+                pageable);
 
         assertThat(result.content()).containsExactly(expected);
     }

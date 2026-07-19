@@ -2527,12 +2527,24 @@ export const handlers = [
     const vehicleId = url.searchParams.get('vehicleId')
     const year = url.searchParams.get('year')
     const month = url.searchParams.get('month')
+    const type = url.searchParams.get('type')
+    const category = url.searchParams.get('category')
+    const status = url.searchParams.get('status')
+    const technicianId = url.searchParams.get('technicianId')
+    const costFrom = url.searchParams.get('costFrom')
+    const costTo = url.searchParams.get('costTo')
 
     const filtered = maintenanceRecords.filter((record) => {
       if (vehicleId && record.vehicleId !== vehicleId) return false
       if ((year || month) && !record.workshopEntryDate) return false
       if (year && record.workshopEntryDate!.slice(0, 4) !== year) return false
       if (month && Number(record.workshopEntryDate!.slice(5, 7)) !== Number(month)) return false
+      if (type && !record.type.toLowerCase().includes(type.toLowerCase())) return false
+      if (category && record.category !== category) return false
+      if (status && record.status !== status) return false
+      if (technicianId && record.technicianId !== technicianId) return false
+      if (costFrom && (record.cost == null || record.cost < Number(costFrom))) return false
+      if (costTo && (record.cost == null || record.cost > Number(costTo))) return false
       return true
     })
     const start = page * size

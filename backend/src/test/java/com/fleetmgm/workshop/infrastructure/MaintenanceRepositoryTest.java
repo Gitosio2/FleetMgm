@@ -7,6 +7,7 @@ import com.fleetmgm.vehicle.domain.Vehicle;
 import com.fleetmgm.vehicle.domain.VehicleCategory;
 import com.fleetmgm.worker.domain.Worker;
 import com.fleetmgm.worker.domain.WorkerRole;
+import com.fleetmgm.workshop.domain.MaintenanceCategory;
 import com.fleetmgm.workshop.domain.MaintenanceRecord;
 import com.fleetmgm.workshop.domain.MaintenanceStatus;
 import org.hibernate.Hibernate;
@@ -63,7 +64,7 @@ class MaintenanceRepositoryTest {
         entityManager.getEntityManager().clear();
 
         Page<MaintenanceRecord> result = maintenanceRepository
-                .findAllJoinFetch(null, null, null, PageRequest.of(0, 20));
+                .findAllJoinFetch(null, null, null, null, null, null, null, null, null, PageRequest.of(0, 20));
 
         assertThat(result.getContent()).hasSize(1);
         MaintenanceRecord fetched = result.getContent().get(0);
@@ -81,7 +82,7 @@ class MaintenanceRepositoryTest {
         entityManager.getEntityManager().clear();
 
         Page<MaintenanceRecord> result = maintenanceRepository
-                .findAllJoinFetch(null, null, null, PageRequest.of(0, 20));
+                .findAllJoinFetch(null, null, null, null, null, null, null, null, null, PageRequest.of(0, 20));
 
         assertThat(result.getContent()).isEmpty();
     }
@@ -94,8 +95,8 @@ class MaintenanceRepositoryTest {
         persistMaintenance(vehicleB, null, MaintenanceStatus.SCHEDULED);
         entityManager.getEntityManager().clear();
 
-        Page<MaintenanceRecord> result = maintenanceRepository
-                .findAllJoinFetch(vehicleA.getId(), null, null, PageRequest.of(0, 20));
+        Page<MaintenanceRecord> result = maintenanceRepository.findAllJoinFetch(
+                vehicleA.getId(), null, null, null, null, null, null, null, null, PageRequest.of(0, 20));
 
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getContent().get(0).getId()).isEqualTo(recordA.getId());
@@ -108,8 +109,8 @@ class MaintenanceRepositoryTest {
         persistMaintenanceWithCost(vehicle, new BigDecimal("50.00"), LocalDate.now().minusYears(1));
         entityManager.getEntityManager().clear();
 
-        Page<MaintenanceRecord> result = maintenanceRepository
-                .findAllJoinFetch(null, LocalDate.now().getYear(), null, PageRequest.of(0, 20));
+        Page<MaintenanceRecord> result = maintenanceRepository.findAllJoinFetch(
+                null, LocalDate.now().getYear(), null, null, null, null, null, null, null, PageRequest.of(0, 20));
 
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getContent().get(0).getId()).isEqualTo(thisYear.getId());
@@ -122,8 +123,9 @@ class MaintenanceRepositoryTest {
         persistMaintenanceWithCost(vehicle, new BigDecimal("50.00"), LocalDate.now().minusMonths(2));
         entityManager.getEntityManager().clear();
 
-        Page<MaintenanceRecord> result = maintenanceRepository
-                .findAllJoinFetch(null, null, LocalDate.now().getMonthValue(), PageRequest.of(0, 20));
+        Page<MaintenanceRecord> result = maintenanceRepository.findAllJoinFetch(
+                null, null, LocalDate.now().getMonthValue(), null, null, null, null, null, null,
+                PageRequest.of(0, 20));
 
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getContent().get(0).getId()).isEqualTo(thisMonth.getId());
@@ -139,10 +141,84 @@ class MaintenanceRepositoryTest {
         entityManager.getEntityManager().clear();
 
         Page<MaintenanceRecord> result = maintenanceRepository.findAllJoinFetch(
-                vehicleA.getId(), LocalDate.now().getYear(), LocalDate.now().getMonthValue(), PageRequest.of(0, 20));
+                vehicleA.getId(), LocalDate.now().getYear(), LocalDate.now().getMonthValue(),
+                null, null, null, null, null, null, PageRequest.of(0, 20));
 
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getContent().get(0).getId()).isEqualTo(match.getId());
+    }
+
+    // --- new filters: type/category/status/technicianId/costFrom/costTo ---
+
+    @Test
+    void findAllJoinFetch_narrowsByType_partialMatch_caseInsensitive_whenProvided() {
+        Vehicle vehicle = persistVehicle("7333CCC");
+        MaintenanceRecord match = persistMaintenanceWithType(vehicle, "Oil change");
+        persistMaintenanceWithType(vehicle, "Brake repair");
+        entityManager.getEntityManager().clear();
+
+        Page<MaintenanceRecord> result = maintenanceRepository.findAllJoinFetch(
+                null, null, null, "oil", null, null, null, null, null, PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).extracting(MaintenanceRecord::getId).containsExactly(match.getId());
+    }
+
+    @Test
+    void findAllJoinFetch_narrowsByCategory_whenProvided() {
+        Vehicle vehicle = persistVehicle("7444DDD");
+        MaintenanceRecord match = persistMaintenanceWithCategory(vehicle, MaintenanceCategory.CORRECTIVE);
+        persistMaintenanceWithCategory(vehicle, MaintenanceCategory.PREVENTIVE);
+        entityManager.getEntityManager().clear();
+
+        Page<MaintenanceRecord> result = maintenanceRepository.findAllJoinFetch(
+                null, null, null, null, MaintenanceCategory.CORRECTIVE, null, null, null, null,
+                PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).extracting(MaintenanceRecord::getId).containsExactly(match.getId());
+    }
+
+    @Test
+    void findAllJoinFetch_narrowsByStatus_whenProvided() {
+        Vehicle vehicle = persistVehicle("7555EEE");
+        MaintenanceRecord match = persistMaintenance(vehicle, null, MaintenanceStatus.IN_PROGRESS);
+        persistMaintenance(vehicle, null, MaintenanceStatus.SCHEDULED);
+        entityManager.getEntityManager().clear();
+
+        Page<MaintenanceRecord> result = maintenanceRepository.findAllJoinFetch(
+                null, null, null, null, null, MaintenanceStatus.IN_PROGRESS, null, null, null,
+                PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).extracting(MaintenanceRecord::getId).containsExactly(match.getId());
+    }
+
+    @Test
+    void findAllJoinFetch_narrowsByTechnicianId_exactMatch_whenProvided() {
+        Worker matchingTechnician = persistTechnician("77666666F");
+        Worker otherTechnician = persistTechnician("77777777G");
+        Vehicle vehicle = persistVehicle("7666FFF");
+        MaintenanceRecord match = persistMaintenance(vehicle, matchingTechnician, MaintenanceStatus.SCHEDULED);
+        persistMaintenance(vehicle, otherTechnician, MaintenanceStatus.SCHEDULED);
+        entityManager.getEntityManager().clear();
+
+        Page<MaintenanceRecord> result = maintenanceRepository.findAllJoinFetch(
+                null, null, null, null, null, null, matchingTechnician.getId(), null, null,
+                PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).extracting(MaintenanceRecord::getId).containsExactly(match.getId());
+    }
+
+    @Test
+    void findAllJoinFetch_narrowsByCostRange_whenProvided() {
+        Vehicle vehicle = persistVehicle("7777HHH");
+        MaintenanceRecord match = persistMaintenanceWithCost(vehicle, new BigDecimal("100.00"), LocalDate.now());
+        persistMaintenanceWithCost(vehicle, new BigDecimal("500.00"), LocalDate.now());
+        entityManager.getEntityManager().clear();
+
+        Page<MaintenanceRecord> result = maintenanceRepository.findAllJoinFetch(
+                null, null, null, null, null, null, null, new BigDecimal("50.00"), new BigDecimal("150.00"),
+                PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).extracting(MaintenanceRecord::getId).containsExactly(match.getId());
     }
 
     @Test
@@ -227,6 +303,23 @@ class MaintenanceRepositoryTest {
         record.setTechnician(technician);
         record.setType("Oil change");
         record.setStatus(status);
+        return entityManager.persistAndFlush(record);
+    }
+
+    private MaintenanceRecord persistMaintenanceWithType(Vehicle vehicle, String type) {
+        MaintenanceRecord record = new MaintenanceRecord();
+        record.setVehicle(vehicle);
+        record.setType(type);
+        record.setStatus(MaintenanceStatus.SCHEDULED);
+        return entityManager.persistAndFlush(record);
+    }
+
+    private MaintenanceRecord persistMaintenanceWithCategory(Vehicle vehicle, MaintenanceCategory category) {
+        MaintenanceRecord record = new MaintenanceRecord();
+        record.setVehicle(vehicle);
+        record.setType("Oil change");
+        record.setStatus(MaintenanceStatus.SCHEDULED);
+        record.setCategory(category);
         return entityManager.persistAndFlush(record);
     }
 }

@@ -1,5 +1,6 @@
 package com.fleetmgm.workshop.infrastructure;
 
+import com.fleetmgm.workshop.domain.MaintenanceCategory;
 import com.fleetmgm.workshop.domain.MaintenanceRecord;
 import com.fleetmgm.workshop.domain.MaintenanceStatus;
 import org.springframework.data.domain.Page;
@@ -16,15 +17,34 @@ public interface MaintenanceRepository extends JpaRepository<MaintenanceRecord, 
 
     // List query denormalizes vehicle/technician fields into MaintenanceResponse — JOIN FETCH
     // avoids N+1 (CLAUDE.md JPA rule). Safe with Pageable: these are to-one joins, not to-many collections.
+    // vehicleId/year/month are the original filters (also used by useVehicleMaintenanceHistory) and
+    // keep their existing bare "(:param IS NULL OR ...)" form untouched. type/category/status/
+    // technicianId/costFrom/costTo are new (Órdenes de mantenimiento filter bar) and use the
+    // "(CAST(:param AS string) IS NULL OR ...)" idiom instead — see JobRepository.search()'s comment:
+    // that CAST is required whenever a param is wrapped in LOWER/CONCAT (the :type LIKE clause here),
+    // and applied consistently across the new params rather than mixing idioms.
     @Query("SELECT m FROM MaintenanceRecord m JOIN FETCH m.vehicle "
             + "LEFT JOIN FETCH m.technician "
             + "WHERE (:vehicleId IS NULL OR m.vehicle.id = :vehicleId) "
             + "AND (:year IS NULL OR EXTRACT(YEAR FROM m.workshopEntryDate) = :year) "
-            + "AND (:month IS NULL OR EXTRACT(MONTH FROM m.workshopEntryDate) = :month)")
+            + "AND (:month IS NULL OR EXTRACT(MONTH FROM m.workshopEntryDate) = :month) "
+            + "AND (CAST(:type AS string) IS NULL OR LOWER(m.type) LIKE "
+            + "     LOWER(CONCAT('%', CAST(:type AS string), '%'))) "
+            + "AND (CAST(:category AS string) IS NULL OR m.category = :category) "
+            + "AND (CAST(:status AS string) IS NULL OR m.status = :status) "
+            + "AND (CAST(:technicianId AS string) IS NULL OR m.technician.id = :technicianId) "
+            + "AND (CAST(:costFrom AS string) IS NULL OR m.cost >= :costFrom) "
+            + "AND (CAST(:costTo AS string) IS NULL OR m.cost <= :costTo)")
     Page<MaintenanceRecord> findAllJoinFetch(
             @Param("vehicleId") UUID vehicleId,
             @Param("year") Integer year,
             @Param("month") Integer month,
+            @Param("type") String type,
+            @Param("category") MaintenanceCategory category,
+            @Param("status") MaintenanceStatus status,
+            @Param("technicianId") UUID technicianId,
+            @Param("costFrom") BigDecimal costFrom,
+            @Param("costTo") BigDecimal costTo,
             Pageable pageable);
 
     // Used by MaintenanceEventListener to decide whether a completed maintenance should return the
