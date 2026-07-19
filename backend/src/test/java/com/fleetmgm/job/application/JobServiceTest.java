@@ -28,6 +28,9 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -42,6 +45,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -59,6 +63,58 @@ class JobServiceTest {
     @AfterEach
     void clearSecurityContext() {
         SecurityContextHolder.clearContext();
+    }
+
+    // --- list ---
+
+    @Test
+    void list_passesAllFilters_toRepository_whenNotDriver() {
+        Pageable pageable = PageRequest.of(0, 20);
+        Instant from = Instant.parse("2026-01-01T00:00:00Z");
+        Instant to = Instant.parse("2026-01-31T23:59:59Z");
+        UUID vehicleId = UUID.randomUUID();
+        UUID driverId = UUID.randomUUID();
+        Job entity = new Job();
+        JobResponse expected = buildJobResponse(UUID.randomUUID());
+
+        when(jobRepository.search("Delivery", "Origin", "Destination", vehicleId, driverId,
+                JobStatus.PENDING, from, to, from, to, pageable))
+                .thenReturn(new PageImpl<>(List.of(entity), pageable, 1));
+        when(jobMapper.toResponse(entity)).thenReturn(expected);
+
+        var result = jobService.list("Delivery", "Origin", "Destination", vehicleId, driverId,
+                JobStatus.PENDING, from, to, from, to, pageable);
+
+        assertThat(result.content()).containsExactly(expected);
+        verify(jobRepository).search("Delivery", "Origin", "Destination", vehicleId, driverId,
+                JobStatus.PENDING, from, to, from, to, pageable);
+    }
+
+    @Test
+    void list_asDriver_returnsOnlyOwnActiveJobs_ignoringFilters() {
+        setDriverAuthentication("driver@example.com");
+        UUID userId = UUID.randomUUID();
+        UUID driverId = UUID.randomUUID();
+
+        User mockedUser = mock(User.class);
+        when(mockedUser.getId()).thenReturn(userId);
+        Worker driver = mock(Worker.class);
+        when(driver.getId()).thenReturn(driverId);
+
+        Job job = new Job();
+        JobResponse expected = buildJobResponse(UUID.randomUUID());
+        Pageable pageable = PageRequest.of(0, 20);
+
+        when(userRepository.findByEmail("driver@example.com")).thenReturn(Optional.of(mockedUser));
+        when(workerRepository.findByUserId(userId)).thenReturn(Optional.of(driver));
+        when(jobRepository.findByAssignedDriverIdAndStatusIn(eq(driverId), any(), eq(pageable)))
+                .thenReturn(new PageImpl<>(List.of(job), pageable, 1));
+        when(jobMapper.toResponse(job)).thenReturn(expected);
+
+        var result = jobService.list("ignored", null, null, null, null, null, null, null, null, null, pageable);
+
+        assertThat(result.content()).containsExactly(expected);
+        verify(jobRepository, never()).search(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     // --- create ---

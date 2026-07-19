@@ -61,11 +61,37 @@ class JobControllerTest {
     @Test
     void list_returns200_withPage() throws Exception {
         PageResponse<JobResponse> page = new PageResponse<>(List.of(sampleResponse()), 0, 20, 1, 1);
-        when(jobService.list(any(Pageable.class))).thenReturn(page);
+        when(jobService.list(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(Pageable.class)))
+                .thenReturn(page);
 
         mockMvc.perform(get("/api/v1/jobs"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    @Test
+    void list_passesAllFilters_toService() throws Exception {
+        PageResponse<JobResponse> page = new PageResponse<>(List.of(sampleResponse()), 0, 20, 1, 1);
+        UUID vehicleId = UUID.randomUUID();
+        UUID driverId = UUID.randomUUID();
+        when(jobService.list(eq("Entrega"), eq("Almacén"), eq("Cliente"), eq(vehicleId), eq(driverId),
+                eq(JobStatus.PENDING), eq(ACTUAL_START), eq(ACTUAL_END), eq(ACTUAL_START), eq(ACTUAL_END),
+                any(Pageable.class)))
+                .thenReturn(page);
+
+        mockMvc.perform(get("/api/v1/jobs")
+                        .param("title", "Entrega")
+                        .param("originLocation", "Almacén")
+                        .param("destinationLocation", "Cliente")
+                        .param("vehicleId", vehicleId.toString())
+                        .param("assignedDriverId", driverId.toString())
+                        .param("status", "PENDING")
+                        .param("actualStartFrom", ACTUAL_START.toString())
+                        .param("actualStartTo", ACTUAL_END.toString())
+                        .param("actualEndFrom", ACTUAL_START.toString())
+                        .param("actualEndTo", ACTUAL_END.toString()))
+                .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(1));
     }
 

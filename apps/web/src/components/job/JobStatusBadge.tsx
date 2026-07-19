@@ -1,12 +1,6 @@
 import type { JobStatus } from '@fleetmgm/api'
 import { cn } from '@/lib/utils'
-
-const STATUS_LABEL: Record<JobStatus, string> = {
-  PENDING: 'Pendiente',
-  IN_PROGRESS: 'En curso',
-  COMPLETED: 'Completado',
-  CANCELLED: 'Cancelado',
-}
+import { JOB_STATUS_LABEL } from './job-shared'
 
 const STATUS_CLASSNAME: Record<JobStatus, string> = {
   PENDING: 'bg-surface-container-high text-on-surface-variant',
@@ -27,7 +21,7 @@ export function JobStatusBadge({ status }: JobStatusBadgeProps) {
         STATUS_CLASSNAME[status],
       )}
     >
-      {STATUS_LABEL[status]}
+      {JOB_STATUS_LABEL[status]}
     </span>
   )
 }

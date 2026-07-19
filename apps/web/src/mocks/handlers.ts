@@ -2134,12 +2134,40 @@ export const handlers = [
     const page = Number(url.searchParams.get('page') ?? 0)
     const size = Number(url.searchParams.get('size') ?? 20)
 
-    const source =
-      useAuthStore.getState().role === 'DRIVER'
-        ? jobs.filter(
-            (job) => job.assignedDriverId === DRIVER_WORKER_ID && JOB_ACTIVE_STATUSES.includes(job.status),
-          )
-        : jobs
+    const isDriver = useAuthStore.getState().role === 'DRIVER'
+    const base = isDriver
+      ? jobs.filter(
+          (job) => job.assignedDriverId === DRIVER_WORKER_ID && JOB_ACTIVE_STATUSES.includes(job.status),
+        )
+      : jobs
+
+    // Filters are meaningless for the DRIVER role — same rationale as the backend's
+    // JobService.list(), which skips straight to listForCurrentDriver() without threading them in.
+    const title = isDriver ? null : url.searchParams.get('title')
+    const originLocation = isDriver ? null : url.searchParams.get('originLocation')
+    const destinationLocation = isDriver ? null : url.searchParams.get('destinationLocation')
+    const vehicleId = isDriver ? null : url.searchParams.get('vehicleId')
+    const assignedDriverId = isDriver ? null : url.searchParams.get('assignedDriverId')
+    const status = isDriver ? null : url.searchParams.get('status')
+    const actualStartFrom = isDriver ? null : url.searchParams.get('actualStartFrom')
+    const actualStartTo = isDriver ? null : url.searchParams.get('actualStartTo')
+    const actualEndFrom = isDriver ? null : url.searchParams.get('actualEndFrom')
+    const actualEndTo = isDriver ? null : url.searchParams.get('actualEndTo')
+
+    const source = base.filter(
+      (job) =>
+        (title == null || job.title.toLowerCase().includes(title.toLowerCase())) &&
+        (originLocation == null || job.originLocation.toLowerCase().includes(originLocation.toLowerCase())) &&
+        (destinationLocation == null ||
+          job.destinationLocation.toLowerCase().includes(destinationLocation.toLowerCase())) &&
+        (vehicleId == null || job.vehicleId === vehicleId) &&
+        (assignedDriverId == null || job.assignedDriverId === assignedDriverId) &&
+        (status == null || job.status === status) &&
+        (actualStartFrom == null || (job.actualStart != null && job.actualStart >= actualStartFrom)) &&
+        (actualStartTo == null || (job.actualStart != null && job.actualStart <= actualStartTo)) &&
+        (actualEndFrom == null || (job.actualEnd != null && job.actualEnd >= actualEndFrom)) &&
+        (actualEndTo == null || (job.actualEnd != null && job.actualEnd <= actualEndTo)),
+    )
 
     // Mirrors the backend's ORDER BY: jobs with no actual start sort first, then most recently
     // started first among the rest.
