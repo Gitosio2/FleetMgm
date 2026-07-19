@@ -15,7 +15,7 @@ export function SupplierInvoiceInfoLink({ supplierInvoiceId, supplierInvoiceNumb
     <>
       <button
         type="button"
-        className="text-left font-medium text-secondary underline-offset-2 hover:underline"
+        className="text-left font-medium text-on-surface underline-offset-2 hover:underline"
         onClick={() => setOpen(true)}
       >
         {supplierInvoiceNumber}
