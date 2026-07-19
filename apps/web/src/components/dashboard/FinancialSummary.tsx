@@ -4,6 +4,8 @@ import { ClientInfoLink } from '@/components/client/ClientInfoLink'
 import { SupplierInfoLink } from '@/components/supplier/SupplierInfoLink'
 import { InvoiceInfoLink } from '@/components/billing/InvoiceInfoLink'
 import { SupplierInvoiceInfoLink } from '@/components/billing/SupplierInvoiceInfoLink'
+import { PayInvoiceButton } from '@/components/billing/PayInvoiceButton'
+import { PaySupplierInvoiceButton } from '@/components/billing/PaySupplierInvoiceButton'
 import { formatCurrency } from '@/lib/currency'
 
 type FinancialSummaryProps = {
@@ -41,15 +43,22 @@ function UpcomingInvoicesCard({ title, invoices, counterpartyType }: UpcomingInv
                     <SupplierInfoLink supplierId={invoice.counterpartyId} supplierName={invoice.counterparty} />
                   )}
                 </div>
-                <div className="flex flex-col items-end">
-                  <span className="font-medium">{formatCurrency(invoice.amount)}</span>
-                  <span className="text-on-surface-variant">
-                    {new Date(invoice.dueDate).toLocaleDateString('es-ES')}
-                  </span>
-                  {invoice.overdue && (
-                    <span className="inline-flex items-center rounded-full bg-error-container/40 px-2.5 py-0.5 text-xs font-medium text-error">
-                      Vencida
+                <div className="flex items-center gap-2">
+                  <div className="flex flex-col items-end">
+                    <span className="font-medium">{formatCurrency(invoice.amount)}</span>
+                    <span className="text-on-surface-variant">
+                      {new Date(invoice.dueDate).toLocaleDateString('es-ES')}
                     </span>
+                    {invoice.overdue && (
+                      <span className="inline-flex items-center rounded-full bg-error-container/40 px-2.5 py-0.5 text-xs font-medium text-error">
+                        Vencida
+                      </span>
+                    )}
+                  </div>
+                  {counterpartyType === 'CLIENT' ? (
+                    <PayInvoiceButton invoiceId={invoice.id} />
+                  ) : (
+                    <PaySupplierInvoiceButton supplierInvoiceId={invoice.id} />
                   )}
                 </div>
               </li>

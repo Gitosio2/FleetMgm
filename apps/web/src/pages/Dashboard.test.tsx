@@ -2,6 +2,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { http, HttpResponse } from 'msw'
 import { afterEach, describe, expect, it } from 'vitest'
 import { useAuthStore, type AppRole } from '@fleetmgm/store'
 import {
@@ -181,6 +182,85 @@ describe('Dashboard', () => {
     await user.click(await screen.findByRole('button', { name: receivable.number }))
 
     await waitFor(() => expect(requestedPaths.has('/api/v1/clients')).toBe(true))
+  })
+
+  it('shows a "Marcar factura como pagada" button for each row in the upcoming invoice lists', async () => {
+    loginAs('ADMIN')
+    renderDashboard()
+
+    const receivable = SEED_FINANCIAL_SUMMARY.upcomingReceivables[0]!
+    const payable = SEED_FINANCIAL_SUMMARY.upcomingPayables[0]!
+
+    const receivableRow = (await screen.findByText(receivable.number)).closest('li') as HTMLElement
+    expect(within(receivableRow).getByRole('button', { name: /marcar factura como pagada/i })).toBeInTheDocument()
+
+    const payableRow = screen.getByText(payable.number).closest('li') as HTMLElement
+    expect(within(payableRow).getByRole('button', { name: /marcar factura como pagada/i })).toBeInTheDocument()
+  })
+
+  it('pays a receivable from "Facturas por cobrar" and the row disappears once the dashboard refetches', async () => {
+    const user = userEvent.setup()
+    loginAs('ADMIN')
+
+    // invoice-2 is a real, ISSUED invoice in SEED_INVOICES, so the real PATCH /invoices/:id/pay
+    // handler succeeds unmodified — only the summary endpoint is overridden here, call-count
+    // branched, to prove the post-pay refetch actually happens (without the FINANCIAL_SUMMARY_KEY
+    // invalidation fix, the count would stay at 1 and this row would never disappear).
+    let financialSummaryCallCount = 0
+    server.use(
+      http.get('/api/v1/reports/financial-summary', () => {
+        financialSummaryCallCount++
+        if (financialSummaryCallCount === 1) {
+          return HttpResponse.json(SEED_FINANCIAL_SUMMARY)
+        }
+        return HttpResponse.json({
+          ...SEED_FINANCIAL_SUMMARY,
+          upcomingReceivables: SEED_FINANCIAL_SUMMARY.upcomingReceivables.filter(
+            (invoice) => invoice.id !== 'invoice-2',
+          ),
+        })
+      }),
+    )
+
+    renderDashboard()
+
+    const row = (await screen.findByText('INV-2026-00002')).closest('li') as HTMLElement
+    await user.click(within(row).getByRole('button', { name: /marcar factura como pagada/i }))
+
+    await waitFor(() => expect(screen.queryByText('INV-2026-00002')).not.toBeInTheDocument())
+    expect(financialSummaryCallCount).toBeGreaterThanOrEqual(2)
+  })
+
+  it('pays a payable from "Facturas por pagar" and the row disappears once the dashboard refetches', async () => {
+    const user = userEvent.setup()
+    loginAs('ADMIN')
+
+    // supplier-invoice-1 is a real, PENDING supplier invoice in SEED_SUPPLIER_INVOICES with a
+    // header vehicleId (so it never hits the per-line-item allocation guard) — same rationale as
+    // the receivable test above, mirrored for the payables card/hook.
+    let financialSummaryCallCount = 0
+    server.use(
+      http.get('/api/v1/reports/financial-summary', () => {
+        financialSummaryCallCount++
+        if (financialSummaryCallCount === 1) {
+          return HttpResponse.json(SEED_FINANCIAL_SUMMARY)
+        }
+        return HttpResponse.json({
+          ...SEED_FINANCIAL_SUMMARY,
+          upcomingPayables: SEED_FINANCIAL_SUMMARY.upcomingPayables.filter(
+            (invoice) => invoice.id !== 'supplier-invoice-1',
+          ),
+        })
+      }),
+    )
+
+    renderDashboard()
+
+    const row = (await screen.findByText('F-2026-0456')).closest('li') as HTMLElement
+    await user.click(within(row).getByRole('button', { name: /marcar factura como pagada/i }))
+
+    await waitFor(() => expect(screen.queryByText('F-2026-0456')).not.toBeInTheDocument())
+    expect(financialSummaryCallCount).toBeGreaterThanOrEqual(2)
   })
 
   it('renders the fleet-wide monthly Ingresos/Gastos trend, defaulting to the last 6 months', async () => {
