@@ -5,6 +5,8 @@ import java.util.List;
 
 public record FinancialSummaryResponse(
         BigDecimal monthlyCosts,
+        BigDecimal monthlyRevenue,
+        BigDecimal previousMonthMargin,
         List<UpcomingInvoiceResponse> upcomingReceivables,
         List<UpcomingInvoiceResponse> upcomingPayables
 ) {}

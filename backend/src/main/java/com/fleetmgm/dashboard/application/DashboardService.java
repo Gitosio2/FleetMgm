@@ -3,6 +3,8 @@ package com.fleetmgm.dashboard.application;
 import com.fleetmgm.billing.domain.Invoice;
 import com.fleetmgm.billing.domain.SupplierInvoice;
 import com.fleetmgm.billing.infrastructure.InvoiceRepository;
+import com.fleetmgm.billing.infrastructure.MonthlyFinancialProjection;
+import com.fleetmgm.billing.infrastructure.ProfitabilityRepository;
 import com.fleetmgm.billing.infrastructure.SupplierInvoiceRepository;
 import com.fleetmgm.dashboard.dto.FinancialSummaryResponse;
 import com.fleetmgm.dashboard.dto.FleetSummaryResponse;
@@ -44,17 +46,20 @@ public class DashboardService {
     private final MaintenanceRepository maintenanceRepository;
     private final SupplierInvoiceRepository supplierInvoiceRepository;
     private final InvoiceRepository invoiceRepository;
+    private final ProfitabilityRepository profitabilityRepository;
 
     public DashboardService(VehicleRepository vehicleRepository,
                              WorkshopScheduleRepository workshopScheduleRepository,
                              MaintenanceRepository maintenanceRepository,
                              SupplierInvoiceRepository supplierInvoiceRepository,
-                             InvoiceRepository invoiceRepository) {
+                             InvoiceRepository invoiceRepository,
+                             ProfitabilityRepository profitabilityRepository) {
         this.vehicleRepository = vehicleRepository;
         this.workshopScheduleRepository = workshopScheduleRepository;
         this.maintenanceRepository = maintenanceRepository;
         this.supplierInvoiceRepository = supplierInvoiceRepository;
         this.invoiceRepository = invoiceRepository;
+        this.profitabilityRepository = profitabilityRepository;
     }
 
     @Transactional(readOnly = true)
@@ -106,7 +111,17 @@ public class DashboardService {
                         supplierInvoice.getDueDate().isBefore(today)))
                 .toList();
 
-        return new FinancialSummaryResponse(monthlyCosts(), upcomingReceivables, upcomingPayables);
+        YearMonth currentMonth = YearMonth.now();
+        YearMonth previousMonth = currentMonth.minusMonths(1);
+        List<MonthlyFinancialProjection> trend = profitabilityRepository.findMonthlyFinancialTrend(
+                previousMonth.atDay(1), currentMonth.atDay(1));
+
+        return new FinancialSummaryResponse(
+                monthlyCosts(),
+                revenueForMonth(trend, currentMonth),
+                marginForMonth(trend, previousMonth),
+                upcomingReceivables,
+                upcomingPayables);
     }
 
     private BigDecimal monthlyCosts() {
@@ -116,5 +131,24 @@ public class DashboardService {
         BigDecimal supplierCosts = supplierInvoiceRepository.sumTotalByInvoiceDateBetween(monthStart, monthEnd);
         BigDecimal maintenanceCosts = maintenanceRepository.sumCostByWorkshopEntryDateBetween(monthStart, monthEnd);
         return supplierCosts.add(maintenanceCosts);
+    }
+
+    // findMonthlyFinancialTrend's `month` column is `to_char(month_series, 'YYYY-MM')`, which
+    // matches YearMonth.toString()'s format exactly. generate_series guarantees a row for every
+    // month in [from, to], but this defaults to zero defensively in case a caller narrows the range.
+    private BigDecimal revenueForMonth(List<MonthlyFinancialProjection> trend, YearMonth month) {
+        return trend.stream()
+                .filter(row -> month.toString().equals(row.getMonth()))
+                .findFirst()
+                .map(MonthlyFinancialProjection::getRevenue)
+                .orElse(BigDecimal.ZERO);
+    }
+
+    private BigDecimal marginForMonth(List<MonthlyFinancialProjection> trend, YearMonth month) {
+        return trend.stream()
+                .filter(row -> month.toString().equals(row.getMonth()))
+                .findFirst()
+                .map(row -> row.getRevenue().subtract(row.getCosts()))
+                .orElse(BigDecimal.ZERO);
     }
 }
