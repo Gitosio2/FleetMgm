@@ -3,6 +3,26 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ClientInfoLink } from '@/components/client/ClientInfoLink'
 import { SupplierInfoLink } from '@/components/supplier/SupplierInfoLink'
 import { formatCurrency } from '@/lib/currency'
+import { cn } from '@/lib/utils'
+
+// "—" formula guard: previousMargin === 0 would divide by zero, so that case shows the euro
+// difference instead of a percentage. Color logic never divides — it always compares the two
+// margins directly, independent of this display-only guard.
+function formatMarginChange(currentMargin: number, previousMargin: number): string {
+  if (previousMargin === 0) {
+    const diff = currentMargin - previousMargin
+    return diff > 0 ? `+${formatCurrency(diff)}` : formatCurrency(diff)
+  }
+  const change = ((currentMargin - previousMargin) / Math.abs(previousMargin)) * 100
+  const sign = change > 0 ? '+' : ''
+  return `${sign}${change.toFixed(1)}%`
+}
+
+function marginChangeColor(currentMargin: number, previousMargin: number): string {
+  if (currentMargin > previousMargin) return 'text-success'
+  if (currentMargin < previousMargin) return 'text-error'
+  return 'text-on-surface-variant'
+}
 
 type FinancialSummaryProps = {
   summary: FinancialSummaryData
@@ -56,14 +76,33 @@ function UpcomingInvoicesCard({ title, invoices, counterpartyType }: UpcomingInv
 }
 
 export function FinancialSummary({ summary }: FinancialSummaryProps) {
+  const monthlyMargin = summary.monthlyRevenue - summary.monthlyCosts
+
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm font-medium text-on-surface-variant">Costes del mes</CardTitle>
+          <CardTitle className="text-sm font-medium text-on-surface-variant">Resumen del mes</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-3xl font-semibold">{formatCurrency(summary.monthlyCosts)}</p>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-on-surface-variant">Ingresos</span>
+              <span className="font-medium">{formatCurrency(summary.monthlyRevenue)}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-on-surface-variant">Gastos</span>
+              <span className="font-medium">{formatCurrency(summary.monthlyCosts)}</span>
+            </div>
+            <div className="flex items-center justify-between border-t border-outline-variant pt-2 text-sm">
+              <span className="text-on-surface-variant">Beneficio vs. mes anterior</span>
+              <span
+                className={cn('text-lg font-semibold', marginChangeColor(monthlyMargin, summary.previousMonthMargin))}
+              >
+                {formatMarginChange(monthlyMargin, summary.previousMonthMargin)}
+              </span>
+            </div>
+          </div>
         </CardContent>
       </Card>
 

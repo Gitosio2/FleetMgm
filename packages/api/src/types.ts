@@ -446,6 +446,8 @@ export type UpcomingInvoice = {
 
 export type FinancialSummary = {
   monthlyCosts: number
+  monthlyRevenue: number
+  previousMonthMargin: number
   upcomingReceivables: UpcomingInvoice[]
   upcomingPayables: UpcomingInvoice[]
 }

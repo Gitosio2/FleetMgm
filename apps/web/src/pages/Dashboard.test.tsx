@@ -2,8 +2,10 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { http, HttpResponse } from 'msw'
 import { afterEach, describe, expect, it } from 'vitest'
 import { useAuthStore, type AppRole } from '@fleetmgm/store'
+import { server } from '@/mocks/server'
 import {
   SEED_CLIENTS,
   SEED_FINANCIAL_SUMMARY,
@@ -61,6 +63,12 @@ function cardByTitle(title: string) {
   return screen.getByText(title).closest('[data-slot="card"]') as HTMLElement
 }
 
+// "Ingresos" is also used as a label on the "Resumen del mes" card, so the trend chart's
+// "Ingresos"/"Gastos" legend text must be scoped to its own <section> to stay unambiguous.
+function trendSection() {
+  return screen.getByText('Ingresos y gastos').closest('section') as HTMLElement
+}
+
 describe('Dashboard', () => {
   afterEach(() => {
     useAuthStore.getState().logout()
@@ -84,14 +92,17 @@ describe('Dashboard', () => {
     expect(maintenanceCard.textContent).toContain('vencen en 48 horas')
   })
 
-  it('renders the financial summary section with monthly costs and upcoming invoice lists', async () => {
+  it('renders the financial summary section with revenue, costs, and upcoming invoice lists', async () => {
     loginAs('ADMIN')
     renderDashboard()
 
-    await screen.findByText('Costes del mes')
+    await screen.findByText('Resumen del mes')
 
-    const costsCard = cardByTitle('Costes del mes')
-    expect(costsCard.textContent).toContain(formatCurrency(SEED_FINANCIAL_SUMMARY.monthlyCosts))
+    const summaryCard = cardByTitle('Resumen del mes')
+    expect(summaryCard.textContent).toContain('Ingresos')
+    expect(summaryCard.textContent).toContain(formatCurrency(SEED_FINANCIAL_SUMMARY.monthlyRevenue))
+    expect(summaryCard.textContent).toContain('Gastos')
+    expect(summaryCard.textContent).toContain(formatCurrency(SEED_FINANCIAL_SUMMARY.monthlyCosts))
 
     expect(screen.getByText('Facturas por cobrar')).toBeInTheDocument()
     expect(screen.getByText('Facturas por pagar')).toBeInTheDocument()
@@ -104,6 +115,67 @@ describe('Dashboard', () => {
 
     const notOverdueRow = screen.getByText(notOverdueReceivable.number).closest('li') as HTMLElement
     expect(notOverdueRow.textContent).not.toContain('Vencida')
+  })
+
+  it('shows the margin change in green when the current month margin exceeds the previous month', async () => {
+    loginAs('ADMIN')
+    renderDashboard()
+
+    await screen.findByText('Resumen del mes')
+    const summaryCard = cardByTitle('Resumen del mes')
+
+    // fixture: monthlyMargin (9500 - 8420.5 = 1079.50) > previousMonthMargin (900)
+    const changeText = within(summaryCard).getByText(/%$/)
+    expect(changeText.className).toContain('text-success')
+  })
+
+  it('shows the margin change in red when the current month margin is below the previous month', async () => {
+    loginAs('ADMIN')
+    server.use(
+      http.get('/api/v1/reports/financial-summary', () =>
+        HttpResponse.json({ ...SEED_FINANCIAL_SUMMARY, previousMonthMargin: 5000 }),
+      ),
+    )
+    renderDashboard()
+
+    await screen.findByText('Resumen del mes')
+    const summaryCard = cardByTitle('Resumen del mes')
+
+    const changeText = within(summaryCard).getByText(/%$/)
+    expect(changeText.className).toContain('text-error')
+  })
+
+  it('shows a neutral color when the current month margin equals the previous month', async () => {
+    loginAs('ADMIN')
+    const equalMargin = SEED_FINANCIAL_SUMMARY.monthlyRevenue - SEED_FINANCIAL_SUMMARY.monthlyCosts
+    server.use(
+      http.get('/api/v1/reports/financial-summary', () =>
+        HttpResponse.json({ ...SEED_FINANCIAL_SUMMARY, previousMonthMargin: equalMargin }),
+      ),
+    )
+    renderDashboard()
+
+    await screen.findByText('Resumen del mes')
+    const summaryCard = cardByTitle('Resumen del mes')
+
+    const changeText = within(summaryCard).getByText('0.0%')
+    expect(changeText.className).toContain('text-on-surface-variant')
+  })
+
+  it('shows the euro difference instead of a percentage when the previous month margin was zero', async () => {
+    loginAs('ADMIN')
+    server.use(
+      http.get('/api/v1/reports/financial-summary', () =>
+        HttpResponse.json({ ...SEED_FINANCIAL_SUMMARY, previousMonthMargin: 0 }),
+      ),
+    )
+    renderDashboard()
+
+    await screen.findByText('Resumen del mes')
+    const summaryCard = cardByTitle('Resumen del mes')
+
+    const monthlyMargin = SEED_FINANCIAL_SUMMARY.monthlyRevenue - SEED_FINANCIAL_SUMMARY.monthlyCosts
+    expect(summaryCard.textContent).toContain(`+${formatCurrency(monthlyMargin)}`)
   })
 
   it('opens a read-only client modal from the "Facturas por cobrar" list', async () => {
@@ -127,10 +199,11 @@ describe('Dashboard', () => {
 
     await screen.findByText('Ingresos y gastos')
 
-    // Chart legend uses "Gastos" (not "Costes") for outflow in this context.
-    await screen.findByText('Ingresos')
-    expect(screen.getByText('Ingresos')).toBeInTheDocument()
-    expect(screen.getByText('Gastos')).toBeInTheDocument()
+    // Chart legend uses "Gastos" (not "Costes") for outflow in this context. Scoped to the trend
+    // section since "Ingresos" is also a label on the "Resumen del mes" card.
+    const chart = trendSection()
+    expect(await within(chart).findByText('Ingresos')).toBeInTheDocument()
+    expect(within(chart).getByText('Gastos')).toBeInTheDocument()
 
     const last6Months = SEED_FINANCIAL_TREND.slice(-6)
     const totalRevenue = last6Months.reduce((sum, m) => sum + m.revenue, 0)
@@ -153,7 +226,7 @@ describe('Dashboard', () => {
     renderDashboard()
 
     await screen.findByText('Ingresos y gastos')
-    await screen.findByText('Ingresos')
+    await within(trendSection()).findByText('Ingresos')
 
     await user.click(screen.getByRole('button', { name: '3 meses' }))
 

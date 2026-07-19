@@ -1384,6 +1384,8 @@ type UpcomingInvoiceMock = {
 
 type FinancialSummaryMock = {
   monthlyCosts: number
+  monthlyRevenue: number
+  previousMonthMargin: number
   upcomingReceivables: UpcomingInvoiceMock[]
   upcomingPayables: UpcomingInvoiceMock[]
 }
@@ -1391,8 +1393,13 @@ type FinancialSummaryMock = {
 // Read-only feature (no dedicated CRUD screen) — mirrors SEED_FLEET_SUMMARY's scale, plus two
 // short invoice lists each containing one overdue and one not-yet-due row so Dashboard.test.tsx
 // can assert both the "Vencida" marker and its absence without depending on the current date.
+// monthlyRevenue/previousMonthMargin are independent placeholders (not reconciled with
+// SEED_FINANCIAL_TREND, same as monthlyCosts already wasn't) chosen so the default fixture
+// exercises the "green" card state: monthlyMargin (9500 - 8420.5 = 1079.50) > previousMonthMargin (900).
 export const SEED_FINANCIAL_SUMMARY: FinancialSummaryMock = {
   monthlyCosts: 8420.5,
+  monthlyRevenue: 9500,
+  previousMonthMargin: 900,
   upcomingReceivables: [
     {
       id: 'invoice-2',
