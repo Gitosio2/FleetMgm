@@ -6,7 +6,7 @@ import type {
   UpdateScheduleRequest,
   WorkshopSchedule,
 } from '@fleetmgm/api'
-import { useCreateWorkshopSchedule, useUpdateWorkshopSchedule, useVehicles, useWorkers } from '@fleetmgm/hooks'
+import { useAllVehicles, useAllWorkers, useCreateWorkshopSchedule, useUpdateWorkshopSchedule } from '@fleetmgm/hooks'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -30,10 +30,10 @@ export function ScheduleFormModal({ open, onOpenChange, schedule }: ScheduleForm
   const createSchedule = useCreateWorkshopSchedule()
   const updateSchedule = useUpdateWorkshopSchedule()
 
-  const { data: vehiclesPage } = useVehicles({}, 0, 100)
-  const { data: workersPage } = useWorkers({}, 0, 100)
+  const { data: vehicles = [] } = useAllVehicles()
+  const { data: workers = [] } = useAllWorkers()
 
-  const technicians = (workersPage?.content ?? []).filter(
+  const technicians = workers.filter(
     (worker) => worker.workerRole === 'TECHNICIAN' || worker.workerRole === 'BOTH',
   )
 
@@ -129,7 +129,7 @@ export function ScheduleFormModal({ open, onOpenChange, schedule }: ScheduleForm
                 <option value="" disabled>
                   Seleccioná un vehículo
                 </option>
-                {(vehiclesPage?.content ?? []).map((vehicle) => (
+                {vehicles.map((vehicle) => (
                   <option key={vehicle.id} value={vehicle.id}>
                     {vehicle.make} {vehicle.model}
                     {vehicle.licensePlate ? ` - ${vehicle.licensePlate}` : ''}

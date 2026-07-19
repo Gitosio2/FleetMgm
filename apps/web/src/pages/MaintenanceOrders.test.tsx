@@ -322,4 +322,39 @@ describe('MaintenanceOrders', () => {
     expect(await screen.findByText('No se pudieron cargar los datos.')).toBeInTheDocument()
     expect(screen.queryByText('Cambio de aceite y filtro')).not.toBeInTheDocument()
   })
+
+  it('offers a technician from beyond the first page in the technician filter select', async () => {
+    loginAs('ADMIN')
+    server.use(
+      http.get('/api/v1/workers', ({ request }) => {
+        const page = Number(new URL(request.url).searchParams.get('page') ?? 0)
+        // Two pages regardless of the requested size — forces useAllWorkers' page loop to run more
+        // than once, proving it doesn't stop after the first page (the bug this test guards
+        // against: a plain `useWorkers({}, 0, 100)` silently dropped everything past page 0).
+        const record = {
+          id: page === 0 ? 'worker-page-0' : 'worker-page-1',
+          firstName: 'Beyond',
+          lastName: page === 0 ? 'PageZero' : 'FirstPage',
+          fullName: page === 0 ? 'Beyond PageZero' : 'Beyond FirstPage',
+          workerRole: 'TECHNICIAN',
+          nationalId: `NID-page-${page}`,
+          phone: null,
+          licenseType: null,
+          licenseExpiry: null,
+          userId: null,
+          createdAt: '2026-01-01T09:00:00Z',
+        }
+        return HttpResponse.json({ content: [record], page, size: 200, totalElements: 2, totalPages: 2 })
+      }),
+    )
+    renderMaintenanceOrders()
+
+    await screen.findByText('Cambio de aceite y filtro')
+
+    expect(
+      await within(screen.getByLabelText(/filtrar por técnico/i)).findByRole('option', {
+        name: 'Beyond FirstPage',
+      }),
+    ).toBeInTheDocument()
+  })
 })

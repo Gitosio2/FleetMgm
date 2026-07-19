@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { isAxiosError } from 'axios'
 import type { ApiError, CreateJobRequest, Job } from '@fleetmgm/api'
-import { useClients, useCreateJob, useUpdateJob, useVehicles, useWorkers } from '@fleetmgm/hooks'
+import { useAllClients, useAllVehicles, useAllWorkers, useCreateJob, useUpdateJob } from '@fleetmgm/hooks'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -63,11 +63,11 @@ export function JobFormModal({ open, onOpenChange, job }: JobFormModalProps) {
   const createJob = useCreateJob()
   const updateJob = useUpdateJob()
 
-  const { data: vehiclesPage } = useVehicles({}, 0, 100)
-  const { data: workersPage } = useWorkers({}, 0, 100)
-  const { data: clientsPage } = useClients({}, 0, 100)
+  const { data: vehicles = [] } = useAllVehicles()
+  const { data: workers = [] } = useAllWorkers()
+  const { data: clients = [] } = useAllClients()
 
-  const drivers = (workersPage?.content ?? []).filter(
+  const drivers = workers.filter(
     (worker) => worker.workerRole === 'DRIVER' || worker.workerRole === 'BOTH',
   )
 
@@ -156,7 +156,7 @@ export function JobFormModal({ open, onOpenChange, job }: JobFormModalProps) {
                 <option value="" disabled>
                   Seleccioná un vehículo
                 </option>
-                {(vehiclesPage?.content ?? []).map((vehicle) => (
+                {vehicles.map((vehicle) => (
                   <option key={vehicle.id} value={vehicle.id}>
                     {formatVehicleSelectLabel(vehicle)}
                   </option>
@@ -190,7 +190,7 @@ export function JobFormModal({ open, onOpenChange, job }: JobFormModalProps) {
               onChange={(e) => setClientId(e.target.value)}
             >
               <option value="">Sin cliente</option>
-              {(clientsPage?.content ?? []).map((client) => (
+              {clients.map((client) => (
                 <option key={client.id} value={client.id}>
                   {client.name}
                 </option>

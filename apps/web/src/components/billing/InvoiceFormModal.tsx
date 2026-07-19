@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Info } from 'lucide-react'
 import type { CreateInvoiceRequest, Invoice } from '@fleetmgm/api'
-import { useClients, useCreateInvoice, useUpdateInvoice } from '@fleetmgm/hooks'
+import { useAllClients, useCreateInvoice, useUpdateInvoice } from '@fleetmgm/hooks'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -45,7 +45,7 @@ export function InvoiceFormModal({ open, onOpenChange, invoice, onCreated }: Inv
   const createInvoice = useCreateInvoice()
   const updateInvoice = useUpdateInvoice()
 
-  const { data: clientsPage } = useClients({}, 0, 100)
+  const { data: clients = [] } = useAllClients()
 
   const [clientId, setClientId] = useState('')
   const [dueDate, setDueDate] = useState('')
@@ -126,7 +126,7 @@ export function InvoiceFormModal({ open, onOpenChange, invoice, onCreated }: Inv
               <option value="" disabled>
                 Seleccioná un cliente
               </option>
-              {(clientsPage?.content ?? []).map((client) => (
+              {clients.map((client) => (
                 <option key={client.id} value={client.id}>
                   {client.name}
                 </option>

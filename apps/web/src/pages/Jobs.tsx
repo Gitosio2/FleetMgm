@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { Job, JobStatus } from '@fleetmgm/api'
-import { useJobs, useVehicles, useWorkers } from '@fleetmgm/hooks'
+import { useAllVehicles, useAllWorkers, useJobs } from '@fleetmgm/hooks'
 import { useAuthStore } from '@fleetmgm/store'
 import { Button } from '@/components/ui/button'
 import { JobTable } from '@/components/job/JobTable'
@@ -28,16 +28,13 @@ export function Jobs() {
   const role = useAuthStore((state) => state.role)
   const canManage = role != null && MANAGEMENT_ROLES.includes(role)
 
-  // Same "fetch a large unpaginated page, filter client-side" approach JobFormModal already uses
-  // for its own vehicle/driver selects — keeps both dropdowns (form + filter) in sync without a
-  // dedicated unpaginated endpoint (unlike AuditLog's /performers, not worth it for this fleet size).
-  const { data: vehiclesPage } = useVehicles({}, 0, 100)
-  const vehicles = vehiclesPage?.content ?? []
+  // Same shared "fetch every page" hooks JobFormModal already uses for its own vehicle/driver
+  // selects — keeps both dropdowns (form + filter) in sync, and every vehicle/driver selectable
+  // regardless of fleet size (see useAllVehicles/useAllWorkers in packages/hooks).
+  const { data: vehicles = [] } = useAllVehicles()
 
-  const { data: workersPage } = useWorkers({}, 0, 100)
-  const drivers = (workersPage?.content ?? []).filter(
-    (worker) => worker.workerRole === 'DRIVER' || worker.workerRole === 'BOTH',
-  )
+  const { data: workers = [] } = useAllWorkers()
+  const drivers = workers.filter((worker) => worker.workerRole === 'DRIVER' || worker.workerRole === 'BOTH')
 
   const { data, isLoading, isError } = useJobs(
     {

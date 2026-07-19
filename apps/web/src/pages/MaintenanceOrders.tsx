@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { MaintenanceCategory, MaintenanceRecord, MaintenanceStatus } from '@fleetmgm/api'
-import { useMaintenanceRecords, useVehicles, useWorkers } from '@fleetmgm/hooks'
+import { useAllVehicles, useAllWorkers, useMaintenanceRecords } from '@fleetmgm/hooks'
 import { Button } from '@/components/ui/button'
 import { MaintenanceTable } from '@/components/workshop/MaintenanceTable'
 import { MaintenanceFormModal } from '@/components/workshop/MaintenanceFormModal'
@@ -22,14 +22,14 @@ export function MaintenanceOrders() {
   const [formOpen, setFormOpen] = useState(false)
   const [editingMaintenance, setEditingMaintenance] = useState<MaintenanceRecord | undefined>(undefined)
 
-  // Same "fetch a large unpaginated page, filter client-side" approach MaintenanceFormModal
-  // already uses for its own vehicle/technician selects — keeps both dropdowns (form + filter) in
-  // sync without a dedicated unpaginated endpoint.
-  const { data: vehiclesPage } = useVehicles({}, 0, 100)
-  const vehicles = vehiclesPage?.content ?? []
+  // Same shared "fetch every page" hooks MaintenanceFormModal already uses for its own
+  // vehicle/technician selects — keeps both dropdowns (form + filter) in sync, and every
+  // vehicle/technician selectable regardless of fleet size (see useAllVehicles/useAllWorkers in
+  // packages/hooks).
+  const { data: vehicles = [] } = useAllVehicles()
 
-  const { data: workersPage } = useWorkers({}, 0, 100)
-  const technicians = (workersPage?.content ?? []).filter(
+  const { data: workers = [] } = useAllWorkers()
+  const technicians = workers.filter(
     (worker) => worker.workerRole === 'TECHNICIAN' || worker.workerRole === 'BOTH',
   )
 
