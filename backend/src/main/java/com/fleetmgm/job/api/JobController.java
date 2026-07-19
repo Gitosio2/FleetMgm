@@ -1,6 +1,7 @@
 package com.fleetmgm.job.api;
 
 import com.fleetmgm.job.application.JobService;
+import com.fleetmgm.job.domain.JobStatus;
 import com.fleetmgm.job.dto.CompleteJobRequest;
 import com.fleetmgm.job.dto.CreateJobRequest;
 import com.fleetmgm.job.dto.JobResponse;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URI;
+import java.time.Instant;
 import java.util.UUID;
 
 @RestController
@@ -29,8 +31,19 @@ public class JobController {
 
     @GetMapping
     public ResponseEntity<PageResponse<JobResponse>> list(
+            @RequestParam(required = false) String title,
+            @RequestParam(required = false) String originLocation,
+            @RequestParam(required = false) String destinationLocation,
+            @RequestParam(required = false) UUID vehicleId,
+            @RequestParam(required = false) UUID assignedDriverId,
+            @RequestParam(required = false) JobStatus status,
+            @RequestParam(required = false) Instant actualStartFrom,
+            @RequestParam(required = false) Instant actualStartTo,
+            @RequestParam(required = false) Instant actualEndFrom,
+            @RequestParam(required = false) Instant actualEndTo,
             @PageableDefault(size = 20) Pageable pageable) {
-        return ResponseEntity.ok(jobService.list(pageable));
+        return ResponseEntity.ok(jobService.list(title, originLocation, destinationLocation, vehicleId,
+                assignedDriverId, status, actualStartFrom, actualStartTo, actualEndFrom, actualEndTo, pageable));
     }
 
     @PostMapping

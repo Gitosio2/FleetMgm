@@ -4,7 +4,14 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { http, HttpResponse } from 'msw'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { useAuthStore } from '@fleetmgm/store'
-import { resetJobsMock, resetVehiclesMock, resetWorkersMock, SEED_JOBS, SEED_VEHICLES } from '@/mocks/handlers'
+import {
+  resetJobsMock,
+  resetVehiclesMock,
+  resetWorkersMock,
+  SEED_JOBS,
+  SEED_VEHICLES,
+  SEED_WORKERS,
+} from '@/mocks/handlers'
 import { server } from '@/mocks/server'
 import { Jobs } from './Jobs'
 
@@ -259,6 +266,129 @@ describe('Jobs', () => {
     expect(
       await screen.findByText('El inicio o el fin real no pueden ser una fecha futura.'),
     ).toBeInTheDocument()
+  })
+
+  it('narrows the job list with the title filter', async () => {
+    loginAs('ADMIN')
+    const user = userEvent.setup()
+    renderJobs()
+
+    await screen.findByText('Entrega urgente')
+
+    await user.type(screen.getByLabelText(/buscar por título/i), 'urgente')
+
+    await waitFor(() => {
+      expect(screen.getByText('Entrega urgente')).toBeInTheDocument()
+    })
+    expect(screen.queryByText('Reparto semanal')).not.toBeInTheDocument()
+  })
+
+  it('narrows the job list with the origin filter', async () => {
+    loginAs('ADMIN')
+    const user = userEvent.setup()
+    renderJobs()
+
+    await screen.findByText('Entrega urgente')
+
+    await user.type(screen.getByLabelText(/buscar por origen/i), 'Taller')
+
+    await waitFor(() => {
+      expect(screen.getByText('Traslado de excavadora')).toBeInTheDocument()
+    })
+    expect(screen.queryByText('Entrega urgente')).not.toBeInTheDocument()
+  })
+
+  it('narrows the job list with the destination filter', async () => {
+    loginAs('ADMIN')
+    const user = userEvent.setup()
+    renderJobs()
+
+    await screen.findByText('Entrega urgente')
+
+    await user.type(screen.getByLabelText(/buscar por destino/i), 'Norte')
+
+    await waitFor(() => {
+      expect(screen.getByText('Traslado de excavadora')).toBeInTheDocument()
+    })
+    expect(screen.queryByText('Entrega urgente')).not.toBeInTheDocument()
+  })
+
+  it('narrows the job list with the vehicle filter', async () => {
+    loginAs('ADMIN')
+    const user = userEvent.setup()
+    renderJobs()
+
+    await screen.findByText('Traslado de excavadora')
+
+    const [, heavyMachinery] = SEED_VEHICLES
+    await user.selectOptions(screen.getByLabelText(/filtrar por vehículo/i), heavyMachinery!.id)
+
+    await waitFor(() => {
+      expect(screen.getByText('Traslado de excavadora')).toBeInTheDocument()
+    })
+    expect(screen.queryByText('Entrega urgente')).not.toBeInTheDocument()
+  })
+
+  it('narrows the job list with the driver filter', async () => {
+    loginAs('ADMIN')
+    const user = userEvent.setup()
+    renderJobs()
+
+    await screen.findByText('Entrega urgente')
+
+    await user.selectOptions(screen.getByLabelText(/filtrar por conductor/i), SEED_WORKERS[0]!.id)
+
+    await waitFor(() => {
+      expect(screen.getByText('Entrega urgente')).toBeInTheDocument()
+    })
+    expect(screen.queryByText('Traslado de excavadora')).not.toBeInTheDocument()
+  })
+
+  it('narrows the job list with the status filter', async () => {
+    loginAs('ADMIN')
+    const user = userEvent.setup()
+    renderJobs()
+
+    await screen.findByText('Reparto semanal')
+
+    await user.selectOptions(screen.getByLabelText(/filtrar por estado/i), 'IN_PROGRESS')
+
+    await waitFor(() => {
+      expect(screen.getByText('Reparto semanal')).toBeInTheDocument()
+    })
+    expect(screen.queryByText('Entrega urgente')).not.toBeInTheDocument()
+  })
+
+  it('narrows the job list with the actual start date range filter', async () => {
+    loginAs('ADMIN')
+    const user = userEvent.setup()
+    renderJobs()
+
+    await screen.findByText('Traslado programado')
+
+    await user.type(screen.getByLabelText('Inicio desde'), '2026-07-07')
+    await user.type(screen.getByLabelText('Inicio hasta'), '2026-07-09')
+
+    await waitFor(() => {
+      expect(screen.getByText('Traslado programado')).toBeInTheDocument()
+    })
+    expect(screen.queryByText('Reparto semanal')).not.toBeInTheDocument()
+  })
+
+  it('narrows the job list with the actual end date range filter', async () => {
+    loginAs('ADMIN')
+    const user = userEvent.setup()
+    renderJobs()
+
+    await screen.findByText('Entrega finalizada')
+
+    await user.type(screen.getByLabelText('Fin desde'), '2026-06-19')
+    await user.type(screen.getByLabelText('Fin hasta'), '2026-06-21')
+
+    await waitFor(() => {
+      expect(screen.getByText('Entrega finalizada')).toBeInTheDocument()
+    })
+    expect(screen.queryByText('Reparto semanal')).not.toBeInTheDocument()
   })
 
   it('shows an error message when the job list query fails', async () => {

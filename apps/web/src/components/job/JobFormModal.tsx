@@ -5,6 +5,7 @@ import { useClients, useCreateJob, useUpdateJob, useVehicles, useWorkers } from 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { formatVehicleSelectLabel } from '@/lib/vehicle-label'
 import {
   Dialog,
   DialogContent,
@@ -157,8 +158,7 @@ export function JobFormModal({ open, onOpenChange, job }: JobFormModalProps) {
                 </option>
                 {(vehiclesPage?.content ?? []).map((vehicle) => (
                   <option key={vehicle.id} value={vehicle.id}>
-                    {vehicle.make} {vehicle.model}
-                    {vehicle.licensePlate ? ` - ${vehicle.licensePlate}` : ''}
+                    {formatVehicleSelectLabel(vehicle)}
                   </option>
                 ))}
               </select>

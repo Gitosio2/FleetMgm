@@ -142,21 +142,183 @@ class JobRepositoryTest {
         assertThat(result.getContent()).isEmpty();
     }
 
+    // --- search ---
+
+    @Test
+    void search_narrowsByTitle_partialMatch_caseInsensitive_whenProvided() {
+        Worker driver = persistDriver("71111111A");
+        Vehicle vehicle = persistVehicle("7111AAA");
+        Job match = persistJob("Urgent delivery", vehicle, driver, JobStatus.PENDING);
+        persistJob("Weekly round", vehicle, driver, JobStatus.PENDING);
+        entityManager.getEntityManager().clear();
+
+        Page<Job> result = jobRepository.search(
+                "urgent", null, null, null, null, null, null, null, null, null, PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).extracting(Job::getId).containsExactly(match.getId());
+    }
+
+    @Test
+    void search_narrowsByOriginAndDestination_partialMatch_caseInsensitive_whenProvided() {
+        Worker driver = persistDriver("72222222B");
+        Vehicle vehicle = persistVehicle("7222BBB");
+        Job match = persistJobWithRoute("Job A", vehicle, driver, "Central Warehouse", "North Zone");
+        persistJobWithRoute("Job B", vehicle, driver, "South Depot", "East Zone");
+        entityManager.getEntityManager().clear();
+
+        Page<Job> result = jobRepository.search(
+                null, "central", "north", null, null, null, null, null, null, null, PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).extracting(Job::getId).containsExactly(match.getId());
+    }
+
+    @Test
+    void search_narrowsByVehicleId_exactMatch_whenProvided() {
+        Worker driver = persistDriver("73333333C");
+        Vehicle matchingVehicle = persistVehicle("7333CCC", "Toyota", "Hilux");
+        Vehicle otherVehicle = persistVehicle("7444DDD", "Ford", "Ranger");
+        Job match = persistJob("Job A", matchingVehicle, driver, JobStatus.PENDING);
+        persistJob("Job B", otherVehicle, driver, JobStatus.PENDING);
+        entityManager.getEntityManager().clear();
+
+        Page<Job> result = jobRepository.search(
+                null, null, null, matchingVehicle.getId(), null, null, null, null, null, null,
+                PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).extracting(Job::getId).containsExactly(match.getId());
+    }
+
+    @Test
+    void search_narrowsByAssignedDriverId_exactMatch_whenProvided() {
+        Worker matchingDriver = persistDriver("Juan", "García", "74444444D");
+        Worker otherDriver = persistDriver("Ana", "López", "74444444E");
+        Vehicle vehicle = persistVehicle("7555EEE");
+        Job match = persistJob("Job A", vehicle, matchingDriver, JobStatus.PENDING);
+        persistJob("Job B", vehicle, otherDriver, JobStatus.PENDING);
+        entityManager.getEntityManager().clear();
+
+        Page<Job> result = jobRepository.search(
+                null, null, null, null, matchingDriver.getId(), null, null, null, null, null,
+                PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).extracting(Job::getId).containsExactly(match.getId());
+    }
+
+    @Test
+    void search_excludesJobsWithNoAssignedDriver_whenAssignedDriverIdFilterProvided() {
+        Worker driver = persistDriver("74555555F");
+        Vehicle vehicle = persistVehicle("7666FFF");
+        persistJob("Unassigned job", vehicle, null, JobStatus.PENDING);
+        entityManager.getEntityManager().clear();
+
+        Page<Job> result = jobRepository.search(
+                null, null, null, null, driver.getId(), null, null, null, null, null, PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).isEmpty();
+    }
+
+    @Test
+    void search_narrowsByStatus_whenProvided() {
+        Worker driver = persistDriver("76666666G");
+        Vehicle vehicle = persistVehicle("7777GGG");
+        Job match = persistJob("Job A", vehicle, driver, JobStatus.IN_PROGRESS);
+        persistJob("Job B", vehicle, driver, JobStatus.PENDING);
+        entityManager.getEntityManager().clear();
+
+        Page<Job> result = jobRepository.search(
+                null, null, null, null, null, JobStatus.IN_PROGRESS, null, null, null, null,
+                PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).extracting(Job::getId).containsExactly(match.getId());
+    }
+
+    @Test
+    void search_narrowsByActualStartRange_whenProvided() {
+        Worker driver = persistDriver("77777777H");
+        Vehicle vehicle = persistVehicle("7888HHH");
+        Job match = persistJobWithActualStart("Job A", vehicle, driver, Instant.parse("2026-01-15T00:00:00Z"));
+        persistJobWithActualStart("Job B", vehicle, driver, Instant.parse("2026-03-01T00:00:00Z"));
+        entityManager.getEntityManager().clear();
+
+        Page<Job> result = jobRepository.search(
+                null, null, null, null, null, null,
+                Instant.parse("2026-01-01T00:00:00Z"), Instant.parse("2026-01-31T23:59:59Z"), null, null,
+                PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).extracting(Job::getId).containsExactly(match.getId());
+    }
+
+    @Test
+    void search_narrowsByActualEndRange_whenProvided() {
+        Worker driver = persistDriver("78888888I");
+        Vehicle vehicle = persistVehicle("7999III");
+        Job match = persistJobWithActualEnd("Job A", vehicle, driver, Instant.parse("2026-01-15T00:00:00Z"));
+        persistJobWithActualEnd("Job B", vehicle, driver, Instant.parse("2026-03-01T00:00:00Z"));
+        entityManager.getEntityManager().clear();
+
+        Page<Job> result = jobRepository.search(
+                null, null, null, null, null, null, null, null,
+                Instant.parse("2026-01-01T00:00:00Z"), Instant.parse("2026-01-31T23:59:59Z"),
+                PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).extracting(Job::getId).containsExactly(match.getId());
+    }
+
+    @Test
+    void search_returnsAll_whenNoFiltersProvided() {
+        Worker driver = persistDriver("79999999J");
+        Vehicle vehicle = persistVehicle("7000JJJ");
+        persistJob("Job A", vehicle, driver, JobStatus.PENDING);
+        persistJob("Job B", vehicle, driver, JobStatus.IN_PROGRESS);
+        entityManager.getEntityManager().clear();
+
+        Page<Job> result = jobRepository.search(
+                null, null, null, null, null, null, null, null, null, null, PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).hasSize(2);
+    }
+
+    @Test
+    void search_ordersNotStartedFirst_thenMostRecentlyStartedFirst() {
+        Worker driver = persistDriver("70000000K");
+        Vehicle vehicle = persistVehicle("7100KKK");
+        Job notStarted = persistJobWithActualStart("Not started", vehicle, driver, null);
+        Job oldestStart = persistJobWithActualStart(
+                "Oldest start", vehicle, driver, Instant.parse("2026-01-01T00:00:00Z"));
+        Job newestStart = persistJobWithActualStart(
+                "Newest start", vehicle, driver, Instant.parse("2026-01-03T00:00:00Z"));
+        entityManager.getEntityManager().clear();
+
+        Page<Job> result = jobRepository.search(
+                null, null, null, null, null, null, null, null, null, null, PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).extracting(Job::getId).containsExactly(
+                notStarted.getId(), newestStart.getId(), oldestStart.getId());
+    }
+
     private Worker persistDriver(String nationalId) {
+        return persistDriver("Test", "Driver", nationalId);
+    }
+
+    private Worker persistDriver(String firstName, String lastName, String nationalId) {
         Worker worker = new Worker();
-        worker.setFirstName("Test");
-        worker.setLastName("Driver");
+        worker.setFirstName(firstName);
+        worker.setLastName(lastName);
         worker.setWorkerRole(WorkerRole.DRIVER);
         worker.setNationalId(nationalId);
         return entityManager.persistAndFlush(worker);
     }
 
     private Vehicle persistVehicle(String licensePlate) {
+        return persistVehicle(licensePlate, "Toyota", "Hilux");
+    }
+
+    private Vehicle persistVehicle(String licensePlate, String make, String model) {
         Vehicle vehicle = new Vehicle();
         vehicle.setVehicleCategory(VehicleCategory.LIGHT_VEHICLE);
         vehicle.setUsageMeasure(UsageMeasure.KILOMETERS);
-        vehicle.setMake("Toyota");
-        vehicle.setModel("Hilux");
+        vehicle.setMake(make);
+        vehicle.setModel(model);
         vehicle.setYear(2020);
         vehicle.setLicensePlate(licensePlate);
         return entityManager.persistAndFlush(vehicle);
@@ -173,6 +335,18 @@ class JobRepositoryTest {
         return entityManager.persistAndFlush(job);
     }
 
+    private Job persistJobWithRoute(String title, Vehicle vehicle, Worker driver,
+            String originLocation, String destinationLocation) {
+        Job job = new Job();
+        job.setTitle(title);
+        job.setVehicle(vehicle);
+        job.setAssignedDriver(driver);
+        job.setStatus(JobStatus.PENDING);
+        job.setOriginLocation(originLocation);
+        job.setDestinationLocation(destinationLocation);
+        return entityManager.persistAndFlush(job);
+    }
+
     private Job persistJobWithActualStart(String title, Vehicle vehicle, Worker driver, Instant actualStart) {
         Job job = new Job();
         job.setTitle(title);
@@ -182,6 +356,19 @@ class JobRepositoryTest {
         job.setOriginLocation("Origin");
         job.setDestinationLocation("Destination");
         job.setActualStart(actualStart);
+        return entityManager.persistAndFlush(job);
+    }
+
+    private Job persistJobWithActualEnd(String title, Vehicle vehicle, Worker driver, Instant actualEnd) {
+        Job job = new Job();
+        job.setTitle(title);
+        job.setVehicle(vehicle);
+        job.setAssignedDriver(driver);
+        job.setStatus(JobStatus.COMPLETED);
+        job.setOriginLocation("Origin");
+        job.setDestinationLocation("Destination");
+        job.setActualStart(actualEnd.minusSeconds(3600));
+        job.setActualEnd(actualEnd);
         return entityManager.persistAndFlush(job);
     }
 }

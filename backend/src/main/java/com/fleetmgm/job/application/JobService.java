@@ -63,15 +63,22 @@ public class JobService {
 
     @Transactional(readOnly = true)
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ADMINISTRATIVE', 'DRIVER')")
-    public PageResponse<JobResponse> list(Pageable pageable) {
+    public PageResponse<JobResponse> list(String title, String originLocation, String destinationLocation,
+            UUID vehicleId, UUID assignedDriverId, JobStatus status,
+            Instant actualStartFrom, Instant actualStartTo, Instant actualEndFrom, Instant actualEndTo,
+            Pageable pageable) {
         // The repository query's own ORDER BY (not-started-first, then most recently started) is the
         // whole point — a caller-supplied Sort would just get appended after it, so it's stripped
         // here rather than trusted from the controller.
         Pageable pageOnly = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
         if (isCurrentUserDriver()) {
+            // A driver only ever sees their own active jobs — filters are meaningless here and are
+            // intentionally not threaded into this branch (same rationale as WorkerService.list()).
             return listForCurrentDriver(pageOnly);
         }
-        return PageResponse.from(jobRepository.findAllJoinFetch(pageOnly).map(jobMapper::toResponse));
+        return PageResponse.from(jobRepository.search(title, originLocation, destinationLocation, vehicleId,
+                assignedDriverId, status, actualStartFrom, actualStartTo, actualEndFrom, actualEndTo, pageOnly)
+                .map(jobMapper::toResponse));
     }
 
     @Transactional
