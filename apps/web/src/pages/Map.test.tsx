@@ -2,9 +2,10 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import L from 'leaflet'
+import { http, HttpResponse } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAuthStore } from '@fleetmgm/store'
-import { resetGpsMock, resetVehiclesMock, SEED_GPS_POSITIONS } from '@/mocks/handlers'
+import { resetGpsMock, resetVehiclesMock, SEED_ASSIGNMENTS, SEED_GPS_POSITIONS } from '@/mocks/handlers'
 import { server } from '@/mocks/server'
 import { Map } from './Map'
 
@@ -63,7 +64,11 @@ describe('Map', () => {
     const popover = within(await screen.findByTestId('vehicle-popover'))
     expect(popover.getByText(firstPosition.licensePlate!)).toBeInTheDocument()
     expect(popover.getByText(`${firstPosition.vehicleMake} ${firstPosition.vehicleModel}`)).toBeInTheDocument()
-    expect(popover.getByText(`${Math.round(firstPosition.speed!)} km/h`)).toBeInTheDocument()
+    // Speed and its unit render as separate nodes (the number in a bold pill, "km/h" as a
+    // smaller suffix inside it) — assert on the pill's combined text content, not exact text.
+    expect(popover.getByText(String(Math.round(firstPosition.speed!))).textContent).toBe(
+      `${Math.round(firstPosition.speed!)}km/h`,
+    )
   })
 
   it('shows "make model" in the popover for a vehicle without a license plate', async () => {
@@ -79,6 +84,70 @@ describe('Map', () => {
     expect(
       popover.getByText(`${machineryPosition.vehicleMake} ${machineryPosition.vehicleModel}`),
     ).toBeInTheDocument()
+  })
+
+  it('shows the assigned driver\'s initials and name in the popover', async () => {
+    loginAsAdmin()
+    const user = userEvent.setup()
+    renderMap()
+
+    const position = SEED_GPS_POSITIONS[0]!
+    const assignment = SEED_ASSIGNMENTS.find(
+      (candidate) => candidate.vehicleId === position.vehicleId && candidate.active,
+    )!
+    const expectedInitials = assignment.driverName
+      .split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]!.toUpperCase())
+      .join('')
+
+    const marker = await screen.findByTestId(`vehicle-marker-${position.vehicleId}`)
+    await user.click(marker)
+
+    const popover = within(await screen.findByTestId('vehicle-popover'))
+    expect(await popover.findByText(assignment.driverName)).toBeInTheDocument()
+    expect(popover.getByText(expectedInitials)).toBeInTheDocument()
+  })
+
+  it('shows "Sin conductor asignado" when the vehicle has no active assignment', async () => {
+    loginAsAdmin()
+    const user = userEvent.setup()
+    const position = SEED_GPS_POSITIONS[0]!
+    server.use(
+      http.get('/api/v1/vehicles/:vehicleId/assignment', () => new HttpResponse(null, { status: 204 })),
+    )
+    renderMap()
+
+    const marker = await screen.findByTestId(`vehicle-marker-${position.vehicleId}`)
+    await user.click(marker)
+
+    const popover = within(await screen.findByTestId('vehicle-popover'))
+    expect(await popover.findByText('Sin conductor asignado')).toBeInTheDocument()
+  })
+
+  it('does not look up the vehicle assignment until its popup is opened', async () => {
+    loginAsAdmin()
+    const user = userEvent.setup()
+
+    const requestedPaths = new Set<string>()
+    server.events.on('request:start', ({ request }) => {
+      requestedPaths.add(new URL(request.url).pathname)
+    })
+
+    renderMap()
+
+    for (const position of SEED_GPS_POSITIONS) {
+      await screen.findByTestId(`vehicle-marker-${position.vehicleId}`)
+    }
+
+    const assignmentPath = `/api/v1/vehicles/${SEED_GPS_POSITIONS[0]!.vehicleId}/assignment`
+    expect(requestedPaths.has(assignmentPath)).toBe(false)
+
+    const marker = await screen.findByTestId(`vehicle-marker-${SEED_GPS_POSITIONS[0]!.vehicleId}`)
+    await user.click(marker)
+
+    await waitFor(() => expect(requestedPaths.has(assignmentPath)).toBe(true))
   })
 
   it('filters markers by vehicle category', async () => {
