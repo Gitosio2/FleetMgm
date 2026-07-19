@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useVehicleAssignment, useWorkers } from '@fleetmgm/hooks'
+import { useAllWorkers, useVehicleAssignment } from '@fleetmgm/hooks'
 import { Button } from '@/components/ui/button'
 import { AssignmentModal } from './AssignmentModal'
 import { AssignmentHistory } from './AssignmentHistory'
@@ -14,8 +14,8 @@ export function VehicleAssignmentPanel({ vehicleId, vehicleLabel, canManage }: V
   const [modalOpen, setModalOpen] = useState(false)
 
   const { data: assignment } = useVehicleAssignment(vehicleId)
-  const { data: workersPage } = useWorkers({}, 0, 100)
-  const drivers = (workersPage?.content ?? []).filter(
+  const { data: workers } = useAllWorkers()
+  const drivers = (workers ?? []).filter(
     (worker) => worker.workerRole === 'DRIVER' || worker.workerRole === 'BOTH',
   )
 

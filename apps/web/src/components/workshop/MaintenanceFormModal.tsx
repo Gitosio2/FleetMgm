@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import type { MaintenanceCategory, MaintenanceRecord, UpdateMaintenanceRequest } from '@fleetmgm/api'
-import { useUpdateMaintenance, useVehicles, useWorkers } from '@fleetmgm/hooks'
+import { useAllVehicles, useAllWorkers, useUpdateMaintenance } from '@fleetmgm/hooks'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -24,10 +24,10 @@ type MaintenanceFormModalProps = {
 export function MaintenanceFormModal({ open, onOpenChange, record }: MaintenanceFormModalProps) {
   const updateMaintenance = useUpdateMaintenance()
 
-  const { data: vehiclesPage } = useVehicles({}, 0, 100)
-  const { data: workersPage } = useWorkers({}, 0, 100)
+  const { data: vehicles = [] } = useAllVehicles()
+  const { data: workers = [] } = useAllWorkers()
 
-  const technicians = (workersPage?.content ?? []).filter(
+  const technicians = workers.filter(
     (worker) => worker.workerRole === 'TECHNICIAN' || worker.workerRole === 'BOTH',
   )
 
@@ -85,7 +85,7 @@ export function MaintenanceFormModal({ open, onOpenChange, record }: Maintenance
                 <option value="" disabled>
                   Seleccioná un vehículo
                 </option>
-                {(vehiclesPage?.content ?? []).map((vehicle) => (
+                {vehicles.map((vehicle) => (
                   <option key={vehicle.id} value={vehicle.id}>
                     {vehicle.make} {vehicle.model}
                     {vehicle.licensePlate ? ` - ${vehicle.licensePlate}` : ''}

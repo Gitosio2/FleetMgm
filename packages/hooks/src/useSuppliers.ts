@@ -39,3 +39,27 @@ export const useSupplier = supplierHooks.useDetail
 export const useCreateSupplier = supplierHooks.useCreate
 export const useUpdateSupplier = supplierHooks.useUpdate
 export const useDeleteSupplier = supplierHooks.useDelete
+
+// For populating a <select> that must offer every supplier, not just the first page — same
+// rationale as useAllVehicles in useVehicles.ts.
+export function useAllSuppliers(filters: SupplierFilters = {}) {
+  const { name, taxId } = filters
+
+  return useQuery({
+    queryKey: [SUPPLIER_KEY, 'all', filters],
+    queryFn: async () => {
+      const all: Supplier[] = []
+      let page = 0
+      let totalPages = 1
+      do {
+        const { data } = await apiClient.get<PageResponse<Supplier>>('/suppliers', {
+          params: { name, taxId, page, size: 200 },
+        })
+        all.push(...data.content)
+        totalPages = data.totalPages
+        page += 1
+      } while (page < totalPages)
+      return all
+    },
+  })
+}

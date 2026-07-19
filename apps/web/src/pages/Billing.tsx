@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { Invoice, InvoiceStatus } from '@fleetmgm/api'
-import { useClients, useInvoice, useInvoices } from '@fleetmgm/hooks'
+import { useAllClients, useInvoice, useInvoices } from '@fleetmgm/hooks'
 import { Button } from '@/components/ui/button'
 import { InvoiceTable } from '@/components/billing/InvoiceTable'
 import { InvoiceFormModal } from '@/components/billing/InvoiceFormModal'
@@ -22,7 +22,7 @@ export function Billing() {
   const [formOpen, setFormOpen] = useState(false)
   const [editingInvoiceId, setEditingInvoiceId] = useState<string | undefined>(undefined)
 
-  const { data: clientsPage } = useClients({}, 0, 100)
+  const { data: clients = [] } = useAllClients()
 
   const { data, isLoading, isError } = useInvoices(
     {
@@ -88,7 +88,7 @@ export function Billing() {
         onTotalMinChange={resetPageAnd(setTotalMin)}
         totalMax={totalMax}
         onTotalMaxChange={resetPageAnd(setTotalMax)}
-        clients={clientsPage?.content ?? []}
+        clients={clients}
       />
 
       {isLoading ? (

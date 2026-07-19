@@ -19,6 +19,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -56,7 +57,9 @@ class MaintenanceControllerTest {
     @Test
     void list_returns200_withPage() throws Exception {
         PageResponse<MaintenanceResponse> page = new PageResponse<>(List.of(sampleResponse()), 0, 20, 1, 1);
-        when(maintenanceService.list(any(), any(), any(), any(Pageable.class))).thenReturn(page);
+        when(maintenanceService.list(
+                any(), any(), any(), any(), any(), any(), any(), any(), any(), any(Pageable.class)))
+                .thenReturn(page);
 
         mockMvc.perform(get("/api/v1/maintenance"))
                 .andExpect(status().isOk())
@@ -67,12 +70,15 @@ class MaintenanceControllerTest {
     @Test
     void list_defaultsToNewestCreatedFirst() throws Exception {
         PageResponse<MaintenanceResponse> page = new PageResponse<>(List.of(sampleResponse()), 0, 20, 1, 1);
-        when(maintenanceService.list(any(), any(), any(), any(Pageable.class))).thenReturn(page);
+        when(maintenanceService.list(
+                any(), any(), any(), any(), any(), any(), any(), any(), any(), any(Pageable.class)))
+                .thenReturn(page);
 
         mockMvc.perform(get("/api/v1/maintenance")).andExpect(status().isOk());
 
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
-        verify(maintenanceService).list(any(), any(), any(), pageableCaptor.capture());
+        verify(maintenanceService).list(
+                any(), any(), any(), any(), any(), any(), any(), any(), any(), pageableCaptor.capture());
         Sort.Order order = pageableCaptor.getValue().getSort().getOrderFor("createdAt");
         assertThat(order.getDirection()).isEqualTo(Sort.Direction.DESC);
     }
@@ -80,12 +86,34 @@ class MaintenanceControllerTest {
     @Test
     void list_forwardsVehicleIdYearAndMonthQueryParams() throws Exception {
         PageResponse<MaintenanceResponse> page = new PageResponse<>(List.of(sampleResponse()), 0, 20, 1, 1);
-        when(maintenanceService.list(eq(VEHICLE_ID), eq(2026), eq(7), any(Pageable.class))).thenReturn(page);
+        when(maintenanceService.list(
+                eq(VEHICLE_ID), eq(2026), eq(7), any(), any(), any(), any(), any(), any(), any(Pageable.class)))
+                .thenReturn(page);
 
         mockMvc.perform(get("/api/v1/maintenance")
                         .param("vehicleId", VEHICLE_ID.toString())
                         .param("year", "2026")
                         .param("month", "7"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    @Test
+    void list_forwardsTypeCategoryStatusTechnicianAndCostQueryParams() throws Exception {
+        PageResponse<MaintenanceResponse> page = new PageResponse<>(List.of(sampleResponse()), 0, 20, 1, 1);
+        UUID technicianId = UUID.randomUUID();
+        when(maintenanceService.list(any(), any(), any(), eq("Oil change"), eq(MaintenanceCategory.CORRECTIVE),
+                eq(MaintenanceStatus.IN_PROGRESS), eq(technicianId), eq(new BigDecimal("50.00")),
+                eq(new BigDecimal("150.00")), any(Pageable.class)))
+                .thenReturn(page);
+
+        mockMvc.perform(get("/api/v1/maintenance")
+                        .param("type", "Oil change")
+                        .param("category", "CORRECTIVE")
+                        .param("status", "IN_PROGRESS")
+                        .param("technicianId", technicianId.toString())
+                        .param("costFrom", "50.00")
+                        .param("costTo", "150.00"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(1));
     }

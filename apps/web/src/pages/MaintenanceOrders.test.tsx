@@ -4,7 +4,14 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { http, HttpResponse } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useAuthStore } from '@fleetmgm/store'
-import { resetMaintenanceMock, resetVehiclesMock, resetWorkersMock, resetWorkshopSchedulesMock, SEED_VEHICLES } from '@/mocks/handlers'
+import {
+  resetMaintenanceMock,
+  resetVehiclesMock,
+  resetWorkersMock,
+  resetWorkshopSchedulesMock,
+  SEED_VEHICLES,
+  SEED_WORKERS,
+} from '@/mocks/handlers'
 import { server } from '@/mocks/server'
 import { MaintenanceOrders } from './MaintenanceOrders'
 
@@ -87,11 +94,12 @@ describe('MaintenanceOrders', () => {
     const row = (await screen.findByText('Cambio de aceite y filtro')).closest('tr')!
     await user.click(within(row).getByRole('button', { name: /editar orden/i }))
 
-    expect(await screen.findByRole('heading', { name: 'Editar orden' })).toBeInTheDocument()
-    expect(screen.getByLabelText(/tipo/i)).toHaveValue('Cambio de aceite y filtro')
+    const dialog = await screen.findByRole('dialog')
+    expect(await within(dialog).findByRole('heading', { name: 'Editar orden' })).toBeInTheDocument()
+    expect(within(dialog).getByLabelText(/tipo/i)).toHaveValue('Cambio de aceite y filtro')
 
-    await user.clear(screen.getByLabelText(/tipo/i))
-    await user.type(screen.getByLabelText(/tipo/i), 'Cambio de aceite sintético')
+    await user.clear(within(dialog).getByLabelText(/tipo/i))
+    await user.type(within(dialog).getByLabelText(/tipo/i), 'Cambio de aceite sintético')
 
     await user.click(screen.getByRole('button', { name: /guardar cambios/i }))
 
@@ -202,6 +210,98 @@ describe('MaintenanceOrders', () => {
     expect(screen.getByRole('button', { name: /siguiente/i })).toBeDisabled()
   })
 
+  it('narrows the maintenance list with the vehicle filter', async () => {
+    loginAs('ADMIN')
+    const user = userEvent.setup()
+    renderMaintenanceOrders()
+
+    await screen.findByText('Cambio de aceite y filtro')
+
+    const [, heavyMachinery] = SEED_VEHICLES
+    await user.selectOptions(screen.getByLabelText(/filtrar por vehículo/i), heavyMachinery!.id)
+
+    await waitFor(() => {
+      expect(screen.getByText('Cambio de filtro')).toBeInTheDocument()
+    })
+    expect(screen.queryByText('Cambio de aceite y filtro')).not.toBeInTheDocument()
+  })
+
+  it('narrows the maintenance list with the type filter', async () => {
+    loginAs('ADMIN')
+    const user = userEvent.setup()
+    renderMaintenanceOrders()
+
+    await screen.findByText('Cambio de aceite y filtro')
+
+    await user.type(screen.getByLabelText(/buscar por tipo/i), 'pastillas')
+
+    await waitFor(() => {
+      expect(screen.getByText('Cambio de pastillas de freno')).toBeInTheDocument()
+    })
+    expect(screen.queryByText('Cambio de aceite y filtro')).not.toBeInTheDocument()
+  })
+
+  it('narrows the maintenance list with the category filter', async () => {
+    loginAs('ADMIN')
+    const user = userEvent.setup()
+    renderMaintenanceOrders()
+
+    await screen.findByText('Cambio de pastillas de freno')
+
+    await user.selectOptions(screen.getByLabelText(/filtrar por categoría/i), 'CORRECTIVE')
+
+    await waitFor(() => {
+      expect(screen.getByText('Cambio de pastillas de freno')).toBeInTheDocument()
+    })
+    expect(screen.queryByText('Cambio de aceite y filtro')).not.toBeInTheDocument()
+  })
+
+  it('narrows the maintenance list with the status filter', async () => {
+    loginAs('ADMIN')
+    const user = userEvent.setup()
+    renderMaintenanceOrders()
+
+    await screen.findByText('Cambio de filtro')
+
+    await user.selectOptions(screen.getByLabelText(/filtrar por estado/i), 'COMPLETED')
+
+    await waitFor(() => {
+      expect(screen.getByText('Cambio de filtro')).toBeInTheDocument()
+    })
+    expect(screen.queryByText('Cambio de aceite y filtro')).not.toBeInTheDocument()
+  })
+
+  it('narrows the maintenance list with the technician filter', async () => {
+    loginAs('ADMIN')
+    const user = userEvent.setup()
+    renderMaintenanceOrders()
+
+    await screen.findByText('Cambio de filtro')
+
+    await user.selectOptions(screen.getByLabelText(/filtrar por técnico/i), SEED_WORKERS[1]!.id)
+
+    await waitFor(() => {
+      expect(screen.getByText('Cambio de aceite y filtro')).toBeInTheDocument()
+    })
+    expect(screen.queryByText('Cambio de filtro')).not.toBeInTheDocument()
+  })
+
+  it('narrows the maintenance list with the cost range filter', async () => {
+    loginAs('ADMIN')
+    const user = userEvent.setup()
+    renderMaintenanceOrders()
+
+    await screen.findByText('Cambio de aceite y filtro')
+
+    await user.type(screen.getByLabelText(/importe desde/i), '50')
+    await user.type(screen.getByLabelText(/importe hasta/i), '100')
+
+    await waitFor(() => {
+      expect(screen.getByText('Cambio de filtro')).toBeInTheDocument()
+    })
+    expect(screen.queryByText('Cambio de aceite y filtro')).not.toBeInTheDocument()
+  })
+
   it('shows an error message when the maintenance query fails', async () => {
     loginAs('ADMIN')
     server.use(
@@ -221,5 +321,40 @@ describe('MaintenanceOrders', () => {
 
     expect(await screen.findByText('No se pudieron cargar los datos.')).toBeInTheDocument()
     expect(screen.queryByText('Cambio de aceite y filtro')).not.toBeInTheDocument()
+  })
+
+  it('offers a technician from beyond the first page in the technician filter select', async () => {
+    loginAs('ADMIN')
+    server.use(
+      http.get('/api/v1/workers', ({ request }) => {
+        const page = Number(new URL(request.url).searchParams.get('page') ?? 0)
+        // Two pages regardless of the requested size — forces useAllWorkers' page loop to run more
+        // than once, proving it doesn't stop after the first page (the bug this test guards
+        // against: a plain `useWorkers({}, 0, 100)` silently dropped everything past page 0).
+        const record = {
+          id: page === 0 ? 'worker-page-0' : 'worker-page-1',
+          firstName: 'Beyond',
+          lastName: page === 0 ? 'PageZero' : 'FirstPage',
+          fullName: page === 0 ? 'Beyond PageZero' : 'Beyond FirstPage',
+          workerRole: 'TECHNICIAN',
+          nationalId: `NID-page-${page}`,
+          phone: null,
+          licenseType: null,
+          licenseExpiry: null,
+          userId: null,
+          createdAt: '2026-01-01T09:00:00Z',
+        }
+        return HttpResponse.json({ content: [record], page, size: 200, totalElements: 2, totalPages: 2 })
+      }),
+    )
+    renderMaintenanceOrders()
+
+    await screen.findByText('Cambio de aceite y filtro')
+
+    expect(
+      await within(screen.getByLabelText(/filtrar por técnico/i)).findByRole('option', {
+        name: 'Beyond FirstPage',
+      }),
+    ).toBeInTheDocument()
   })
 })

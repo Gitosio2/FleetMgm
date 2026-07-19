@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Pencil, Trash2 } from 'lucide-react'
 import type { SupplierInvoice, SupplierLineItemResponse } from '@fleetmgm/api'
-import { useAddSupplierLineItem, useDeleteSupplierLineItem, useUpdateSupplierLineItem, useVehicles } from '@fleetmgm/hooks'
+import { useAddSupplierLineItem, useAllVehicles, useDeleteSupplierLineItem, useUpdateSupplierLineItem } from '@fleetmgm/hooks'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,11 +32,11 @@ type SupplierInvoiceLineItemListProps = {
 type EditLineItemFormProps = {
   invoiceId: string
   lineItem: SupplierLineItemResponse
-  vehiclesPage: { content: { id: string; make: string; model: string; licensePlate: string | null }[] } | undefined
+  vehicles: { id: string; make: string; model: string; licensePlate: string | null }[]
   onDone: () => void
 }
 
-function EditLineItemRow({ invoiceId, lineItem, vehiclesPage, onDone }: EditLineItemFormProps) {
+function EditLineItemRow({ invoiceId, lineItem, vehicles, onDone }: EditLineItemFormProps) {
   const updateLineItem = useUpdateSupplierLineItem()
 
   const [vehicleId, setVehicleId] = useState(lineItem.vehicleId ?? '')
@@ -77,7 +77,7 @@ function EditLineItemRow({ invoiceId, lineItem, vehiclesPage, onDone }: EditLine
           <option value="" disabled>
             Selecciona un vehículo
           </option>
-          {(vehiclesPage?.content ?? []).map((vehicle) => (
+          {vehicles.map((vehicle) => (
             <option key={vehicle.id} value={vehicle.id}>
               {vehicle.make} {vehicle.model}
               {vehicle.licensePlate ? ` - ${vehicle.licensePlate}` : ''}
@@ -130,7 +130,7 @@ function EditLineItemRow({ invoiceId, lineItem, vehiclesPage, onDone }: EditLine
 export function SupplierInvoiceLineItemList({ supplierInvoice }: SupplierInvoiceLineItemListProps) {
   const addLineItem = useAddSupplierLineItem()
   const deleteLineItem = useDeleteSupplierLineItem()
-  const { data: vehiclesPage } = useVehicles({}, 0, 100)
+  const { data: vehicles = [] } = useAllVehicles()
 
   const [vehicleId, setVehicleId] = useState('')
   const [description, setDescription] = useState('')
@@ -147,7 +147,7 @@ export function SupplierInvoiceLineItemList({ supplierInvoice }: SupplierInvoice
     if (id == null) {
       return '—'
     }
-    const vehicle = (vehiclesPage?.content ?? []).find((v) => v.id === id)
+    const vehicle = vehicles.find((v) => v.id === id)
     if (!vehicle) {
       return '—'
     }
@@ -210,7 +210,7 @@ export function SupplierInvoiceLineItemList({ supplierInvoice }: SupplierInvoice
                   key={lineItem.id}
                   invoiceId={supplierInvoice.id}
                   lineItem={lineItem}
-                  vehiclesPage={vehiclesPage}
+                  vehicles={vehicles}
                   onDone={() => setEditingLineItemId(null)}
                 />
               ) : (
@@ -288,7 +288,7 @@ export function SupplierInvoiceLineItemList({ supplierInvoice }: SupplierInvoice
               <option value="" disabled>
                 Selecciona un vehículo
               </option>
-              {(vehiclesPage?.content ?? []).map((vehicle) => (
+              {vehicles.map((vehicle) => (
                 <option key={vehicle.id} value={vehicle.id}>
                   {vehicle.make} {vehicle.model}
                   {vehicle.licensePlate ? ` - ${vehicle.licensePlate}` : ''}

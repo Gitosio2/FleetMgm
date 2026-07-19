@@ -2,6 +2,8 @@ package com.fleetmgm.workshop.api;
 
 import com.fleetmgm.shared.PageResponse;
 import com.fleetmgm.workshop.application.MaintenanceService;
+import com.fleetmgm.workshop.domain.MaintenanceCategory;
+import com.fleetmgm.workshop.domain.MaintenanceStatus;
 import com.fleetmgm.workshop.dto.CompleteMaintenanceRequest;
 import com.fleetmgm.workshop.dto.CreateMaintenanceRequest;
 import com.fleetmgm.workshop.dto.MaintenanceResponse;
@@ -15,6 +17,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import java.math.BigDecimal;
 import java.net.URI;
 import java.util.UUID;
 
@@ -33,8 +36,15 @@ public class MaintenanceController {
             @RequestParam(required = false) UUID vehicleId,
             @RequestParam(required = false) Integer year,
             @RequestParam(required = false) Integer month,
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false) MaintenanceCategory category,
+            @RequestParam(required = false) MaintenanceStatus status,
+            @RequestParam(required = false) UUID technicianId,
+            @RequestParam(required = false) BigDecimal costFrom,
+            @RequestParam(required = false) BigDecimal costTo,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-        return ResponseEntity.ok(maintenanceService.list(vehicleId, year, month, pageable));
+        return ResponseEntity.ok(maintenanceService.list(vehicleId, year, month, type, category, status,
+                technicianId, costFrom, costTo, pageable));
     }
 
     @PostMapping

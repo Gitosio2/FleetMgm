@@ -39,3 +39,27 @@ export const useClient = clientHooks.useDetail
 export const useCreateClient = clientHooks.useCreate
 export const useUpdateClient = clientHooks.useUpdate
 export const useDeleteClient = clientHooks.useDelete
+
+// For populating a <select> that must offer every client, not just the first page — same
+// rationale as useAllVehicles in useVehicles.ts.
+export function useAllClients(filters: ClientFilters = {}) {
+  const { name, taxId } = filters
+
+  return useQuery({
+    queryKey: [CLIENT_KEY, 'all', filters],
+    queryFn: async () => {
+      const all: Client[] = []
+      let page = 0
+      let totalPages = 1
+      do {
+        const { data } = await apiClient.get<PageResponse<Client>>('/clients', {
+          params: { name, taxId, page, size: 200 },
+        })
+        all.push(...data.content)
+        totalPages = data.totalPages
+        page += 1
+      } while (page < totalPages)
+      return all
+    },
+  })
+}

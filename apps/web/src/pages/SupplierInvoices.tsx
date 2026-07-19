@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { ExpenseCategory, SupplierInvoice, SupplierInvoiceStatus } from '@fleetmgm/api'
-import { useSupplierInvoices, useSuppliers, useVehicles } from '@fleetmgm/hooks'
+import { useAllSuppliers, useAllVehicles, useSupplierInvoices } from '@fleetmgm/hooks'
 import { Button } from '@/components/ui/button'
 import { SupplierInvoiceTable } from '@/components/billing/SupplierInvoiceTable'
 import { SupplierInvoiceFormModal } from '@/components/billing/SupplierInvoiceFormModal'
@@ -24,8 +24,8 @@ export function SupplierInvoices() {
   const [formOpen, setFormOpen] = useState(false)
   const [editingInvoiceId, setEditingInvoiceId] = useState<string | undefined>(undefined)
 
-  const { data: suppliersPage } = useSuppliers({}, 0, 100)
-  const { data: vehiclesPage } = useVehicles({}, 0, 100)
+  const { data: suppliers = [] } = useAllSuppliers()
+  const { data: vehicles = [] } = useAllVehicles()
 
   const { data, isLoading, isError } = useSupplierInvoices(
     {
@@ -92,8 +92,8 @@ export function SupplierInvoices() {
         onTotalMinChange={resetPageAnd(setTotalMin)}
         totalMax={totalMax}
         onTotalMaxChange={resetPageAnd(setTotalMax)}
-        suppliers={suppliersPage?.content ?? []}
-        vehicles={vehiclesPage?.content ?? []}
+        suppliers={suppliers}
+        vehicles={vehicles}
       />
 
       {isLoading ? (

@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import type { CreateSupplierInvoiceRequest, ExpenseCategory, SupplierInvoice } from '@fleetmgm/api'
-import { useCreateSupplierInvoice, useSuppliers, useUpdateSupplierInvoice, useVehicles } from '@fleetmgm/hooks'
+import { useAllSuppliers, useAllVehicles, useCreateSupplierInvoice, useUpdateSupplierInvoice } from '@fleetmgm/hooks'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -26,9 +26,8 @@ export function SupplierInvoiceFormModal({ open, onOpenChange, supplierInvoice }
   const createSupplierInvoice = useCreateSupplierInvoice()
   const updateSupplierInvoice = useUpdateSupplierInvoice()
 
-  const { data: vehiclesPage } = useVehicles({}, 0, 100)
-  const { data: suppliersPage } = useSuppliers({}, 0, 100)
-  const suppliersList = suppliersPage?.content ?? []
+  const { data: vehicles } = useAllVehicles()
+  const { data: suppliersList = [] } = useAllSuppliers()
 
   const [supplierId, setSupplierId] = useState('')
   const [supplierInvoiceNumber, setSupplierInvoiceNumber] = useState('')
@@ -47,7 +46,7 @@ export function SupplierInvoiceFormModal({ open, onOpenChange, supplierInvoice }
     }
     // supplierId is a mandatory FK (no "sin seleccionar" option) — when creating, default to the
     // first available supplier so the required <select> always starts on a valid selection.
-    setSupplierId(supplierInvoice?.supplierId ?? suppliersPage?.content[0]?.id ?? '')
+    setSupplierId(supplierInvoice?.supplierId ?? suppliersList[0]?.id ?? '')
     setSupplierInvoiceNumber(supplierInvoice?.supplierInvoiceNumber ?? '')
     setCategory(supplierInvoice?.category ?? 'OTHER')
     setVehicleId(supplierInvoice?.vehicleId ?? '')
@@ -57,7 +56,7 @@ export function SupplierInvoiceFormModal({ open, onOpenChange, supplierInvoice }
     setTaxAmount(supplierInvoice ? String(supplierInvoice.taxAmount) : '')
     setTotal(supplierInvoice ? String(supplierInvoice.total) : '')
     setNotes(supplierInvoice?.notes ?? '')
-  }, [open, supplierInvoice, suppliersPage])
+  }, [open, supplierInvoice, suppliersList])
 
   const isPending = createSupplierInvoice.isPending || updateSupplierInvoice.isPending
   // A PAID invoice is immutable — the backend already rejects update()/addLineItem() with 409
@@ -198,7 +197,7 @@ export function SupplierInvoiceFormModal({ open, onOpenChange, supplierInvoice }
                 disabled={isReadOnly || hasLineItems}
               >
                 <option value="">Sin vehículo asociado</option>
-                {(vehiclesPage?.content ?? []).map((vehicle) => (
+                {(vehicles ?? []).map((vehicle) => (
                   <option key={vehicle.id} value={vehicle.id}>
                     {vehicle.make} {vehicle.model}
                     {vehicle.licensePlate ? ` - ${vehicle.licensePlate}` : ''}

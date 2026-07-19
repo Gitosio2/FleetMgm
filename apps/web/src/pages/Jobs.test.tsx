@@ -411,4 +411,48 @@ describe('Jobs', () => {
     expect(await screen.findByText('No se pudieron cargar los datos.')).toBeInTheDocument()
     expect(screen.queryByText('Entrega urgente')).not.toBeInTheDocument()
   })
+
+  it('offers a vehicle from beyond the first page in the vehicle filter select', async () => {
+    loginAs('ADMIN')
+    server.use(
+      http.get('/api/v1/vehicles', ({ request }) => {
+        const page = Number(new URL(request.url).searchParams.get('page') ?? 0)
+        // Two pages regardless of the requested size — forces useAllVehicles' page loop to run
+        // more than once, proving it doesn't stop after the first page (the bug this test guards
+        // against: a plain `useVehicles({}, 0, 100)` silently dropped everything past page 0).
+        const record = {
+          id: page === 0 ? 'vehicle-page-0' : 'vehicle-page-1',
+          vehicleCategory: 'LIGHT_VEHICLE',
+          usageMeasure: 'KILOMETERS',
+          make: 'Nissan',
+          model: page === 0 ? 'Navara' : 'Beyond First Page',
+          year: 2021,
+          licensePlate: page === 0 ? '0000AAA' : '9999ZZZ',
+          heavySubtype: null,
+          vin: `VIN-page-${page}`,
+          color: 'Blue',
+          status: 'ACTIVE',
+          currentKm: 1000,
+          currentHours: null,
+          acquisitionType: 'PURCHASED',
+          acquisitionDate: '2021-01-01',
+          purchasePrice: 20000,
+          amortizationYears: 5,
+          monthlyFee: null,
+          contractEndDate: null,
+          createdAt: '2026-01-01T09:00:00Z',
+        }
+        return HttpResponse.json({ content: [record], page, size: 200, totalElements: 2, totalPages: 2 })
+      }),
+    )
+    renderJobs()
+
+    await screen.findByText('Entrega urgente')
+
+    expect(
+      await within(screen.getByLabelText(/filtrar por vehículo/i)).findByRole('option', {
+        name: /9999ZZZ/,
+      }),
+    ).toBeInTheDocument()
+  })
 })
