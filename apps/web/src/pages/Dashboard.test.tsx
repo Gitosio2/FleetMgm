@@ -108,6 +108,8 @@ describe('Dashboard', () => {
     expect(summaryCard.textContent).toContain(formatCurrency(SEED_FINANCIAL_SUMMARY.monthlyRevenue))
     expect(summaryCard.textContent).toContain('Gastos')
     expect(summaryCard.textContent).toContain(formatCurrency(SEED_FINANCIAL_SUMMARY.monthlyCosts))
+    expect(summaryCard.textContent).toContain('Cobros')
+    expect(summaryCard.textContent).toContain(formatCurrency(SEED_FINANCIAL_SUMMARY.monthlyCollections))
 
     expect(screen.getByText('Facturas por cobrar')).toBeInTheDocument()
     expect(screen.getByText('Facturas por pagar')).toBeInTheDocument()
@@ -122,14 +124,19 @@ describe('Dashboard', () => {
     expect(notOverdueRow.textContent).not.toContain('Vencida')
   })
 
-  it('shows the monthly cash collections in a dedicated "Cobros del mes" card', async () => {
+  it('explains what each figure counts when the "Resumen del mes" info icon is focused', async () => {
     loginAs('ADMIN')
     renderDashboard()
 
-    await screen.findByText('Cobros del mes')
+    await screen.findByText('Resumen del mes')
+    const infoTrigger = screen.getByRole('button', { name: /qué se cuenta en este resumen/i })
+    // Focus (not hover) opens the tooltip immediately in Radix — no artificial delay to wait out.
+    infoTrigger.focus()
 
-    const collectionsCard = cardByTitle('Cobros del mes')
-    expect(collectionsCard.textContent).toContain(formatCurrency(SEED_FINANCIAL_SUMMARY.monthlyCollections))
+    // Radix renders the tooltip content twice (a positioned copy plus a visually-hidden
+    // accessibility copy) — at least one match confirms the explanation is shown.
+    const matches = await screen.findAllByText(/facturas a clientes emitidas este mes/i)
+    expect(matches.length).toBeGreaterThan(0)
   })
 
   it('refetches the financial summary after an invoice is issued elsewhere in the app', async () => {

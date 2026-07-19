@@ -1,5 +1,7 @@
+import { Info } from 'lucide-react'
 import type { FinancialSummary as FinancialSummaryData, UpcomingInvoice } from '@fleetmgm/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { ClientInfoLink } from '@/components/client/ClientInfoLink'
 import { SupplierInfoLink } from '@/components/supplier/SupplierInfoLink'
 import { InvoiceInfoLink } from '@/components/billing/InvoiceInfoLink'
@@ -105,7 +107,36 @@ export function FinancialSummary({ summary }: FinancialSummaryProps) {
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm font-medium text-on-surface-variant">Resumen del mes</CardTitle>
+          <CardTitle className="flex items-center gap-1.5 text-sm font-medium text-on-surface-variant">
+            Resumen del mes
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger
+                  type="button"
+                  aria-label="Qué se cuenta en este resumen"
+                  className="text-on-surface-variant hover:text-on-surface"
+                >
+                  <Info className="size-3.5" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>
+                    <strong>Ingresos:</strong> facturas a clientes emitidas este mes (por fecha de emisión), en
+                    cualquier estado salvo anuladas.
+                  </p>
+                  <p className="mt-1.5">
+                    <strong>Gastos:</strong> mantenimientos y facturas de proveedores de este mes.
+                  </p>
+                  <p className="mt-1.5">
+                    <strong>Cobros:</strong> facturas a clientes pagadas este mes (por fecha de pago), sea cual sea
+                    el mes en que se emitieron.
+                  </p>
+                  <p className="mt-1.5">
+                    <strong>Beneficio:</strong> ingresos − gastos de este mes, comparado con el del mes anterior.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col gap-2">
@@ -116,6 +147,10 @@ export function FinancialSummary({ summary }: FinancialSummaryProps) {
             <div className="flex items-center justify-between text-sm">
               <span className="text-on-surface-variant">Gastos</span>
               <span className="font-medium">{formatCurrency(summary.monthlyCosts)}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-on-surface-variant">Cobros</span>
+              <span className="font-medium">{formatCurrency(summary.monthlyCollections)}</span>
             </div>
             <div className="flex items-center justify-between border-t border-outline-variant pt-2 text-sm">
               <span className="text-on-surface-variant">Beneficio vs. mes anterior</span>
@@ -139,15 +174,6 @@ export function FinancialSummary({ summary }: FinancialSummaryProps) {
         invoices={summary.upcomingPayables}
         counterpartyType="SUPPLIER"
       />
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm font-medium text-on-surface-variant">Cobros del mes</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-3xl font-semibold">{formatCurrency(summary.monthlyCollections)}</p>
-        </CardContent>
-      </Card>
     </div>
   )
 }
