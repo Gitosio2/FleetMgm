@@ -127,8 +127,8 @@ export function FinancialSummary({ summary }: FinancialSummaryProps) {
                     <strong>Gastos:</strong> mantenimientos y facturas de proveedores de este mes.
                   </p>
                   <p className="mt-1.5">
-                    <strong>Cobros:</strong> de esas facturas a clientes, lo que ya se ha pagado este mes (por
-                    fecha de pago).
+                    <strong>Cobros:</strong> facturas a clientes pagadas este mes (por fecha de pago), sea cual sea
+                    el mes en que se emitieron.
                   </p>
                   <p className="mt-1.5">
                     <strong>Beneficio:</strong> ingresos − gastos de este mes, comparado con el del mes anterior.
