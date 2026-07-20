@@ -95,7 +95,7 @@ export function WorkerFormModal({ open, onOpenChange, worker }: WorkerFormModalP
         </DialogHeader>
 
         <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="worker-first-name">Nombre</Label>
               <Input
@@ -116,7 +116,7 @@ export function WorkerFormModal({ open, onOpenChange, worker }: WorkerFormModalP
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="worker-role">Rol</Label>
               <select
@@ -144,7 +144,7 @@ export function WorkerFormModal({ open, onOpenChange, worker }: WorkerFormModalP
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="worker-phone">Teléfono</Label>
               <Input id="worker-phone" value={phone} onChange={(e) => setPhone(e.target.value)} />

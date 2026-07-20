@@ -185,7 +185,7 @@ export function VehicleProfitabilityPanel({ vehicleId, vehicleLabel }: VehiclePr
           </div>
 
           <h2 className="font-display text-lg font-semibold">Totales</h2>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
             <Card>
               <CardHeader className="p-3 pb-0">
                 <CardTitle className="text-xs font-medium text-on-surface-variant">Ingresos</CardTitle>

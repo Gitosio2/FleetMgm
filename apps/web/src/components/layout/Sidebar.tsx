@@ -5,7 +5,12 @@ import { cn } from '@/lib/utils'
 import { NAV_ITEMS } from './nav-items'
 import { ThemeToggle } from './ThemeToggle'
 
-export function Sidebar() {
+type SidebarProps = {
+  className?: string
+  onNavigate?: () => void
+}
+
+export function Sidebar({ className, onNavigate }: SidebarProps = {}) {
   const role = useAuthStore((state) => state.role)
 
   const visibleItems = NAV_ITEMS.filter(
@@ -13,7 +18,12 @@ export function Sidebar() {
   )
 
   return (
-    <nav className="flex h-screen w-64 shrink-0 flex-col border-r border-outline-variant/40 bg-surface-container-lowest">
+    <nav
+      className={cn(
+        'flex h-screen w-64 shrink-0 flex-col border-r border-outline-variant/40 bg-surface-container-lowest',
+        className,
+      )}
+    >
       <div className="flex items-center gap-2 px-6 py-6">
         <span className="flex size-9 items-center justify-center rounded-lg bg-primary-container text-primary">
           <Truck className="size-5" />
@@ -30,6 +40,7 @@ export function Sidebar() {
             <NavLink
               to={to}
               end={to === '/'}
+              onClick={onNavigate}
               className={({ isActive }) =>
                 cn(
                   'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-on-surface-variant transition-colors hover:bg-surface-container-high',

@@ -136,7 +136,7 @@ export function VehicleFormModal({ open, onOpenChange, vehicle }: VehicleFormMod
         </DialogHeader>
 
         <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="vehicle-category">Categoría</Label>
               <select
@@ -170,7 +170,7 @@ export function VehicleFormModal({ open, onOpenChange, vehicle }: VehicleFormMod
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="vehicle-make">Marca</Label>
               <Input id="vehicle-make" value={make} onChange={(e) => setMake(e.target.value)} required />
@@ -181,7 +181,7 @@ export function VehicleFormModal({ open, onOpenChange, vehicle }: VehicleFormMod
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="vehicle-year">Año</Label>
               <Input
@@ -202,7 +202,7 @@ export function VehicleFormModal({ open, onOpenChange, vehicle }: VehicleFormMod
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="vehicle-heavy-subtype">Subtipo pesado</Label>
               <Input
@@ -217,7 +217,7 @@ export function VehicleFormModal({ open, onOpenChange, vehicle }: VehicleFormMod
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="vehicle-color">Color</Label>
               <Input id="vehicle-color" value={color} onChange={(e) => setColor(e.target.value)} />
@@ -240,7 +240,7 @@ export function VehicleFormModal({ open, onOpenChange, vehicle }: VehicleFormMod
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="vehicle-current-km">Km actuales</Label>
               <Input
@@ -261,7 +261,7 @@ export function VehicleFormModal({ open, onOpenChange, vehicle }: VehicleFormMod
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="vehicle-acquisition-date">Fecha de adquisición</Label>
               <Input
@@ -282,7 +282,7 @@ export function VehicleFormModal({ open, onOpenChange, vehicle }: VehicleFormMod
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="vehicle-purchase-price">Precio de compra</Label>
               <Input
