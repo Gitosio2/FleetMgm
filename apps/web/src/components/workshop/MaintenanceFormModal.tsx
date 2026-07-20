@@ -66,115 +66,118 @@ export function MaintenanceFormModal({ open, onOpenChange, record }: Maintenance
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Editar orden</DialogTitle>
         </DialogHeader>
 
-        <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="maintenance-vehicle">Vehículo</Label>
-              <select
-                id="maintenance-vehicle"
-                className={selectClassName}
-                value={vehicleId}
-                onChange={(e) => setVehicleId(e.target.value)}
-                required
-              >
-                <option value="" disabled>
-                  Seleccioná un vehículo
-                </option>
-                {vehicles.map((vehicle) => (
-                  <option key={vehicle.id} value={vehicle.id}>
-                    {vehicle.make} {vehicle.model}
-                    {vehicle.licensePlate ? ` - ${vehicle.licensePlate}` : ''}
+        <div className="flex-1 overflow-y-auto px-6">
+          <form id="maintenance-form" className="flex flex-col gap-4" onSubmit={handleSubmit}>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="maintenance-vehicle">Vehículo</Label>
+                <select
+                  id="maintenance-vehicle"
+                  className={selectClassName}
+                  value={vehicleId}
+                  onChange={(e) => setVehicleId(e.target.value)}
+                  required
+                >
+                  <option value="" disabled>
+                    Seleccioná un vehículo
                   </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="maintenance-technician">Técnico</Label>
-              <select
-                id="maintenance-technician"
-                className={selectClassName}
-                value={technicianId}
-                onChange={(e) => setTechnicianId(e.target.value)}
-              >
-                <option value="">Sin asignar</option>
-                {technicians.map((technician) => (
-                  <option key={technician.id} value={technician.id}>
-                    {technician.fullName}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="maintenance-type">Tipo</Label>
-              <Input id="maintenance-type" value={type} onChange={(e) => setType(e.target.value)} required />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="maintenance-category">Categoría</Label>
-              <select
-                id="maintenance-category"
-                className={selectClassName}
-                value={category}
-                onChange={(e) => setCategory(e.target.value as MaintenanceCategory)}
-                required
-              >
-                {(Object.keys(CATEGORY_LABEL) as MaintenanceCategory[]).map((value) => (
-                  <option key={value} value={value}>
-                    {CATEGORY_LABEL[value]}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="maintenance-description">Descripción</Label>
-              <Input
-                id="maintenance-description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="maintenance-cost">Coste</Label>
-              <div className="relative">
-                <Input
-                  id="maintenance-cost"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  className="pr-8"
-                  value={cost}
-                  onChange={(e) => setCost(e.target.value)}
-                  onBlur={() => setCost((current) => (current === '' ? current : Number(current).toFixed(2)))}
-                />
-                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-on-surface-variant">
-                  €
-                </span>
+                  {vehicles.map((vehicle) => (
+                    <option key={vehicle.id} value={vehicle.id}>
+                      {vehicle.make} {vehicle.model}
+                      {vehicle.licensePlate ? ` - ${vehicle.licensePlate}` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="maintenance-technician">Técnico</Label>
+                <select
+                  id="maintenance-technician"
+                  className={selectClassName}
+                  value={technicianId}
+                  onChange={(e) => setTechnicianId(e.target.value)}
+                >
+                  <option value="">Sin asignar</option>
+                  {technicians.map((technician) => (
+                    <option key={technician.id} value={technician.id}>
+                      {technician.fullName}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
-          </div>
 
-          {updateMaintenance.isError && (
-            <p role="alert" className="text-sm text-error">
-              No se pudo completar la acción.
-            </p>
-          )}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="maintenance-type">Tipo</Label>
+                <Input id="maintenance-type" value={type} onChange={(e) => setType(e.target.value)} required />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="maintenance-category">Categoría</Label>
+                <select
+                  id="maintenance-category"
+                  className={selectClassName}
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value as MaintenanceCategory)}
+                  required
+                >
+                  {(Object.keys(CATEGORY_LABEL) as MaintenanceCategory[]).map((value) => (
+                    <option key={value} value={value}>
+                      {CATEGORY_LABEL[value]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
 
-          <DialogFooter>
-            <Button type="submit" disabled={updateMaintenance.isPending}>
-              Guardar cambios
-            </Button>
-          </DialogFooter>
-        </form>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="maintenance-description">Descripción</Label>
+                <Input
+                  id="maintenance-description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="maintenance-cost">Coste</Label>
+                <div className="relative">
+                  <Input
+                    id="maintenance-cost"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    className="pr-8"
+                    value={cost}
+                    onChange={(e) => setCost(e.target.value)}
+                    onBlur={() => setCost((current) => (current === '' ? current : Number(current).toFixed(2)))}
+                  />
+                  <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-on-surface-variant">
+                    €
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {updateMaintenance.isError && (
+              <p role="alert" className="text-sm text-error">
+                No se pudo completar la acción.
+              </p>
+            )}
+
+          </form>
+        </div>
+
+        <DialogFooter>
+          <Button type="submit" form="maintenance-form" disabled={updateMaintenance.isPending}>
+            Guardar cambios
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )

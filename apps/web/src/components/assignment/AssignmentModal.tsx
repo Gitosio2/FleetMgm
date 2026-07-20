@@ -83,52 +83,54 @@ export function AssignmentModal({
           <DialogTitle>Asignar conductor — {vehicleLabel}</DialogTitle>
         </DialogHeader>
 
-        <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="assignment-driver">Conductor</Label>
-            <select
-              id="assignment-driver"
-              className={selectClassName}
-              value={driverId}
-              onChange={(e) => setDriverId(e.target.value)}
-              required
-            >
-              {drivers.map((driver) => (
-                <option key={driver.id} value={driver.id}>
-                  {driver.fullName}
-                </option>
-              ))}
-            </select>
-          </div>
+        <div className="flex-1 overflow-y-auto px-6">
+          <form id="assignment-form" className="flex flex-col gap-4" onSubmit={handleSubmit}>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="assignment-driver">Conductor</Label>
+              <select
+                id="assignment-driver"
+                className={selectClassName}
+                value={driverId}
+                onChange={(e) => setDriverId(e.target.value)}
+                required
+              >
+                {drivers.map((driver) => (
+                  <option key={driver.id} value={driver.id}>
+                    {driver.fullName}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="assignment-start-date">Fecha de inicio</Label>
-            <Input
-              id="assignment-start-date"
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              required
-            />
-          </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="assignment-start-date">Fecha de inicio</Label>
+              <Input
+                id="assignment-start-date"
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                required
+              />
+            </div>
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="assignment-notes">Notas</Label>
-            <Input id="assignment-notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
-          </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="assignment-notes">Notas</Label>
+              <Input id="assignment-notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
+            </div>
 
-          {createAssignment.isError && (
-            <p role="alert" className="text-sm text-error">
-              {resolveAssignmentErrorMessage(createAssignment.error)}
-            </p>
-          )}
+            {createAssignment.isError && (
+              <p role="alert" className="text-sm text-error">
+                {resolveAssignmentErrorMessage(createAssignment.error)}
+              </p>
+            )}
+          </form>
+        </div>
 
-          <DialogFooter>
-            <Button type="submit" disabled={createAssignment.isPending || driverId === ''}>
-              Asignar
-            </Button>
-          </DialogFooter>
-        </form>
+        <DialogFooter>
+          <Button type="submit" form="assignment-form" disabled={createAssignment.isPending || driverId === ''}>
+            Asignar
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )

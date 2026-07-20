@@ -89,92 +89,95 @@ export function WorkerFormModal({ open, onOpenChange, worker }: WorkerFormModalP
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Editar trabajador' : 'Nuevo trabajador'}</DialogTitle>
         </DialogHeader>
 
-        <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="flex-1 overflow-y-auto px-6">
+          <form id="worker-form" className="flex flex-col gap-4" onSubmit={handleSubmit}>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="worker-first-name">Nombre</Label>
+                <Input
+                  id="worker-first-name"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="worker-last-name">Apellidos</Label>
+                <Input
+                  id="worker-last-name"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="worker-role">Rol</Label>
+                <select
+                  id="worker-role"
+                  className={selectClassName}
+                  value={workerRole}
+                  onChange={(e) => setWorkerRole(e.target.value as WorkerRole)}
+                >
+                  {WORKER_ROLES.map((role) => (
+                    <option key={role} value={role}>
+                      {WORKER_ROLE_LABEL[role]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="worker-national-id">Documento de identidad</Label>
+                <Input
+                  id="worker-national-id"
+                  value={nationalId}
+                  onChange={(e) => setNationalId(e.target.value)}
+                  required
+                  disabled={isEditing}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="worker-phone">Teléfono</Label>
+                <Input id="worker-phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="worker-license-type">Tipo de licencia</Label>
+                <Input
+                  id="worker-license-type"
+                  value={licenseType}
+                  onChange={(e) => setLicenseType(e.target.value)}
+                />
+              </div>
+            </div>
+
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="worker-first-name">Nombre</Label>
+              <Label htmlFor="worker-license-expiry">Vencimiento de licencia</Label>
               <Input
-                id="worker-first-name"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                required
+                id="worker-license-expiry"
+                type="date"
+                value={licenseExpiry}
+                onChange={(e) => setLicenseExpiry(e.target.value)}
               />
             </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="worker-last-name">Apellidos</Label>
-              <Input
-                id="worker-last-name"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                required
-              />
-            </div>
-          </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="worker-role">Rol</Label>
-              <select
-                id="worker-role"
-                className={selectClassName}
-                value={workerRole}
-                onChange={(e) => setWorkerRole(e.target.value as WorkerRole)}
-              >
-                {WORKER_ROLES.map((role) => (
-                  <option key={role} value={role}>
-                    {WORKER_ROLE_LABEL[role]}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="worker-national-id">Documento de identidad</Label>
-              <Input
-                id="worker-national-id"
-                value={nationalId}
-                onChange={(e) => setNationalId(e.target.value)}
-                required
-                disabled={isEditing}
-              />
-            </div>
-          </div>
+          </form>
+        </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="worker-phone">Teléfono</Label>
-              <Input id="worker-phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="worker-license-type">Tipo de licencia</Label>
-              <Input
-                id="worker-license-type"
-                value={licenseType}
-                onChange={(e) => setLicenseType(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="worker-license-expiry">Vencimiento de licencia</Label>
-            <Input
-              id="worker-license-expiry"
-              type="date"
-              value={licenseExpiry}
-              onChange={(e) => setLicenseExpiry(e.target.value)}
-            />
-          </div>
-
-          <DialogFooter>
-            <Button type="submit" disabled={isPending}>
-              {isEditing ? 'Guardar cambios' : 'Crear trabajador'}
-            </Button>
-          </DialogFooter>
-        </form>
+        <DialogFooter>
+          <Button type="submit" form="worker-form" disabled={isPending}>
+            {isEditing ? 'Guardar cambios' : 'Crear trabajador'}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )

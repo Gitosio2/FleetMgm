@@ -122,19 +122,21 @@ export function Vehicles() {
         open={assignmentVehicle != null}
         onOpenChange={(open) => !open && setAssignmentVehicle(undefined)}
       >
-        <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>
               Asignación — {assignmentVehicle && `${assignmentVehicle.make} ${assignmentVehicle.model}`}
             </DialogTitle>
           </DialogHeader>
-          {assignmentVehicle && (
-            <VehicleAssignmentPanel
-              vehicleId={assignmentVehicle.id}
-              vehicleLabel={`${assignmentVehicle.make} ${assignmentVehicle.model}`}
-              canManage={canManage}
-            />
-          )}
+          <div className="flex-1 overflow-y-auto px-6">
+            {assignmentVehicle && (
+              <VehicleAssignmentPanel
+                vehicleId={assignmentVehicle.id}
+                vehicleLabel={`${assignmentVehicle.make} ${assignmentVehicle.model}`}
+                canManage={canManage}
+              />
+            )}
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -142,18 +144,20 @@ export function Vehicles() {
         open={profitabilityVehicle != null}
         onOpenChange={(open) => !open && setProfitabilityVehicle(undefined)}
       >
-        <DialogContent className="max-h-[85vh] max-w-4xl overflow-y-auto">
+        <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle>
               Rentabilidad — {profitabilityVehicle && `${profitabilityVehicle.make} ${profitabilityVehicle.model}`}
             </DialogTitle>
           </DialogHeader>
-          {profitabilityVehicle && (
-            <VehicleProfitabilityPanel
-              vehicleId={profitabilityVehicle.id}
-              vehicleLabel={`${profitabilityVehicle.make} ${profitabilityVehicle.model}`}
-            />
-          )}
+          <div className="flex-1 overflow-y-auto px-6">
+            {profitabilityVehicle && (
+              <VehicleProfitabilityPanel
+                vehicleId={profitabilityVehicle.id}
+                vehicleLabel={`${profitabilityVehicle.make} ${profitabilityVehicle.model}`}
+              />
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>

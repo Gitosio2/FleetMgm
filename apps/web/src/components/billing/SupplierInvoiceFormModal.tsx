@@ -137,7 +137,7 @@ export function SupplierInvoiceFormModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] max-w-4xl overflow-y-auto">
+      <DialogContent className="max-w-4xl">
         <DialogHeader>
           <DialogTitle>
             {isReadOnly
@@ -148,179 +148,181 @@ export function SupplierInvoiceFormModal({
           </DialogTitle>
         </DialogHeader>
 
-        <form id="supplier-invoice-form" className="flex flex-col gap-4" onSubmit={handleSubmit}>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="supplier-invoice-supplier">Proveedor</Label>
-              <select
-                id="supplier-invoice-supplier"
-                className={selectClassName}
-                value={supplierId}
-                onChange={(e) => setSupplierId(e.target.value)}
-                disabled={isReadOnly}
-                required
-              >
-                {suppliersList.map((supplier) => (
-                  <option key={supplier.id} value={supplier.id}>
-                    {supplier.name}
-                  </option>
-                ))}
-              </select>
+        <div className="flex-1 overflow-y-auto px-6">
+          <form id="supplier-invoice-form" className="flex flex-col gap-4" onSubmit={handleSubmit}>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="supplier-invoice-supplier">Proveedor</Label>
+                <select
+                  id="supplier-invoice-supplier"
+                  className={selectClassName}
+                  value={supplierId}
+                  onChange={(e) => setSupplierId(e.target.value)}
+                  disabled={isReadOnly}
+                  required
+                >
+                  {suppliersList.map((supplier) => (
+                    <option key={supplier.id} value={supplier.id}>
+                      {supplier.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="supplier-invoice-number">Nº factura proveedor</Label>
+                <Input
+                  id="supplier-invoice-number"
+                  value={supplierInvoiceNumber}
+                  onChange={(e) => setSupplierInvoiceNumber(e.target.value)}
+                  disabled={isReadOnly}
+                />
+              </div>
             </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="supplier-invoice-number">Nº factura proveedor</Label>
-              <Input
-                id="supplier-invoice-number"
-                value={supplierInvoiceNumber}
-                onChange={(e) => setSupplierInvoiceNumber(e.target.value)}
-                disabled={isReadOnly}
-              />
-            </div>
-          </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="supplier-invoice-category">Categoría</Label>
-              <select
-                id="supplier-invoice-category"
-                className={selectClassName}
-                value={category}
-                onChange={(e) => setCategory(e.target.value as ExpenseCategory)}
-                disabled={isReadOnly}
-                required
-              >
-                {(Object.keys(EXPENSE_CATEGORY_LABEL) as ExpenseCategory[]).map((value) => (
-                  <option key={value} value={value}>
-                    {EXPENSE_CATEGORY_LABEL[value]}
-                  </option>
-                ))}
-              </select>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="supplier-invoice-category">Categoría</Label>
+                <select
+                  id="supplier-invoice-category"
+                  className={selectClassName}
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value as ExpenseCategory)}
+                  disabled={isReadOnly}
+                  required
+                >
+                  {(Object.keys(EXPENSE_CATEGORY_LABEL) as ExpenseCategory[]).map((value) => (
+                    <option key={value} value={value}>
+                      {EXPENSE_CATEGORY_LABEL[value]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="supplier-invoice-vehicle">Vehículo</Label>
+                <select
+                  id="supplier-invoice-vehicle"
+                  className={selectClassName}
+                  value={vehicleId}
+                  onChange={(e) => setVehicleId(e.target.value)}
+                  disabled={isReadOnly || hasLineItems}
+                >
+                  <option value="">Sin vehículo asociado</option>
+                  {(vehicles ?? []).map((vehicle) => (
+                    <option key={vehicle.id} value={vehicle.id}>
+                      {vehicle.make} {vehicle.model}
+                      {vehicle.licensePlate ? ` - ${vehicle.licensePlate}` : ''}
+                    </option>
+                  ))}
+                </select>
+                {!isReadOnly && hasLineItems && (
+                  <p className="text-xs text-on-surface-variant">
+                    Esta factura ya tiene vehículos asignados por línea.
+                  </p>
+                )}
+              </div>
             </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="supplier-invoice-vehicle">Vehículo</Label>
-              <select
-                id="supplier-invoice-vehicle"
-                className={selectClassName}
-                value={vehicleId}
-                onChange={(e) => setVehicleId(e.target.value)}
-                disabled={isReadOnly || hasLineItems}
-              >
-                <option value="">Sin vehículo asociado</option>
-                {(vehicles ?? []).map((vehicle) => (
-                  <option key={vehicle.id} value={vehicle.id}>
-                    {vehicle.make} {vehicle.model}
-                    {vehicle.licensePlate ? ` - ${vehicle.licensePlate}` : ''}
-                  </option>
-                ))}
-              </select>
-              {!isReadOnly && hasLineItems && (
-                <p className="text-xs text-on-surface-variant">
-                  Esta factura ya tiene vehículos asignados por línea.
-                </p>
-              )}
-            </div>
-          </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="supplier-invoice-date">Fecha de factura</Label>
-              <Input
-                id="supplier-invoice-date"
-                type="date"
-                value={invoiceDate}
-                onChange={(e) => setInvoiceDate(e.target.value)}
-                disabled={isReadOnly}
-                required
-              />
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="supplier-invoice-date">Fecha de factura</Label>
+                <Input
+                  id="supplier-invoice-date"
+                  type="date"
+                  value={invoiceDate}
+                  onChange={(e) => setInvoiceDate(e.target.value)}
+                  disabled={isReadOnly}
+                  required
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="supplier-invoice-due-date">Fecha de vencimiento</Label>
+                <Input
+                  id="supplier-invoice-due-date"
+                  type="date"
+                  value={dueDate}
+                  onChange={(e) => setDueDate(e.target.value)}
+                  disabled={isReadOnly}
+                />
+              </div>
             </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="supplier-invoice-due-date">Fecha de vencimiento</Label>
-              <Input
-                id="supplier-invoice-due-date"
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                disabled={isReadOnly}
-              />
-            </div>
-          </div>
 
-          <div className="grid grid-cols-3 gap-4">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="supplier-invoice-subtotal">Subtotal</Label>
-              <Input
-                id="supplier-invoice-subtotal"
-                type="number"
-                min="0"
-                step="0.01"
-                value={subtotal}
-                onChange={(e) => {
-                  setSubtotal(e.target.value)
-                  recomputeTotal(e.target.value, taxAmount)
-                }}
-                disabled={isReadOnly}
-                required
-              />
+            <div className="grid grid-cols-3 gap-4">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="supplier-invoice-subtotal">Subtotal</Label>
+                <Input
+                  id="supplier-invoice-subtotal"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={subtotal}
+                  onChange={(e) => {
+                    setSubtotal(e.target.value)
+                    recomputeTotal(e.target.value, taxAmount)
+                  }}
+                  disabled={isReadOnly}
+                  required
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="supplier-invoice-tax-amount">IVA</Label>
+                <Input
+                  id="supplier-invoice-tax-amount"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={taxAmount}
+                  onChange={(e) => {
+                    setTaxAmount(e.target.value)
+                    recomputeTotal(subtotal, e.target.value)
+                  }}
+                  disabled={isReadOnly}
+                  required
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="supplier-invoice-total">Total</Label>
+                <Input
+                  id="supplier-invoice-total"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={total}
+                  onChange={(e) => {
+                    setTotal(e.target.value)
+                    recomputeSubtotal(e.target.value, taxAmount)
+                  }}
+                  disabled={isReadOnly}
+                  required
+                />
+              </div>
             </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="supplier-invoice-tax-amount">IVA</Label>
-              <Input
-                id="supplier-invoice-tax-amount"
-                type="number"
-                min="0"
-                step="0.01"
-                value={taxAmount}
-                onChange={(e) => {
-                  setTaxAmount(e.target.value)
-                  recomputeTotal(subtotal, e.target.value)
-                }}
-                disabled={isReadOnly}
-                required
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="supplier-invoice-total">Total</Label>
-              <Input
-                id="supplier-invoice-total"
-                type="number"
-                min="0"
-                step="0.01"
-                value={total}
-                onChange={(e) => {
-                  setTotal(e.target.value)
-                  recomputeSubtotal(e.target.value, taxAmount)
-                }}
-                disabled={isReadOnly}
-                required
-              />
-            </div>
-          </div>
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="supplier-invoice-notes">Notas</Label>
-            <Input
-              id="supplier-invoice-notes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              disabled={isReadOnly}
-            />
-          </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="supplier-invoice-notes">Notas</Label>
+              <Input
+                id="supplier-invoice-notes"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                disabled={isReadOnly}
+              />
+            </div>
 
-          {(createSupplierInvoice.isError || updateSupplierInvoice.isError) && (
-            <p role="alert" className="text-sm text-error">
-              No se pudo completar la acción.
-            </p>
+            {(createSupplierInvoice.isError || updateSupplierInvoice.isError) && (
+              <p role="alert" className="text-sm text-error">
+                No se pudo completar la acción.
+              </p>
+            )}
+          </form>
+
+          {isEditing && !supplierInvoice.vehicleId && (
+            <div className="mt-6 flex flex-col gap-2 border-t border-outline-variant/40 pt-4">
+              <h3 className="font-display text-sm font-semibold">Líneas por vehículo</h3>
+              <SupplierInvoiceLineItemList supplierInvoice={supplierInvoice} readOnly={isReadOnly} />
+            </div>
           )}
-        </form>
+        </div>
 
-        {isEditing && !supplierInvoice.vehicleId && (
-          <div className="mt-6 flex flex-col gap-2 border-t border-outline-variant/40 pt-4">
-            <h3 className="font-display text-sm font-semibold">Líneas por vehículo</h3>
-            <SupplierInvoiceLineItemList supplierInvoice={supplierInvoice} readOnly={isReadOnly} />
-          </div>
-        )}
-
-        <DialogFooter className="mt-6">
+        <DialogFooter>
           {isReadOnly ? (
             <Button type="button" onClick={() => onOpenChange(false)}>
               Cerrar

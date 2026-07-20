@@ -132,157 +132,159 @@ export function JobFormModal({ open, onOpenChange, job }: JobFormModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Editar trabajo' : 'Nuevo trabajo'}</DialogTitle>
         </DialogHeader>
 
-        <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="job-title">Título</Label>
-            <Input id="job-title" value={title} onChange={(e) => setTitle(e.target.value)} required />
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="flex-1 overflow-y-auto px-6">
+          <form id="job-form" className="flex flex-col gap-4" onSubmit={handleSubmit}>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="job-vehicle">Vehículo</Label>
+              <Label htmlFor="job-title">Título</Label>
+              <Input id="job-title" value={title} onChange={(e) => setTitle(e.target.value)} required />
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="job-vehicle">Vehículo</Label>
+                <select
+                  id="job-vehicle"
+                  className={selectClassName}
+                  value={vehicleId}
+                  onChange={(e) => setVehicleId(e.target.value)}
+                  required
+                >
+                  <option value="" disabled>
+                    Seleccioná un vehículo
+                  </option>
+                  {vehicles.map((vehicle) => (
+                    <option key={vehicle.id} value={vehicle.id}>
+                      {formatVehicleSelectLabel(vehicle)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="job-driver">Conductor</Label>
+                <select
+                  id="job-driver"
+                  className={selectClassName}
+                  value={assignedDriverId}
+                  onChange={(e) => setAssignedDriverId(e.target.value)}
+                >
+                  <option value="">Sin asignar</option>
+                  {drivers.map((driver) => (
+                    <option key={driver.id} value={driver.id}>
+                      {driver.fullName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="job-client">Cliente</Label>
               <select
-                id="job-vehicle"
+                id="job-client"
                 className={selectClassName}
-                value={vehicleId}
-                onChange={(e) => setVehicleId(e.target.value)}
-                required
+                value={clientId}
+                onChange={(e) => setClientId(e.target.value)}
               >
-                <option value="" disabled>
-                  Seleccioná un vehículo
-                </option>
-                {vehicles.map((vehicle) => (
-                  <option key={vehicle.id} value={vehicle.id}>
-                    {formatVehicleSelectLabel(vehicle)}
+                <option value="">Sin cliente</option>
+                {clients.map((client) => (
+                  <option key={client.id} value={client.id}>
+                    {client.name}
                   </option>
                 ))}
               </select>
             </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="job-driver">Conductor</Label>
-              <select
-                id="job-driver"
-                className={selectClassName}
-                value={assignedDriverId}
-                onChange={(e) => setAssignedDriverId(e.target.value)}
-              >
-                <option value="">Sin asignar</option>
-                {drivers.map((driver) => (
-                  <option key={driver.id} value={driver.id}>
-                    {driver.fullName}
-                  </option>
-                ))}
-              </select>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="job-origin">Origen</Label>
+                <Input
+                  id="job-origin"
+                  value={originLocation}
+                  onChange={(e) => setOriginLocation(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="job-destination">Destino</Label>
+                <Input
+                  id="job-destination"
+                  value={destinationLocation}
+                  onChange={(e) => setDestinationLocation(e.target.value)}
+                  required
+                />
+              </div>
             </div>
-          </div>
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="job-client">Cliente</Label>
-            <select
-              id="job-client"
-              className={selectClassName}
-              value={clientId}
-              onChange={(e) => setClientId(e.target.value)}
-            >
-              <option value="">Sin cliente</option>
-              {clients.map((client) => (
-                <option key={client.id} value={client.id}>
-                  {client.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="job-origin">Origen</Label>
-              <Input
-                id="job-origin"
-                value={originLocation}
-                onChange={(e) => setOriginLocation(e.target.value)}
-                required
-              />
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="job-scheduled-start">Inicio previsto</Label>
+                <Input
+                  id="job-scheduled-start"
+                  type="datetime-local"
+                  value={scheduledStart}
+                  onChange={(e) => setScheduledStart(e.target.value)}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="job-scheduled-end">Fin previsto</Label>
+                <Input
+                  id="job-scheduled-end"
+                  type="datetime-local"
+                  value={scheduledEnd}
+                  onChange={(e) => setScheduledEnd(e.target.value)}
+                />
+              </div>
             </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="job-destination">Destino</Label>
-              <Input
-                id="job-destination"
-                value={destinationLocation}
-                onChange={(e) => setDestinationLocation(e.target.value)}
-                required
-              />
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="job-actual-start">Inicio real</Label>
+                <Input
+                  id="job-actual-start"
+                  type="datetime-local"
+                  value={actualStart}
+                  onChange={(e) => setActualStart(e.target.value)}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="job-actual-end">Fin real</Label>
+                <Input
+                  id="job-actual-end"
+                  type="datetime-local"
+                  value={actualEnd}
+                  onChange={(e) => setActualEnd(e.target.value)}
+                />
+              </div>
             </div>
-          </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="job-scheduled-start">Inicio previsto</Label>
-              <Input
-                id="job-scheduled-start"
-                type="datetime-local"
-                value={scheduledStart}
-                onChange={(e) => setScheduledStart(e.target.value)}
-              />
+              <Label htmlFor="job-description">Descripción</Label>
+              <Input id="job-description" value={description} onChange={(e) => setDescription(e.target.value)} />
             </div>
+
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="job-scheduled-end">Fin previsto</Label>
-              <Input
-                id="job-scheduled-end"
-                type="datetime-local"
-                value={scheduledEnd}
-                onChange={(e) => setScheduledEnd(e.target.value)}
-              />
+              <Label htmlFor="job-notes">Notas</Label>
+              <Input id="job-notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
             </div>
-          </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="job-actual-start">Inicio real</Label>
-              <Input
-                id="job-actual-start"
-                type="datetime-local"
-                value={actualStart}
-                onChange={(e) => setActualStart(e.target.value)}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="job-actual-end">Fin real</Label>
-              <Input
-                id="job-actual-end"
-                type="datetime-local"
-                value={actualEnd}
-                onChange={(e) => setActualEnd(e.target.value)}
-              />
-            </div>
-          </div>
+            {(createJob.isError || updateJob.isError) && (
+              <p role="alert" className="text-sm text-error">
+                {resolveJobErrorMessage(createJob.isError ? createJob.error : updateJob.error)}
+              </p>
+            )}
+          </form>
+        </div>
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="job-description">Descripción</Label>
-            <Input id="job-description" value={description} onChange={(e) => setDescription(e.target.value)} />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="job-notes">Notas</Label>
-            <Input id="job-notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
-          </div>
-
-          {(createJob.isError || updateJob.isError) && (
-            <p role="alert" className="text-sm text-error">
-              {resolveJobErrorMessage(createJob.isError ? createJob.error : updateJob.error)}
-            </p>
-          )}
-
-          <DialogFooter>
-            <Button type="submit" disabled={isPending}>
-              {isEditing ? 'Guardar cambios' : 'Crear trabajo'}
-            </Button>
-          </DialogFooter>
-        </form>
+        <DialogFooter>
+          <Button type="submit" form="job-form" disabled={isPending}>
+            {isEditing ? 'Guardar cambios' : 'Crear trabajo'}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )
