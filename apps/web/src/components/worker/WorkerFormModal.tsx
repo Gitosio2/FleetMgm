@@ -89,7 +89,7 @@ export function WorkerFormModal({ open, onOpenChange, worker }: WorkerFormModalP
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Editar trabajador' : 'Nuevo trabajador'}</DialogTitle>
         </DialogHeader>

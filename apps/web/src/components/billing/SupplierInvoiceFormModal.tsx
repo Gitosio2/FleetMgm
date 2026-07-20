@@ -137,7 +137,7 @@ export function SupplierInvoiceFormModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] max-w-4xl overflow-y-auto">
+      <DialogContent className="max-w-4xl">
         <DialogHeader>
           <DialogTitle>
             {isReadOnly
@@ -320,7 +320,7 @@ export function SupplierInvoiceFormModal({
           </div>
         )}
 
-        <DialogFooter className="mt-6">
+        <DialogFooter>
           {isReadOnly ? (
             <Button type="button" onClick={() => onOpenChange(false)}>
               Cerrar

@@ -132,7 +132,7 @@ export function JobFormModal({ open, onOpenChange, job }: JobFormModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Editar trabajo' : 'Nuevo trabajo'}</DialogTitle>
         </DialogHeader>

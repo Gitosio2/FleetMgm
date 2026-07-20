@@ -66,7 +66,7 @@ export function MaintenanceFormModal({ open, onOpenChange, record }: Maintenance
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Editar orden</DialogTitle>
         </DialogHeader>

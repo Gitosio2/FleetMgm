@@ -117,7 +117,7 @@ export function InvoiceFormModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>{isReadOnly ? 'Factura' : isEditing ? 'Editar factura' : 'Nueva factura'}</DialogTitle>
         </DialogHeader>
@@ -235,7 +235,7 @@ export function InvoiceFormModal({
           </div>
         )}
 
-        <DialogFooter className="mt-6">
+        <DialogFooter>
           {isReadOnly ? (
             <Button type="button" onClick={() => onOpenChange(false)}>
               Cerrar
