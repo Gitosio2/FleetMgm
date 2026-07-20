@@ -188,3 +188,11 @@ Demo local expuesta con una URL pública temporal (no es un despliegue real):
 docker compose up -d --build
 ngrok http 8081
 ```
+
+## Autor
+
+Marcos Cuevas Alonso — Trabajo Fin de Máster.
+
+## Licencia
+
+Todos los derechos reservados — ver [`LICENSE`](LICENSE).
