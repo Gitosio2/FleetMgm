@@ -48,4 +48,9 @@ describe('authStore', () => {
     expect(state.email).toBe(SESSION.email)
     expect(state.refreshToken).toBe(SESSION.refreshToken)
   })
+
+  it('always exposes a usable persist storage adapter', () => {
+    expect(useAuthStore.persist.getOptions().storage).toBeDefined()
+    expect(() => useAuthStore.persist.rehydrate()).not.toThrow()
+  })
 })
