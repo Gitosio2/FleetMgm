@@ -17,17 +17,18 @@ public interface MaintenanceRepository extends JpaRepository<MaintenanceRecord, 
 
     // List query denormalizes vehicle/technician fields into MaintenanceResponse — JOIN FETCH
     // avoids N+1 (CLAUDE.md JPA rule). Safe with Pageable: these are to-one joins, not to-many collections.
-    // vehicleId/year/month are the original filters (also used by useVehicleMaintenanceHistory) and
-    // keep their existing bare "(:param IS NULL OR ...)" form untouched. type/category/status/
-    // technicianId/costFrom/costTo are new (Órdenes de mantenimiento filter bar) and use the
-    // "(CAST(:param AS string) IS NULL OR ...)" idiom instead — see JobRepository.search()'s comment:
-    // that CAST is required whenever a param is wrapped in LOWER/CONCAT (the :type LIKE clause here),
-    // and applied consistently across the new params rather than mixing idioms.
+    // vehicleId keeps its original bare "(:param IS NULL OR ...)" form untouched. workshopEntryDateFrom/
+    // workshopEntryDateTo (also used by useVehicleMaintenanceHistory — replacing the old year/month
+    // EXTRACT-based filter with an optional Desde/Hasta range, matching InvoiceRepository's issueDateFrom/
+    // issueDateTo convention) and type/category/status/technicianId/costFrom/costTo (Órdenes de
+    // mantenimiento filter bar) all use the "(CAST(:param AS string) IS NULL OR ...)" idiom — see
+    // JobRepository.search()'s comment: that CAST is required whenever a param is wrapped in LOWER/CONCAT
+    // (the :type LIKE clause here), and applied consistently across these params rather than mixing idioms.
     @Query("SELECT m FROM MaintenanceRecord m JOIN FETCH m.vehicle "
             + "LEFT JOIN FETCH m.technician "
             + "WHERE (:vehicleId IS NULL OR m.vehicle.id = :vehicleId) "
-            + "AND (:year IS NULL OR EXTRACT(YEAR FROM m.workshopEntryDate) = :year) "
-            + "AND (:month IS NULL OR EXTRACT(MONTH FROM m.workshopEntryDate) = :month) "
+            + "AND (CAST(:workshopEntryDateFrom AS string) IS NULL OR m.workshopEntryDate >= :workshopEntryDateFrom) "
+            + "AND (CAST(:workshopEntryDateTo AS string) IS NULL OR m.workshopEntryDate <= :workshopEntryDateTo) "
             + "AND (CAST(:type AS string) IS NULL OR LOWER(m.type) LIKE "
             + "     LOWER(CONCAT('%', CAST(:type AS string), '%'))) "
             + "AND (CAST(:category AS string) IS NULL OR m.category = :category) "
@@ -37,8 +38,8 @@ public interface MaintenanceRepository extends JpaRepository<MaintenanceRecord, 
             + "AND (CAST(:costTo AS string) IS NULL OR m.cost <= :costTo)")
     Page<MaintenanceRecord> findAllJoinFetch(
             @Param("vehicleId") UUID vehicleId,
-            @Param("year") Integer year,
-            @Param("month") Integer month,
+            @Param("workshopEntryDateFrom") LocalDate workshopEntryDateFrom,
+            @Param("workshopEntryDateTo") LocalDate workshopEntryDateTo,
             @Param("type") String type,
             @Param("category") MaintenanceCategory category,
             @Param("status") MaintenanceStatus status,

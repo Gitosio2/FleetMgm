@@ -461,6 +461,11 @@ export type Profitability = {
   revenue: number
   costs: number
   margin: number
+  // Only populated by the single-vehicle detail panel (getByVehicleId) — always null on the
+  // fleet-wide paged list, see ProfitabilityService.toResponse on the backend.
+  costPerUsageUnit: number | null
+  profitPerUsageUnit: number | null
+  usageMeasure: UsageMeasure
 }
 
 export type MonthlyFinancial = {

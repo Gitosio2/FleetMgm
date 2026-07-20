@@ -199,7 +199,7 @@ class ProfitabilityRepositoryTest {
         entityManager.getEntityManager().clear();
 
         Optional<VehicleProfitabilityProjection> result =
-                profitabilityRepository.findProfitabilityByVehicleId(vehicle.getId());
+                profitabilityRepository.findProfitabilityByVehicleId(vehicle.getId(), null, null);
 
         assertThat(result).isPresent();
         VehicleProfitabilityProjection projection = result.get();
@@ -211,7 +211,7 @@ class ProfitabilityRepositoryTest {
     @Test
     void findProfitabilityByVehicleId_returnsEmpty_whenVehicleDoesNotExist() {
         Optional<VehicleProfitabilityProjection> result =
-                profitabilityRepository.findProfitabilityByVehicleId(UUID.randomUUID());
+                profitabilityRepository.findProfitabilityByVehicleId(UUID.randomUUID(), null, null);
 
         assertThat(result).isEmpty();
     }
@@ -224,9 +224,64 @@ class ProfitabilityRepositoryTest {
         entityManager.getEntityManager().clear();
 
         Optional<VehicleProfitabilityProjection> result =
-                profitabilityRepository.findProfitabilityByVehicleId(vehicle.getId());
+                profitabilityRepository.findProfitabilityByVehicleId(vehicle.getId(), null, null);
 
         assertThat(result).isEmpty();
+    }
+
+    @Test
+    void findProfitabilityByVehicleId_isBackwardCompatible_whenFromAndToAreNull() {
+        // With both bounds null every "(CAST(:param AS date) IS NULL OR ...)" clause short-circuits
+        // to true, so this must return byte-identical figures to the pre-range-filter query.
+        Vehicle vehicle = persistVehicle("2020KKK");
+        Client client = persistClient("11121314K");
+
+        Job job = persistJob(vehicle, JobStatus.COMPLETED);
+        Invoice invoice = persistInvoice(client, "INV-2026-00014", InvoiceStatus.ISSUED);
+        persistLineItem(invoice, new BigDecimal("640.00"), job);
+        persistMaintenanceRecord(vehicle, new BigDecimal("90.00"));
+        persistSupplierInvoice(vehicle, new BigDecimal("30.00"));
+
+        entityManager.getEntityManager().clear();
+
+        Optional<VehicleProfitabilityProjection> bounded =
+                profitabilityRepository.findProfitabilityByVehicleId(vehicle.getId(), null, null);
+        Optional<VehicleProfitabilityProjection> unbounded =
+                profitabilityRepository.findProfitabilityByVehicleId(vehicle.getId(), null, null);
+
+        assertThat(bounded).isPresent();
+        assertThat(unbounded).isPresent();
+        assertThat(bounded.get().getRevenue()).isEqualByComparingTo(unbounded.get().getRevenue());
+        assertThat(bounded.get().getCosts()).isEqualByComparingTo(unbounded.get().getCosts());
+        assertThat(bounded.get().getRevenue()).isEqualByComparingTo("640.00");
+        assertThat(bounded.get().getCosts()).isEqualByComparingTo("120.00");
+    }
+
+    @Test
+    void findProfitabilityByVehicleId_narrowsRevenueAndCosts_whenFromAndToProvided() {
+        Vehicle vehicle = persistVehicle("3030LLL");
+        Client client = persistClient("15161718L");
+
+        Job jobInRange = persistJob(vehicle, JobStatus.COMPLETED);
+        Job jobOutOfRange = persistJob(vehicle, JobStatus.COMPLETED);
+        Invoice invoiceInRange = persistInvoiceWithIssueDate(
+                client, "INV-2026-00015", InvoiceStatus.ISSUED, LocalDate.of(2026, 6, 15), new BigDecimal("500.00"));
+        persistLineItem(invoiceInRange, new BigDecimal("500.00"), jobInRange);
+        Invoice invoiceOutOfRange = persistInvoiceWithIssueDate(
+                client, "INV-2026-00016", InvoiceStatus.ISSUED, LocalDate.of(2026, 8, 15), new BigDecimal("999.00"));
+        persistLineItem(invoiceOutOfRange, new BigDecimal("999.00"), jobOutOfRange);
+
+        persistMaintenanceRecordOnDate(vehicle, new BigDecimal("40.00"), LocalDate.of(2026, 6, 20));
+        persistMaintenanceRecordOnDate(vehicle, new BigDecimal("999.00"), LocalDate.of(2026, 8, 20));
+
+        entityManager.getEntityManager().clear();
+
+        Optional<VehicleProfitabilityProjection> result = profitabilityRepository.findProfitabilityByVehicleId(
+                vehicle.getId(), LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 30));
+
+        assertThat(result).isPresent();
+        assertThat(result.get().getRevenue()).isEqualByComparingTo("500.00");
+        assertThat(result.get().getCosts()).isEqualByComparingTo("40.00");
     }
 
     @Test

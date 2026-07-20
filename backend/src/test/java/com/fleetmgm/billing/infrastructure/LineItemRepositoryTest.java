@@ -101,55 +101,58 @@ class LineItemRepositoryTest {
     }
 
     @Test
-    void findAllByVehicleIdAndPeriod_narrowsByYear_whenProvided() {
+    void findAllByVehicleIdAndPeriod_narrowsByFrom_whenProvided() {
         Vehicle vehicle = persistVehicle("5555EEE");
         Client client = persistClient("44444444D");
-        Job jobThisYear = persistJob(vehicle);
-        Job jobLastYear = persistJob(vehicle);
-        Invoice invoiceThisYear = persistInvoice(client, "INV-2026-00004", LocalDate.of(2026, 3, 10));
-        Invoice invoiceLastYear = persistInvoice(client, "INV-2025-00099", LocalDate.of(2025, 3, 10));
-        InvoiceLineItem match = persistLineItem(invoiceThisYear, jobThisYear, new BigDecimal("150.00"));
-        persistLineItem(invoiceLastYear, jobLastYear, new BigDecimal("250.00"));
+        Job jobInRange = persistJob(vehicle);
+        Job jobBeforeRange = persistJob(vehicle);
+        Invoice invoiceInRange = persistInvoice(client, "INV-2026-00004", LocalDate.of(2026, 3, 10));
+        Invoice invoiceBeforeRange = persistInvoice(client, "INV-2025-00099", LocalDate.of(2025, 3, 10));
+        InvoiceLineItem match = persistLineItem(invoiceInRange, jobInRange, new BigDecimal("150.00"));
+        persistLineItem(invoiceBeforeRange, jobBeforeRange, new BigDecimal("250.00"));
         entityManager.getEntityManager().clear();
 
-        List<InvoiceLineItem> result = lineItemRepository.findAllByVehicleIdAndPeriod(vehicle.getId(), 2026, null);
+        List<InvoiceLineItem> result = lineItemRepository.findAllByVehicleIdAndPeriod(
+                vehicle.getId(), LocalDate.of(2026, 1, 1), null);
 
         assertThat(result).extracting(InvoiceLineItem::getId).containsExactly(match.getId());
     }
 
     @Test
-    void findAllByVehicleIdAndPeriod_narrowsByMonth_whenProvided() {
+    void findAllByVehicleIdAndPeriod_narrowsByTo_whenProvided() {
         Vehicle vehicle = persistVehicle("6666FFF");
         Client client = persistClient("55555555E");
         Job jobJuly = persistJob(vehicle);
-        Job jobMay = persistJob(vehicle);
+        Job jobAugust = persistJob(vehicle);
         Invoice invoiceJuly = persistInvoice(client, "INV-2026-00005", LocalDate.of(2026, 7, 20));
-        Invoice invoiceMay = persistInvoice(client, "INV-2026-00006", LocalDate.of(2026, 5, 20));
+        Invoice invoiceAugust = persistInvoice(client, "INV-2026-00006", LocalDate.of(2026, 8, 20));
         InvoiceLineItem match = persistLineItem(invoiceJuly, jobJuly, new BigDecimal("350.00"));
-        persistLineItem(invoiceMay, jobMay, new BigDecimal("450.00"));
+        persistLineItem(invoiceAugust, jobAugust, new BigDecimal("450.00"));
         entityManager.getEntityManager().clear();
 
-        List<InvoiceLineItem> result = lineItemRepository.findAllByVehicleIdAndPeriod(vehicle.getId(), null, 7);
+        List<InvoiceLineItem> result = lineItemRepository.findAllByVehicleIdAndPeriod(
+                vehicle.getId(), null, LocalDate.of(2026, 7, 31));
 
         assertThat(result).extracting(InvoiceLineItem::getId).containsExactly(match.getId());
     }
 
     @Test
-    void findAllByVehicleIdAndPeriod_combinesYearAndMonth_whenBothProvided() {
+    void findAllByVehicleIdAndPeriod_combinesFromAndTo_whenBothProvided() {
         Vehicle vehicle = persistVehicle("7777GGG");
         Client client = persistClient("66666666F");
         Job jobMatch = persistJob(vehicle);
-        Job jobOtherMonth = persistJob(vehicle);
-        Job jobOtherYear = persistJob(vehicle);
+        Job jobAfterRange = persistJob(vehicle);
+        Job jobBeforeRange = persistJob(vehicle);
         Invoice invoiceMatch = persistInvoice(client, "INV-2026-00007", LocalDate.of(2026, 7, 1));
-        Invoice invoiceOtherMonth = persistInvoice(client, "INV-2026-00008", LocalDate.of(2026, 6, 1));
-        Invoice invoiceOtherYear = persistInvoice(client, "INV-2025-00098", LocalDate.of(2025, 7, 1));
+        Invoice invoiceAfterRange = persistInvoice(client, "INV-2026-00008", LocalDate.of(2026, 8, 1));
+        Invoice invoiceBeforeRange = persistInvoice(client, "INV-2025-00098", LocalDate.of(2025, 7, 1));
         InvoiceLineItem match = persistLineItem(invoiceMatch, jobMatch, new BigDecimal("111.00"));
-        persistLineItem(invoiceOtherMonth, jobOtherMonth, new BigDecimal("222.00"));
-        persistLineItem(invoiceOtherYear, jobOtherYear, new BigDecimal("333.00"));
+        persistLineItem(invoiceAfterRange, jobAfterRange, new BigDecimal("222.00"));
+        persistLineItem(invoiceBeforeRange, jobBeforeRange, new BigDecimal("333.00"));
         entityManager.getEntityManager().clear();
 
-        List<InvoiceLineItem> result = lineItemRepository.findAllByVehicleIdAndPeriod(vehicle.getId(), 2026, 7);
+        List<InvoiceLineItem> result = lineItemRepository.findAllByVehicleIdAndPeriod(
+                vehicle.getId(), LocalDate.of(2026, 6, 1), LocalDate.of(2026, 7, 31));
 
         assertThat(result).extracting(InvoiceLineItem::getId).containsExactly(match.getId());
     }
@@ -163,6 +166,29 @@ class LineItemRepositoryTest {
         persistLineItem(invoice, job, new BigDecimal("100.00"));
         invoice.setDeletedAt(Instant.now());
         entityManager.persistAndFlush(invoice);
+        entityManager.getEntityManager().clear();
+
+        List<InvoiceLineItem> result = lineItemRepository.findAllByVehicleIdAndPeriod(vehicle.getId(), null, null);
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void findAllByVehicleIdAndPeriod_excludesLineItems_fromCancelledInvoice() {
+        // Mirrors ProfitabilityRepositoryTest.findProfitabilityByVehicle_excludesRevenue_fromCancelledInvoice:
+        // InvoiceService.delete() cancels an ISSUED invoice by flipping status to CANCELLED without
+        // setting deletedAt (the fiscal number must stay visible), so deleted_at IS NULL alone must
+        // not be enough to keep its line items showing up in this vehicle revenue history.
+        Vehicle vehicle = persistVehicle("9999III");
+        Client client = persistClient("10101010J");
+        Job job = persistJob(vehicle);
+        Invoice cancelledInvoice = new Invoice();
+        cancelledInvoice.setClient(client);
+        cancelledInvoice.setInvoiceNumber("INV-2026-00013");
+        cancelledInvoice.setStatus(InvoiceStatus.CANCELLED);
+        cancelledInvoice.setIssueDate(LocalDate.of(2026, 7, 5));
+        entityManager.persistAndFlush(cancelledInvoice);
+        persistLineItem(cancelledInvoice, job, new BigDecimal("777.00"));
         entityManager.getEntityManager().clear();
 
         List<InvoiceLineItem> result = lineItemRepository.findAllByVehicleIdAndPeriod(vehicle.getId(), null, null);

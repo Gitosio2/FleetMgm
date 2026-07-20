@@ -49,13 +49,13 @@ export const useUpdateMaintenance = maintenanceHooks.useUpdate
 
 // Bypasses createCrudHooks.useList (page/size only, no arbitrary filters) — same rationale as
 // useVehicleProfitability being hand-written rather than reusing a factory. Fetches a single
-// generous page since results are already scoped to one vehicle + one month.
-export function useVehicleMaintenanceHistory(vehicleId: string, year?: number, month?: number) {
+// generous page since results are already scoped to one vehicle + an optional Desde/Hasta range.
+export function useVehicleMaintenanceHistory(vehicleId: string, from?: string, to?: string) {
   return useQuery({
-    queryKey: [MAINTENANCE_KEY, 'vehicle', vehicleId, { year, month }],
+    queryKey: [MAINTENANCE_KEY, 'vehicle', vehicleId, { from, to }],
     queryFn: async () => {
       const { data } = await apiClient.get<PageResponse<MaintenanceRecord>>('/maintenance', {
-        params: { vehicleId, year, month, size: 100 },
+        params: { vehicleId, workshopEntryDateFrom: from, workshopEntryDateTo: to, size: 100 },
       })
       return data.content
     },

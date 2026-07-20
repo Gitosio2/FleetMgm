@@ -530,19 +530,21 @@ class MaintenanceServiceTest {
     }
 
     @Test
-    void list_forwardsVehicleIdYearAndMonthFilters() {
+    void list_forwardsVehicleIdAndWorkshopEntryDateRangeFilters() {
         Pageable pageable = PageRequest.of(0, 20);
         UUID vehicleId = UUID.randomUUID();
+        LocalDate from = LocalDate.of(2026, 7, 1);
+        LocalDate to = LocalDate.of(2026, 7, 31);
         MaintenanceRecord record = new MaintenanceRecord();
         MaintenanceResponse expected = buildResponse(UUID.randomUUID());
 
         when(maintenanceRepository.findAllJoinFetch(
-                vehicleId, 2026, 7, null, null, null, null, null, null, pageable))
+                vehicleId, from, to, null, null, null, null, null, null, pageable))
                 .thenReturn(new PageImpl<>(List.of(record), pageable, 1));
         when(maintenanceMapper.toResponse(record)).thenReturn(expected);
 
         PageResponse<MaintenanceResponse> result = maintenanceService.list(
-                vehicleId, 2026, 7, null, null, null, null, null, null, pageable);
+                vehicleId, from, to, null, null, null, null, null, null, pageable);
 
         assertThat(result.content()).containsExactly(expected);
     }

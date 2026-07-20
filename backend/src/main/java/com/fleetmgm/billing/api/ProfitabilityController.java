@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -34,9 +35,14 @@ public class ProfitabilityController {
         return ResponseEntity.ok(profitabilityService.list(pageable));
     }
 
+    // from/to are optional (VehicleProfitabilityPanel's Desde/Hasta range, replacing the old
+    // month/year selector) — unset means full history, matching this endpoint's original behavior.
     @GetMapping("/{vehicleId}")
-    public ResponseEntity<ProfitabilityResponse> getByVehicleId(@PathVariable UUID vehicleId) {
-        return ResponseEntity.ok(profitabilityService.getByVehicleId(vehicleId));
+    public ResponseEntity<ProfitabilityResponse> getByVehicleId(
+            @PathVariable UUID vehicleId,
+            @RequestParam(required = false) LocalDate from,
+            @RequestParam(required = false) LocalDate to) {
+        return ResponseEntity.ok(profitabilityService.getByVehicleId(vehicleId, from, to));
     }
 
     // Historial de ingresos (Hito 44) — declared alongside /trend as a static-looking sub-path of
@@ -45,9 +51,9 @@ public class ProfitabilityController {
     @GetMapping("/{vehicleId}/revenue")
     public ResponseEntity<List<VehicleRevenueLineItemResponse>> getRevenueByVehicle(
             @PathVariable UUID vehicleId,
-            @RequestParam(required = false) Integer year,
-            @RequestParam(required = false) Integer month) {
-        return ResponseEntity.ok(profitabilityService.getRevenueByVehicle(vehicleId, year, month));
+            @RequestParam(required = false) LocalDate from,
+            @RequestParam(required = false) LocalDate to) {
+        return ResponseEntity.ok(profitabilityService.getRevenueByVehicle(vehicleId, from, to));
     }
 
     // Fleet-wide monthly Ingresos/Gastos trend backing the Dashboard chart (Hito 43 redesign).

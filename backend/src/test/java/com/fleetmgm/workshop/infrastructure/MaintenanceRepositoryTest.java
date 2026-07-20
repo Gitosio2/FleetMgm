@@ -103,32 +103,33 @@ class MaintenanceRepositoryTest {
     }
 
     @Test
-    void findAllJoinFetch_narrowsByYear_whenProvided() {
+    void findAllJoinFetch_narrowsByWorkshopEntryDateFrom_whenProvided() {
         Vehicle vehicle = persistVehicle("9999III");
-        MaintenanceRecord thisYear = persistMaintenanceWithCost(vehicle, new BigDecimal("100.00"), LocalDate.now());
+        MaintenanceRecord inRange = persistMaintenanceWithCost(vehicle, new BigDecimal("100.00"), LocalDate.now());
         persistMaintenanceWithCost(vehicle, new BigDecimal("50.00"), LocalDate.now().minusYears(1));
         entityManager.getEntityManager().clear();
 
         Page<MaintenanceRecord> result = maintenanceRepository.findAllJoinFetch(
-                null, LocalDate.now().getYear(), null, null, null, null, null, null, null, PageRequest.of(0, 20));
-
-        assertThat(result.getContent()).hasSize(1);
-        assertThat(result.getContent().get(0).getId()).isEqualTo(thisYear.getId());
-    }
-
-    @Test
-    void findAllJoinFetch_narrowsByMonth_whenProvided() {
-        Vehicle vehicle = persistVehicle("0000JJJ");
-        MaintenanceRecord thisMonth = persistMaintenanceWithCost(vehicle, new BigDecimal("100.00"), LocalDate.now());
-        persistMaintenanceWithCost(vehicle, new BigDecimal("50.00"), LocalDate.now().minusMonths(2));
-        entityManager.getEntityManager().clear();
-
-        Page<MaintenanceRecord> result = maintenanceRepository.findAllJoinFetch(
-                null, null, LocalDate.now().getMonthValue(), null, null, null, null, null, null,
+                null, LocalDate.now().minusDays(1), null, null, null, null, null, null, null,
                 PageRequest.of(0, 20));
 
         assertThat(result.getContent()).hasSize(1);
-        assertThat(result.getContent().get(0).getId()).isEqualTo(thisMonth.getId());
+        assertThat(result.getContent().get(0).getId()).isEqualTo(inRange.getId());
+    }
+
+    @Test
+    void findAllJoinFetch_narrowsByWorkshopEntryDateTo_whenProvided() {
+        Vehicle vehicle = persistVehicle("0000JJJ");
+        MaintenanceRecord inRange = persistMaintenanceWithCost(vehicle, new BigDecimal("100.00"), LocalDate.now());
+        persistMaintenanceWithCost(vehicle, new BigDecimal("50.00"), LocalDate.now().plusMonths(2));
+        entityManager.getEntityManager().clear();
+
+        Page<MaintenanceRecord> result = maintenanceRepository.findAllJoinFetch(
+                null, null, LocalDate.now().plusDays(1), null, null, null, null, null, null,
+                PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().get(0).getId()).isEqualTo(inRange.getId());
     }
 
     @Test
@@ -141,7 +142,7 @@ class MaintenanceRepositoryTest {
         entityManager.getEntityManager().clear();
 
         Page<MaintenanceRecord> result = maintenanceRepository.findAllJoinFetch(
-                vehicleA.getId(), LocalDate.now().getYear(), LocalDate.now().getMonthValue(),
+                vehicleA.getId(), LocalDate.now().minusDays(1), LocalDate.now().plusDays(1),
                 null, null, null, null, null, null, PageRequest.of(0, 20));
 
         assertThat(result.getContent()).hasSize(1);

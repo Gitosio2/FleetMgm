@@ -16,24 +16,27 @@ export function useProfitability(page = 0, size = 20) {
   })
 }
 
-export function useVehicleProfitability(vehicleId: string) {
+// from/to are optional Desde/Hasta bounds (VehicleProfitabilityPanel) — unset means full history.
+export function useVehicleProfitability(vehicleId: string, from?: string, to?: string) {
   return useQuery({
-    queryKey: [PROFITABILITY_KEY, 'vehicle', vehicleId],
+    queryKey: [PROFITABILITY_KEY, 'vehicle', vehicleId, { from, to }],
     queryFn: async () => {
-      const { data } = await apiClient.get<Profitability>(`/reports/profitability/${vehicleId}`)
+      const { data } = await apiClient.get<Profitability>(`/reports/profitability/${vehicleId}`, {
+        params: { from, to },
+      })
       return data
     },
     enabled: Boolean(vehicleId),
   })
 }
 
-export function useVehicleRevenue(vehicleId: string, year?: number, month?: number) {
+export function useVehicleRevenue(vehicleId: string, from?: string, to?: string) {
   return useQuery({
-    queryKey: [PROFITABILITY_KEY, 'vehicle', vehicleId, 'revenue', { year, month }],
+    queryKey: [PROFITABILITY_KEY, 'vehicle', vehicleId, 'revenue', { from, to }],
     queryFn: async () => {
       const { data } = await apiClient.get<VehicleRevenueLineItem[]>(
         `/reports/profitability/${vehicleId}/revenue`,
-        { params: { year, month } },
+        { params: { from, to } },
       )
       return data
     },

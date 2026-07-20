@@ -7,6 +7,7 @@ import com.fleetmgm.billing.dto.ProfitabilityResponse;
 import com.fleetmgm.billing.dto.VehicleRevenueLineItemResponse;
 import com.fleetmgm.shared.PageResponse;
 import com.fleetmgm.shared.exception.NotFoundException;
+import com.fleetmgm.vehicle.domain.UsageMeasure;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -45,7 +46,8 @@ class ProfitabilityControllerTest {
 
     private ProfitabilityResponse sampleResponse() {
         return new ProfitabilityResponse(VEHICLE_ID, "1111AAA", "Toyota", "Hilux",
-                new BigDecimal("1000.00"), new BigDecimal("400.00"), new BigDecimal("600.00"));
+                new BigDecimal("1000.00"), new BigDecimal("400.00"), new BigDecimal("600.00"),
+                null, null, UsageMeasure.KILOMETERS);
     }
 
     // --- GET /api/v1/reports/profitability ---
@@ -65,7 +67,7 @@ class ProfitabilityControllerTest {
 
     @Test
     void getByVehicleId_returns200_withProfitability() throws Exception {
-        when(profitabilityService.getByVehicleId(VEHICLE_ID)).thenReturn(sampleResponse());
+        when(profitabilityService.getByVehicleId(eq(VEHICLE_ID), isNull(), isNull())).thenReturn(sampleResponse());
 
         mockMvc.perform(get("/api/v1/reports/profitability/{vehicleId}", VEHICLE_ID))
                 .andExpect(status().isOk())
@@ -77,8 +79,21 @@ class ProfitabilityControllerTest {
     }
 
     @Test
+    void getByVehicleId_forwardsFromAndToQueryParams() throws Exception {
+        when(profitabilityService.getByVehicleId(
+                VEHICLE_ID, LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 30)))
+                .thenReturn(sampleResponse());
+
+        mockMvc.perform(get("/api/v1/reports/profitability/{vehicleId}", VEHICLE_ID)
+                        .param("from", "2026-06-01")
+                        .param("to", "2026-06-30"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.revenue").value(1000.00));
+    }
+
+    @Test
     void getByVehicleId_returns404_whenVehicleMissing() throws Exception {
-        when(profitabilityService.getByVehicleId(VEHICLE_ID))
+        when(profitabilityService.getByVehicleId(eq(VEHICLE_ID), isNull(), isNull()))
                 .thenThrow(new NotFoundException("VEHICLE_NOT_FOUND", "Vehicle " + VEHICLE_ID + " not found"));
 
         mockMvc.perform(get("/api/v1/reports/profitability/{vehicleId}", VEHICLE_ID))
@@ -103,12 +118,14 @@ class ProfitabilityControllerTest {
     }
 
     @Test
-    void getRevenueByVehicle_forwardsYearAndMonthQueryParams() throws Exception {
-        when(profitabilityService.getRevenueByVehicle(VEHICLE_ID, 2026, 7)).thenReturn(List.of());
+    void getRevenueByVehicle_forwardsFromAndToQueryParams() throws Exception {
+        when(profitabilityService.getRevenueByVehicle(
+                VEHICLE_ID, LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31)))
+                .thenReturn(List.of());
 
         mockMvc.perform(get("/api/v1/reports/profitability/{vehicleId}/revenue", VEHICLE_ID)
-                        .param("year", "2026")
-                        .param("month", "7"))
+                        .param("from", "2026-07-01")
+                        .param("to", "2026-07-31"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray());
     }

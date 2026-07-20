@@ -19,6 +19,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import java.math.BigDecimal;
 import java.net.URI;
+import java.time.LocalDate;
 import java.util.UUID;
 
 @RestController
@@ -34,8 +35,8 @@ public class MaintenanceController {
     @GetMapping
     public ResponseEntity<PageResponse<MaintenanceResponse>> list(
             @RequestParam(required = false) UUID vehicleId,
-            @RequestParam(required = false) Integer year,
-            @RequestParam(required = false) Integer month,
+            @RequestParam(required = false) LocalDate workshopEntryDateFrom,
+            @RequestParam(required = false) LocalDate workshopEntryDateTo,
             @RequestParam(required = false) String type,
             @RequestParam(required = false) MaintenanceCategory category,
             @RequestParam(required = false) MaintenanceStatus status,
@@ -43,8 +44,8 @@ public class MaintenanceController {
             @RequestParam(required = false) BigDecimal costFrom,
             @RequestParam(required = false) BigDecimal costTo,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-        return ResponseEntity.ok(maintenanceService.list(vehicleId, year, month, type, category, status,
-                technicianId, costFrom, costTo, pageable));
+        return ResponseEntity.ok(maintenanceService.list(vehicleId, workshopEntryDateFrom, workshopEntryDateTo, type,
+                category, status, technicianId, costFrom, costTo, pageable));
     }
 
     @PostMapping

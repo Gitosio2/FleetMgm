@@ -1454,6 +1454,14 @@ type ProfitabilityMock = {
   revenue: number
   costs: number
   margin: number
+  // Only meaningful for the static, unranged (full-history) fixture below — the real backend only
+  // computes these from usage_logs for a single vehicle's Desde/Hasta query, and this mock doesn't
+  // replicate that delta math; the ranged handler path always returns null for these two (see
+  // "Registered after the more specific /reports/profitability/trend handler" below), which is also
+  // what exercises the "Sin datos suficientes" rendering path in Vehicles.test.tsx.
+  costPerUsageUnit: number | null
+  profitPerUsageUnit: number | null
+  usageMeasure: UsageMeasure
 }
 
 // Read-only feature (no create/update/delete) — mirrors SEED_VEHICLES 1:1 (one profitability row
@@ -1468,6 +1476,9 @@ export const SEED_PROFITABILITY: ProfitabilityMock[] = [
     revenue: 12500,
     costs: 4200,
     margin: 8300,
+    costPerUsageUnit: 8.4,
+    profitPerUsageUnit: 16.6,
+    usageMeasure: SEED_VEHICLES[0]!.usageMeasure,
   },
   {
     vehicleId: SEED_VEHICLES[1]!.id,
@@ -1477,6 +1488,9 @@ export const SEED_PROFITABILITY: ProfitabilityMock[] = [
     revenue: 6200,
     costs: 5100,
     margin: 1100,
+    costPerUsageUnit: 51,
+    profitPerUsageUnit: 11,
+    usageMeasure: SEED_VEHICLES[1]!.usageMeasure,
   },
 ]
 
@@ -2536,8 +2550,8 @@ export const handlers = [
     const page = Number(url.searchParams.get('page') ?? 0)
     const size = Number(url.searchParams.get('size') ?? 20)
     const vehicleId = url.searchParams.get('vehicleId')
-    const year = url.searchParams.get('year')
-    const month = url.searchParams.get('month')
+    const workshopEntryDateFrom = url.searchParams.get('workshopEntryDateFrom')
+    const workshopEntryDateTo = url.searchParams.get('workshopEntryDateTo')
     const type = url.searchParams.get('type')
     const category = url.searchParams.get('category')
     const status = url.searchParams.get('status')
@@ -2547,9 +2561,9 @@ export const handlers = [
 
     const filtered = maintenanceRecords.filter((record) => {
       if (vehicleId && record.vehicleId !== vehicleId) return false
-      if ((year || month) && !record.workshopEntryDate) return false
-      if (year && record.workshopEntryDate!.slice(0, 4) !== year) return false
-      if (month && Number(record.workshopEntryDate!.slice(5, 7)) !== Number(month)) return false
+      if ((workshopEntryDateFrom || workshopEntryDateTo) && !record.workshopEntryDate) return false
+      if (workshopEntryDateFrom && record.workshopEntryDate! < workshopEntryDateFrom) return false
+      if (workshopEntryDateTo && record.workshopEntryDate! > workshopEntryDateTo) return false
       if (type && !record.type.toLowerCase().includes(type.toLowerCase())) return false
       if (category && record.category !== category) return false
       if (status && record.status !== status) return false
@@ -4068,7 +4082,15 @@ export const handlers = [
     const size = Number(url.searchParams.get('size') ?? 20)
 
     const start = page * size
-    const content = SEED_PROFITABILITY.slice(start, start + size)
+    // Mirrors the real backend's list(): costPerUsageUnit/profitPerUsageUnit/usageMeasure are only
+    // ever computed for the single-vehicle detail query (getByVehicleId below), never for this
+    // fleet-wide paged table — see ProfitabilityResponse's comment on the backend.
+    const content = SEED_PROFITABILITY.slice(start, start + size).map((entry) => ({
+      ...entry,
+      costPerUsageUnit: null,
+      profitPerUsageUnit: null,
+      usageMeasure: null,
+    }))
 
     return HttpResponse.json({
       content,
@@ -4093,12 +4115,12 @@ export const handlers = [
   // this time for the /:vehicleId/revenue sub-route.
   http.get('/api/v1/reports/profitability/:vehicleId/revenue', ({ params, request }) => {
     const url = new URL(request.url)
-    const year = url.searchParams.get('year')
-    const month = url.searchParams.get('month')
+    const from = url.searchParams.get('from')
+    const to = url.searchParams.get('to')
 
     const content = SEED_VEHICLE_REVENUE.filter((item) => item.vehicleId === params.vehicleId)
-      .filter((item) => !year || item.issueDate.slice(0, 4) === year)
-      .filter((item) => !month || Number(item.issueDate.slice(5, 7)) === Number(month))
+      .filter((item) => !from || item.issueDate >= from)
+      .filter((item) => !to || item.issueDate <= to)
       .map(({ vehicleId: _vehicleId, ...rest }) => rest)
 
     return HttpResponse.json(content)
@@ -4106,10 +4128,10 @@ export const handlers = [
 
   // Registered after the more specific /reports/profitability/trend handler above — MSW matches
   // handlers in array order, and this :vehicleId pattern would otherwise shadow /trend requests.
-  http.get('/api/v1/reports/profitability/:vehicleId', ({ params }) => {
-    const profitability = SEED_PROFITABILITY.find((entry) => entry.vehicleId === params.vehicleId)
+  http.get('/api/v1/reports/profitability/:vehicleId', ({ params, request }) => {
+    const staticProfitability = SEED_PROFITABILITY.find((entry) => entry.vehicleId === params.vehicleId)
 
-    if (!profitability) {
+    if (!staticProfitability) {
       return HttpResponse.json(
         {
           status: 404,
@@ -4121,7 +4143,49 @@ export const handlers = [
       )
     }
 
-    return HttpResponse.json(profitability)
+    const url = new URL(request.url)
+    const from = url.searchParams.get('from')
+    const to = url.searchParams.get('to')
+
+    // No range set — unbounded, full history, matches this handler's original static behavior.
+    if (!from && !to) {
+      return HttpResponse.json(staticProfitability)
+    }
+
+    // With a range set, mirror the real backend: revenue scoped to invoice line items in range,
+    // costs scoped to maintenance records (with a cost) + header-level supplier invoices in range,
+    // both for this vehicle — so "Totales" actually reflects the Desde/Hasta range like the two
+    // history cards already do, instead of always showing the static all-time figures.
+    const revenue = SEED_VEHICLE_REVENUE.filter((item) => item.vehicleId === params.vehicleId)
+      .filter((item) => !from || item.issueDate >= from)
+      .filter((item) => !to || item.issueDate <= to)
+      .reduce((sum, item) => sum + item.subtotal, 0)
+
+    const maintenanceCosts = SEED_MAINTENANCE.filter(
+      (record) => record.vehicleId === params.vehicleId && record.cost != null && record.workshopEntryDate,
+    )
+      .filter((record) => !from || record.workshopEntryDate! >= from)
+      .filter((record) => !to || record.workshopEntryDate! <= to)
+      .reduce((sum, record) => sum + (record.cost ?? 0), 0)
+
+    const supplierCosts = SEED_SUPPLIER_INVOICES.filter((invoice) => invoice.vehicleId === params.vehicleId)
+      .filter((invoice) => !from || invoice.invoiceDate >= from)
+      .filter((invoice) => !to || invoice.invoiceDate <= to)
+      .reduce((sum, invoice) => sum + invoice.total, 0)
+
+    const costs = maintenanceCosts + supplierCosts
+
+    return HttpResponse.json({
+      ...staticProfitability,
+      revenue,
+      costs,
+      margin: revenue - costs,
+      // This mock doesn't replicate the real backend's usage_logs cumulative-delta math for a
+      // ranged query — null here is what exercises the "Sin datos suficientes" rendering path in
+      // VehicleProfitabilityPanel, same as a real vehicle with no usage log baseline before `from`.
+      costPerUsageUnit: null,
+      profitPerUsageUnit: null,
+    })
   }),
 
   http.post('/api/v1/auth/login', async ({ request }) => {
