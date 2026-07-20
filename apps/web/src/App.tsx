@@ -3,6 +3,7 @@ import { Route, Routes } from 'react-router-dom'
 import { useThemeStore } from '@fleetmgm/store'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { Layout } from '@/components/layout/Layout'
+import { Home } from '@/pages/Home'
 import { Login } from '@/pages/Login'
 import { DashboardHome } from '@/pages/DashboardHome'
 import { Clients } from '@/pages/Clients'
@@ -28,6 +29,7 @@ function App() {
 
   return (
     <Routes>
+      <Route path="/" element={<Home />} />
       <Route path="/login" element={<Login />} />
 
       <Route
@@ -37,7 +39,7 @@ function App() {
           </ProtectedRoute>
         }
       >
-        <Route index element={<DashboardHome />} />
+        <Route path="/dashboard" element={<DashboardHome />} />
         <Route
           path="/clients"
           element={
@@ -128,7 +130,7 @@ function App() {
         />
         {NAV_ITEMS.filter(
           (item) =>
-            item.to !== '/' &&
+            item.to !== '/dashboard' &&
             item.to !== '/clients' &&
             item.to !== '/vehicles' &&
             item.to !== '/workers' &&

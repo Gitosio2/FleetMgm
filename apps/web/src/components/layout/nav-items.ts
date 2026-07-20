@@ -25,7 +25,7 @@ export type NavItem = {
 export const MANAGEMENT_ROLES: AppRole[] = ['ADMIN', 'MANAGER', 'ADMINISTRATIVE']
 
 export const NAV_ITEMS: NavItem[] = [
-  { label: 'Panel', to: '/', icon: LayoutDashboard },
+  { label: 'Panel', to: '/dashboard', icon: LayoutDashboard },
   {
     label: 'Trabajos',
     to: '/jobs',
