@@ -92,6 +92,8 @@ describe('Jobs', () => {
     expect(within(row).getByText('Pendiente')).toBeInTheDocument()
 
     await user.click(within(row).getByRole('button', { name: /iniciar/i }))
+    const dialog = await screen.findByRole('dialog')
+    await user.click(within(dialog).getByRole('button', { name: /^iniciar$/i }))
 
     await waitFor(() => expect(within(row).getByText('En curso')).toBeInTheDocument())
     expect(within(row).getByRole('button', { name: /completar/i })).toBeInTheDocument()
@@ -106,6 +108,8 @@ describe('Jobs', () => {
     expect(within(row).getByText('En curso')).toBeInTheDocument()
 
     await user.click(within(row).getByRole('button', { name: /completar/i }))
+    const dialog = await screen.findByRole('dialog')
+    await user.click(within(dialog).getByRole('button', { name: /^completar$/i }))
 
     await waitFor(() => expect(within(row).getByText('Completado')).toBeInTheDocument())
   })
@@ -128,9 +132,14 @@ describe('Jobs', () => {
     renderJobs()
 
     const row = (await screen.findByText('Entrega urgente')).closest('tr')!
-    const button = within(row).getByRole('button', { name: /iniciar/i })
+    await user.click(within(row).getByRole('button', { name: /iniciar/i }))
 
-    await Promise.all([user.click(button), user.click(button)])
+    const dialog = await screen.findByRole('dialog')
+    const confirmButton = within(dialog).getByRole('button', { name: /^iniciar$/i })
+    // Concurrent (Promise.all), not sequential — awaiting each click in turn would let React
+    // flush the confirm button's disabled={isPending} state between them, and user-event refuses
+    // to click a disabled element, so the second click would silently never fire.
+    await Promise.all([user.click(confirmButton), user.click(confirmButton)])
 
     await waitFor(() =>
       expect(within(row).getByRole('alert')).toHaveTextContent(/no se pudo completar la acción/i),
@@ -186,6 +195,8 @@ describe('Jobs', () => {
     expect(within(row).getByText(expectedDate)).toBeInTheDocument()
 
     await user.click(within(row).getByRole('button', { name: /iniciar/i }))
+    const dialog = await screen.findByRole('dialog')
+    await user.click(within(dialog).getByRole('button', { name: /^iniciar$/i }))
 
     await waitFor(() => expect(within(row).getByText('En curso')).toBeInTheDocument())
     expect(within(row).getByText(expectedDate)).toBeInTheDocument()

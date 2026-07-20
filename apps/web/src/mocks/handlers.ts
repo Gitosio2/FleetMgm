@@ -1854,6 +1854,24 @@ export const handlers = [
     })
   }),
 
+  http.get('/api/v1/vehicles/:id', ({ params }) => {
+    const vehicle = vehicles.find((v) => v.id === params.id)
+
+    if (!vehicle) {
+      return HttpResponse.json(
+        {
+          status: 404,
+          code: 'VEHICLE_NOT_FOUND',
+          message: `Vehicle ${params.id} not found`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 404 },
+      )
+    }
+
+    return HttpResponse.json(vehicle)
+  }),
+
   http.post('/api/v1/vehicles', async ({ request }) => {
     const body = (await request.json()) as VehicleRequestBody
 

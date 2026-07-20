@@ -42,6 +42,7 @@ export function useVehicles(filters: VehicleFilters = {}, page = 0, size = 20) {
   })
 }
 
+export const useVehicle = vehicleHooks.useDetail
 export const useCreateVehicle = vehicleHooks.useCreate
 export const useUpdateVehicle = vehicleHooks.useUpdate
 export const useDeleteVehicle = vehicleHooks.useDelete
