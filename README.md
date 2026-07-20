@@ -1,6 +1,12 @@
 # FleetMgm
 
-Sistema de gestión de flotas desarrollado como Trabajo Fin de Máster. Backend: Java 21 + Spring Boot 3.5. Frontend: React + Vite + TypeScript (monorepo, con lógica compartida preparada para una futura app móvil). Las decisiones de arquitectura y su justificación viven en [`planning.md`](planning.md).
+Sistema de gestión de flotas. Backend: Java 21 + Spring Boot 3.5. Frontend: React + Vite + TypeScript (monorepo, con lógica compartida preparada para una futura app móvil). Las decisiones de arquitectura y su justificación viven en [`planning.md`](planning.md).
+
+## Por qué surge FleetMgm
+
+Antes de convertirse en un TFM, este proyecto surge como respuesta a un problema real que viví de cerca. Trabajé como administrativo en una PYME del sector de transporte y logística, y desde dentro pude ver cómo se gestionaba el día a día de la flota: facturacion en formularios de Access guardados en un NAS, GPS en múltiples apps, trabajos anotados en papel, mantenimientos en hojas de excel, al igual que las mercancías que llevan los camiones. Ninguna se integraba ni intercambiaba datos automáticamente con las demás. Todo ello anotado a mano, disperso, y solo accesible desde el ordenador de la oficina.
+
+FleetMgm nace como la respuesta que a mí me habría gustado tener entonces: una única plataforma que centraliza vehículos, personal, trabajos, mantenimiento, facturación y GPS, pensada para pymes que no necesitan (ni pueden permitirse) un ERP corporativo, y accesible desde cualquier lugar — no solo desde la oficina. (App mobile en proceso)
 
 ## Demo en vivo
 
@@ -65,10 +71,6 @@ El detalle completo — modelo de dominio, matriz de permisos, esquema de base d
 - Reporte de rentabilidad por vehículo y dashboard financiero de toda la flota
 - Mapa GPS de flota en vivo (posiciones simuladas, renderizado real con Leaflet)
 - Visor completo de auditoría con filtros
-
-## Capturas de pantalla
-
-*(Agregar capturas aqui— entrá a la demo corriendo en `http://localhost:8081` con las credenciales de abajo y capturá: Dashboard, listado de Vehículos, panel de rentabilidad por vehículo, ciclo de vida de un trabajo, mapa GPS, visor de auditoría.)*
 
 ## Arranque rápido (demo local)
 
