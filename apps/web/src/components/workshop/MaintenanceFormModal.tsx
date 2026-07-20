@@ -72,7 +72,7 @@ export function MaintenanceFormModal({ open, onOpenChange, record }: Maintenance
         </DialogHeader>
 
         <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="maintenance-vehicle">Vehículo</Label>
               <select
@@ -111,7 +111,7 @@ export function MaintenanceFormModal({ open, onOpenChange, record }: Maintenance
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="maintenance-type">Tipo</Label>
               <Input id="maintenance-type" value={type} onChange={(e) => setType(e.target.value)} required />
@@ -134,7 +134,7 @@ export function MaintenanceFormModal({ open, onOpenChange, record }: Maintenance
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="maintenance-description">Descripción</Label>
               <Input

@@ -18,12 +18,12 @@ export function Map() {
 
   return (
     <div className="flex h-full flex-col gap-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="font-display text-2xl font-semibold">Mapa GPS</h1>
           <p className="text-on-surface-variant">Ubicación en tiempo real de la flota.</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <select
             aria-label="Filtrar por tipo de vehículo"
             className={selectClassName}

@@ -40,7 +40,7 @@ export function VehiclePopover({ position, open }: VehiclePopoverProps) {
     <Popup>
       <div
         data-testid="vehicle-popover"
-        className="flex w-56 flex-col gap-2 rounded-2xl bg-surface-bright p-3.5 text-sm text-on-surface shadow-lg"
+        className="flex w-56 max-w-[calc(100vw-2rem)] flex-col gap-2 rounded-2xl bg-surface-bright p-3.5 text-sm text-on-surface shadow-lg"
       >
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5">
