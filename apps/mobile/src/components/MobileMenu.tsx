@@ -16,6 +16,7 @@ import {
   X,
 } from 'lucide-react-native'
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 type MenuIcon = ComponentType<{ color?: string; size?: number; strokeWidth?: number }>
 
@@ -41,6 +42,7 @@ const MENU_ITEMS: MobileMenuItem[] = [
 
 export function MobileMenu() {
   const [isOpen, setIsOpen] = useState(false)
+  const insets = useSafeAreaInsets()
 
   function closeMenu() {
     setIsOpen(false)
@@ -78,7 +80,10 @@ export function MobileMenu() {
               accessibilityRole="menu"
               accessibilityViewIsModal
               importantForAccessibility="yes"
-              style={styles.drawer}
+              style={[
+                styles.drawer,
+                { paddingBottom: insets.bottom + 20, paddingTop: insets.top + 20 },
+              ]}
             >
               <View style={styles.header}>
                 <View style={styles.logoBadge}>

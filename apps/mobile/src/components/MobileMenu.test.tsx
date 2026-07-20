@@ -1,6 +1,16 @@
 import { act, create, type ReactTestRenderer } from 'react-test-renderer'
 import { Modal } from 'react-native'
+import type { ReactNode } from 'react'
 import { MobileMenu } from './MobileMenu'
+
+jest.mock('react-native-safe-area-context', () => {
+  const { View } = require('react-native')
+
+  return {
+    SafeAreaProvider: ({ children }: { children: ReactNode }) => <View>{children}</View>,
+    useSafeAreaInsets: () => ({ bottom: 12, left: 0, right: 0, top: 28 }),
+  }
+})
 
 ;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
@@ -29,6 +39,10 @@ describe('MobileMenu', () => {
 
     expect(screen.root.findByProps({ accessibilityLabel: 'Cerrar menú' })).toBeTruthy()
     expect(screen.root.findByProps({ accessibilityLabel: 'Menú de navegación' })).toBeTruthy()
+    expect(screen.root.findByProps({ accessibilityLabel: 'Menú de navegación' }).props.style).toEqual([
+      expect.any(Object),
+      { paddingBottom: 32, paddingTop: 48 },
+    ])
     expect(screen.root.findByProps({ accessibilityLabel: 'Abrir menú' }).props.accessibilityState?.expanded).toBe(true)
     expect(screen.root.findByProps({ accessibilityLabel: 'Menú de navegación' }).props.accessibilityViewIsModal).toBe(true)
     expect(screen.root.findByProps({ accessibilityLabel: 'Opciones del menú' })).toBeTruthy()

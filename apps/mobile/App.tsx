@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar'
 import { configureApiClient } from '@fleetmgm/api'
 import { useEffect, useRef, useState } from 'react'
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLogout } from '@fleetmgm/hooks'
 import { useAuthStore } from '@fleetmgm/store'
 import { secureAuthStorage } from './src/auth/secureStorage'
@@ -15,6 +16,14 @@ const queryClient = new QueryClient()
 configureApiClient(resolveApiBaseUrl(process.env.EXPO_PUBLIC_API_BASE_URL, __DEV__))
 
 export default function App() {
+  return (
+    <SafeAreaProvider>
+      <AppContent />
+    </SafeAreaProvider>
+  )
+}
+
+function AppContent() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
   const [isHydrated, setIsHydrated] = useState(false)
   const hydrationStarted = useRef(false)
@@ -58,10 +67,11 @@ function HydrationScreen() {
 
 function AuthenticatedScreen() {
   const logout = useLogout()
+  const insets = useSafeAreaInsets()
 
   return (
     <View style={styles.safeArea}>
-      <View style={styles.menuTrigger}>
+      <View testID="mobile-menu-trigger-container" style={[styles.menuTrigger, { top: insets.top + 16 }]}>
         <MobileMenu />
       </View>
       <View style={styles.container}>
@@ -88,7 +98,6 @@ const styles = StyleSheet.create({
   menuTrigger: {
     left: 16,
     position: 'absolute',
-    top: 16,
     zIndex: 1,
   },
   container: {
