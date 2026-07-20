@@ -31,6 +31,7 @@ export function VehicleTable({
       <TableHeader>
         <TableRow>
           <TableHead>Matrícula</TableHead>
+          <TableHead>VIN</TableHead>
           <TableHead>Vehículo</TableHead>
           <TableHead>Uso</TableHead>
           <TableHead>Estado</TableHead>
@@ -41,6 +42,7 @@ export function VehicleTable({
         {vehicles.map((vehicle) => (
           <TableRow key={vehicle.id}>
             <TableCell>{vehicle.licensePlate ?? '—'}</TableCell>
+            <TableCell>{vehicle.vin ?? '—'}</TableCell>
             <TableCell>{vehicle.make} {vehicle.model}</TableCell>
             <TableCell>{usage(vehicle)}</TableCell>
             <TableCell>
