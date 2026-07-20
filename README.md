@@ -9,6 +9,17 @@ Sistema de gestión de flotas desarrollado como Trabajo Fin de Máster. Backend:
 
 Credenciales de acceso: ver la tabla en [Credenciales demo](#credenciales-demo) más abajo — son las mismas tanto en este despliegue como en el demo local con `docker compose`.
 
+## Requisitos previos
+
+Solo hacen falta para correr el proyecto en local — la demo en vivo de arriba no requiere nada instalado.
+
+| Herramienta | Versión | Para qué |
+|---|---|---|
+| Docker Desktop | reciente | [Arranque rápido](#arranque-rápido-demo-local) y [Desarrollo local con Docker](#desarrollo-local-con-docker) |
+| Java | 21 | [Backend sin Docker](#backend) — el Maven Wrapper (`./mvnw`) ya está incluido, no hace falta instalar Maven |
+| Node | 22 (ver [`.nvmrc`](.nvmrc)) | [Frontend sin Docker](#frontend) |
+| PostgreSQL | 16 | Solo si corrés el backend sin Docker (ver cómo levantarlo con `docker run` más abajo) |
+
 ## Stack tecnológico
 
 | Capa | Tecnología |
@@ -104,6 +115,8 @@ cd backend
 
 Necesita una instancia de Postgres accesible en `jdbc:postgresql://localhost:5432/fleetmgm` (usuario/contraseña `fleetmgm`), o se puede sobreescribir vía `SPRING_DATASOURCE_URL`/`_USERNAME`/`_PASSWORD`. `docker run -d -e POSTGRES_DB=fleetmgm -e POSTGRES_USER=fleetmgm -e POSTGRES_PASSWORD=fleetmgm -p 5432:5432 postgres:16` es la forma más rápida de tener una.
 
+Documentación interactiva de la API (Swagger UI) corriendo así: **http://localhost:8080/swagger-ui.html** — solo disponible sin el perfil `prod` (el que usa `docker compose`, donde queda deshabilitada).
+
 ### Frontend
 
 Requiere Node 22 (ver [`.nvmrc`](.nvmrc); con `nvm` alcanza con `nvm use`).
@@ -111,6 +124,8 @@ Requiere Node 22 (ver [`.nvmrc`](.nvmrc); con `nvm` alcanza con `nvm use`).
 ```bash
 npm install                     # desde la raíz del repo — instala todos los workspaces
 turbo dev                       # arranca todas las apps en modo dev (web en :5173)
+turbo test                      # Vitest en todos los workspaces (packages/ + apps/web)
+turbo lint                      # oxlint en todos los workspaces
 ```
 
 El servidor de desarrollo mockea la API con MSW (`VITE_ENABLE_MSW=true` en `apps/web/.env.local`) — no hace falta un backend corriendo para trabajar solo en el frontend.
