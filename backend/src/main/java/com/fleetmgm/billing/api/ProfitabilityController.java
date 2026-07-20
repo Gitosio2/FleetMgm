@@ -3,6 +3,7 @@ package com.fleetmgm.billing.api;
 import com.fleetmgm.billing.application.ProfitabilityService;
 import com.fleetmgm.billing.dto.MonthlyFinancialResponse;
 import com.fleetmgm.billing.dto.ProfitabilityResponse;
+import com.fleetmgm.billing.dto.VehicleExpenseResponse;
 import com.fleetmgm.billing.dto.VehicleRevenueLineItemResponse;
 import com.fleetmgm.shared.PageResponse;
 import org.springframework.data.domain.Pageable;
@@ -54,6 +55,17 @@ public class ProfitabilityController {
             @RequestParam(required = false) LocalDate from,
             @RequestParam(required = false) LocalDate to) {
         return ResponseEntity.ok(profitabilityService.getRevenueByVehicle(vehicleId, from, to));
+    }
+
+    // Vehicle profitability panel's merged "Historial de gastos" list (Hito 45) — declared alongside
+    // /revenue as a static-looking sub-path of /{vehicleId}, same precedent as /revenue and /trend
+    // above (Spring MVC resolves "/expenses" as a literal segment, not a second path variable).
+    @GetMapping("/{vehicleId}/expenses")
+    public ResponseEntity<List<VehicleExpenseResponse>> getExpensesByVehicle(
+            @PathVariable UUID vehicleId,
+            @RequestParam(required = false) LocalDate from,
+            @RequestParam(required = false) LocalDate to) {
+        return ResponseEntity.ok(profitabilityService.getExpensesByVehicle(vehicleId, from, to));
     }
 
     // Fleet-wide monthly Ingresos/Gastos trend backing the Dashboard chart (Hito 43 redesign).

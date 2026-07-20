@@ -374,6 +374,50 @@ class SupplierInvoiceRepositoryTest {
         assertThat(result.getContent()).extracting(SupplierInvoice::getId).containsExactly(match.getId());
     }
 
+    // --- findAllByVehicleIdAndPeriod (Hito 45 — vehicle profitability panel's merged expense list) ---
+
+    @Test
+    void findAllByVehicleIdAndPeriod_returnsWholeInvoice_tiedToVehicle() {
+        Supplier supplier = persistSupplier();
+        Vehicle vehicle = persistVehicle("1212AAA");
+        SupplierInvoice invoice = persistInvoice(supplier, vehicle, ExpenseCategory.MAINTENANCE);
+        entityManager.getEntityManager().clear();
+
+        List<SupplierInvoice> result =
+                supplierInvoiceRepository.findAllByVehicleIdAndPeriod(vehicle.getId(), null, null);
+
+        assertThat(result).extracting(SupplierInvoice::getId).containsExactly(invoice.getId());
+    }
+
+    @Test
+    void findAllByVehicleIdAndPeriod_excludesInvoices_forOtherVehicles() {
+        Supplier supplier = persistSupplier();
+        Vehicle vehicleA = persistVehicle("1313BBB");
+        Vehicle vehicleB = persistVehicle("1414CCC");
+        persistInvoice(supplier, vehicleB, ExpenseCategory.MAINTENANCE);
+        entityManager.getEntityManager().clear();
+
+        List<SupplierInvoice> result =
+                supplierInvoiceRepository.findAllByVehicleIdAndPeriod(vehicleA.getId(), null, null);
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void findAllByVehicleIdAndPeriod_narrowsByInvoiceDateRange_whenBothBoundsProvided() {
+        Supplier supplier = persistSupplier();
+        Vehicle vehicle = persistVehicle("1515DDD");
+        SupplierInvoice inRange = persistInvoiceWithTotal(
+                supplier, vehicle, new BigDecimal("100.00"), LocalDate.now());
+        persistInvoiceWithTotal(supplier, vehicle, new BigDecimal("100.00"), LocalDate.now().minusMonths(2));
+        entityManager.getEntityManager().clear();
+
+        List<SupplierInvoice> result = supplierInvoiceRepository.findAllByVehicleIdAndPeriod(
+                vehicle.getId(), LocalDate.now().minusDays(5), LocalDate.now().plusDays(5));
+
+        assertThat(result).extracting(SupplierInvoice::getId).containsExactly(inRange.getId());
+    }
+
     private SupplierInvoice persistInvoiceFull(Supplier supplier, SupplierInvoiceStatus status,
             LocalDate invoiceDate, LocalDate dueDate, BigDecimal total) {
         SupplierInvoice invoice = new SupplierInvoice();

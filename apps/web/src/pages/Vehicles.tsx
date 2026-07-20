@@ -142,7 +142,7 @@ export function Vehicles() {
         open={profitabilityVehicle != null}
         onOpenChange={(open) => !open && setProfitabilityVehicle(undefined)}
       >
-        <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+        <DialogContent className="max-h-[85vh] max-w-4xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               Rentabilidad — {profitabilityVehicle && `${profitabilityVehicle.make} ${profitabilityVehicle.model}`}

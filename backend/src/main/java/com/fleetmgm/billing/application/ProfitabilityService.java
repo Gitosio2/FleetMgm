@@ -1,11 +1,16 @@
 package com.fleetmgm.billing.application;
 
 import com.fleetmgm.billing.domain.InvoiceLineItem;
+import com.fleetmgm.billing.domain.SupplierInvoice;
+import com.fleetmgm.billing.domain.SupplierInvoiceLineItem;
 import com.fleetmgm.billing.dto.MonthlyFinancialResponse;
 import com.fleetmgm.billing.dto.ProfitabilityResponse;
+import com.fleetmgm.billing.dto.VehicleExpenseResponse;
 import com.fleetmgm.billing.dto.VehicleRevenueLineItemResponse;
 import com.fleetmgm.billing.infrastructure.LineItemRepository;
 import com.fleetmgm.billing.infrastructure.ProfitabilityRepository;
+import com.fleetmgm.billing.infrastructure.SupplierInvoiceLineItemRepository;
+import com.fleetmgm.billing.infrastructure.SupplierInvoiceRepository;
 import com.fleetmgm.billing.infrastructure.VehicleProfitabilityProjection;
 import com.fleetmgm.shared.PageResponse;
 import com.fleetmgm.shared.exception.NotFoundException;
@@ -22,8 +27,10 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 @Service
 public class ProfitabilityService {
@@ -44,15 +51,21 @@ public class ProfitabilityService {
     private final VehicleRepository vehicleRepository;
     private final LineItemRepository lineItemRepository;
     private final UsageLogRepository usageLogRepository;
+    private final SupplierInvoiceRepository supplierInvoiceRepository;
+    private final SupplierInvoiceLineItemRepository supplierInvoiceLineItemRepository;
 
     public ProfitabilityService(ProfitabilityRepository profitabilityRepository,
                                  VehicleRepository vehicleRepository,
                                  LineItemRepository lineItemRepository,
-                                 UsageLogRepository usageLogRepository) {
+                                 UsageLogRepository usageLogRepository,
+                                 SupplierInvoiceRepository supplierInvoiceRepository,
+                                 SupplierInvoiceLineItemRepository supplierInvoiceLineItemRepository) {
         this.profitabilityRepository = profitabilityRepository;
         this.vehicleRepository = vehicleRepository;
         this.lineItemRepository = lineItemRepository;
         this.usageLogRepository = usageLogRepository;
+        this.supplierInvoiceRepository = supplierInvoiceRepository;
+        this.supplierInvoiceLineItemRepository = supplierInvoiceLineItemRepository;
     }
 
     @Transactional(readOnly = true)
@@ -140,6 +153,45 @@ public class ProfitabilityService {
         return lineItemRepository.findAllByVehicleIdAndPeriod(vehicleId, from, to).stream()
                 .map(this::toRevenueResponse)
                 .toList();
+    }
+
+    // Vehicle profitability panel's merged "Historial de gastos" list (Hito 45) — replaces the old
+    // maintenance-only "Historial de mantenimientos" card, whose own subtotal never matched
+    // "Totales" -> "Gastos" (Gastos is a superset that also includes supplier-invoice costs, see
+    // ProfitabilityRepository). This does not change how Gastos is computed — it only surfaces the
+    // same supplier-invoice cost sources ProfitabilityRepository already sums, as a single list
+    // merged and sorted by date (user's explicit choice over two separate sub-lists), alongside
+    // maintenance records rendered separately by the frontend from useVehicleMaintenanceHistory.
+    // Existence check mirrors getRevenueByVehicle: an empty result is also the correct answer for a
+    // real vehicle with no supplier-invoice costs in the given period.
+    @Transactional(readOnly = true)
+    @PreAuthorize(ROLES)
+    public List<VehicleExpenseResponse> getExpensesByVehicle(UUID vehicleId, LocalDate from, LocalDate to) {
+        vehicleRepository.findById(vehicleId)
+                .orElseThrow(() -> new NotFoundException("VEHICLE_NOT_FOUND", "Vehicle " + vehicleId + " not found"));
+        Stream<VehicleExpenseResponse> invoiceExpenses = supplierInvoiceRepository
+                .findAllByVehicleIdAndPeriod(vehicleId, from, to).stream()
+                .map(this::toExpenseResponse);
+        Stream<VehicleExpenseResponse> lineItemExpenses = supplierInvoiceLineItemRepository
+                .findAllByVehicleIdAndPeriod(vehicleId, from, to).stream()
+                .map(this::toExpenseResponse);
+        return Stream.concat(invoiceExpenses, lineItemExpenses)
+                .sorted(Comparator.comparing(VehicleExpenseResponse::date).reversed())
+                .toList();
+    }
+
+    private VehicleExpenseResponse toExpenseResponse(SupplierInvoice invoice) {
+        String label = invoice.getSupplierInvoiceNumber() != null
+                ? invoice.getSupplier().getName() + " – " + invoice.getSupplierInvoiceNumber()
+                : invoice.getSupplier().getName();
+        return new VehicleExpenseResponse(label, invoice.getInvoiceDate(), invoice.getTotal());
+    }
+
+    private VehicleExpenseResponse toExpenseResponse(SupplierInvoiceLineItem lineItem) {
+        return new VehicleExpenseResponse(
+                lineItem.getInvoice().getSupplier().getName() + ": " + lineItem.getDescription(),
+                lineItem.getInvoice().getInvoiceDate(),
+                lineItem.getSubtotal());
     }
 
     private VehicleRevenueLineItemResponse toRevenueResponse(InvoiceLineItem lineItem) {

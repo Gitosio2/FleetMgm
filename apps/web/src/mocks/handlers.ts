@@ -4126,6 +4126,48 @@ export const handlers = [
     return HttpResponse.json(content)
   }),
 
+  // Registered before the :vehicleId catch-all below — same shadowing risk as /revenue above, this
+  // time for the /:vehicleId/expenses sub-route (Hito 45 — merged "Historial de gastos" list).
+  // Reuses SEED_SUPPLIER_INVOICES (no new seed array): header-level rows are invoices whose
+  // `vehicleId` matches the path param directly; split-line-item rows come from invoices with NO
+  // header vehicle whose line items are tagged to this vehicle — mirrors the real backend's two
+  // repository queries (SupplierInvoiceRepository/SupplierInvoiceLineItemRepository
+  // .findAllByVehicleIdAndPeriod), including the double-count guard (only invoices with a null
+  // header vehicle contribute line items here).
+  http.get('/api/v1/reports/profitability/:vehicleId/expenses', ({ params, request }) => {
+    const url = new URL(request.url)
+    const from = url.searchParams.get('from')
+    const to = url.searchParams.get('to')
+
+    const invoiceExpenses = SEED_SUPPLIER_INVOICES.filter((invoice) => invoice.vehicleId === params.vehicleId)
+      .filter((invoice) => !from || invoice.invoiceDate >= from)
+      .filter((invoice) => !to || invoice.invoiceDate <= to)
+      .map((invoice) => ({
+        description: invoice.supplierInvoiceNumber
+          ? `${invoice.supplierName} – ${invoice.supplierInvoiceNumber}`
+          : invoice.supplierName,
+        date: invoice.invoiceDate,
+        amount: invoice.total,
+      }))
+
+    const lineItemExpenses = SEED_SUPPLIER_INVOICES.filter((invoice) => invoice.vehicleId == null)
+      .filter((invoice) => !from || invoice.invoiceDate >= from)
+      .filter((invoice) => !to || invoice.invoiceDate <= to)
+      .flatMap((invoice) =>
+        invoice.lineItems
+          .filter((lineItem) => lineItem.vehicleId === params.vehicleId)
+          .map((lineItem) => ({
+            description: `${invoice.supplierName}: ${lineItem.description}`,
+            date: invoice.invoiceDate,
+            amount: lineItem.subtotal,
+          })),
+      )
+
+    const content = [...invoiceExpenses, ...lineItemExpenses].sort((a, b) => b.date.localeCompare(a.date))
+
+    return HttpResponse.json(content)
+  }),
+
   // Registered after the more specific /reports/profitability/trend handler above — MSW matches
   // handlers in array order, and this :vehicleId pattern would otherwise shadow /trend requests.
   http.get('/api/v1/reports/profitability/:vehicleId', ({ params, request }) => {

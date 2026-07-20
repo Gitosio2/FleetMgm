@@ -1,8 +1,40 @@
 import { useState } from 'react'
-import { useVehicleMaintenanceHistory, useVehicleProfitability, useVehicleRevenue } from '@fleetmgm/hooks'
+import {
+  useVehicleMaintenanceHistory,
+  useVehicleProfitability,
+  useVehicleRevenue,
+  useVehicleSupplierExpenses,
+} from '@fleetmgm/hooks'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { MaintenanceStatusBadge } from '@/components/workshop/MaintenanceStatusBadge'
 import { formatCurrency } from '@/lib/currency'
+
+// Merged "Historial de gastos" row shape (Hito 45) — maintenance records and supplier-invoice cost
+// sources normalized to the same {description, date, amount} shape so they can be sorted into one
+// date-descending list. `date` is nullable because a scheduled maintenance record may have no
+// workshopEntryDate yet; those rows sort to the end rather than crashing the comparator.
+type ExpenseRow = {
+  key: string
+  description: string
+  date: string | null
+  amount: number
+}
+
+function sortByDateDescending(a: ExpenseRow, b: ExpenseRow): number {
+  if (!a.date && !b.date) return 0
+  if (!a.date) return 1
+  if (!b.date) return -1
+  return b.date.localeCompare(a.date)
+}
+
+// Margen and Beneficio/km cards — a strong visual flag for negative profitability, not the same
+// lightweight text-only treatment as FinancialSummary's month-over-month margin comparison.
+// Beneficio/km can be null ("Sin datos suficientes"), unlike margin — null stays uncolored.
+function signCardClassName(value: number | null): string {
+  if (value == null) return ''
+  if (value < 0) return 'bg-error-container text-error'
+  if (value > 0) return 'bg-success/15 text-success'
+  return ''
+}
 
 // Same inline Desde/Hasta pattern as AuditLogFilters.tsx — visible "Desde"/"Hasta" label text
 // wrapping an aria-labelled date input.
@@ -28,10 +60,31 @@ export function VehicleProfitabilityPanel({ vehicleId, vehicleLabel }: VehiclePr
   )
   const { data: maintenanceHistory } = useVehicleMaintenanceHistory(vehicleId, from || undefined, to || undefined)
   const { data: revenueHistory } = useVehicleRevenue(vehicleId, from || undefined, to || undefined)
+  const { data: supplierExpenses } = useVehicleSupplierExpenses(vehicleId, from || undefined, to || undefined)
 
   const maintenanceTotal = (maintenanceHistory ?? []).reduce((sum, record) => sum + (record.cost ?? 0), 0)
+  const supplierExpensesTotal = (supplierExpenses ?? []).reduce((sum, expense) => sum + expense.amount, 0)
   const revenueTotal = (revenueHistory ?? []).reduce((sum, item) => sum + item.subtotal, 0)
   const usageUnitLabel = profitability?.usageMeasure === 'HOURS' ? 'hora' : 'km'
+
+  // Single merged, date-sorted-descending list (user's explicit choice over two separate
+  // sub-lists) — mirrors ProfitabilityService.getExpensesByVehicle's Stream.concat + sort. Per-item
+  // type-specific detail (e.g. the maintenance status badge) is intentionally dropped in the merged
+  // view — an accepted tradeoff.
+  const expenseRows: ExpenseRow[] = [
+    ...(maintenanceHistory ?? []).map((record) => ({
+      key: `maintenance-${record.id}`,
+      description: record.type,
+      date: record.workshopEntryDate,
+      amount: record.cost ?? 0,
+    })),
+    ...(supplierExpenses ?? []).map((expense, index) => ({
+      key: `supplier-expense-${index}-${expense.description}`,
+      description: expense.description,
+      date: expense.date,
+      amount: expense.amount,
+    })),
+  ].sort(sortByDateDescending)
 
   // The Desde/Hasta filter bar renders unconditionally, outside the loading/error gate below —
   // useVehicleProfitability's query key now includes from/to, so picking a new range briefly makes
@@ -73,28 +126,23 @@ export function VehicleProfitabilityPanel({ vehicleId, vehicleLabel }: VehiclePr
             <Card>
               <CardHeader>
                 <CardTitle className="text-sm font-medium text-on-surface-variant">
-                  Historial de mantenimientos ({formatCurrency(maintenanceTotal)})
+                  Historial de gastos ({formatCurrency(maintenanceTotal + supplierExpensesTotal)})
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {!maintenanceHistory || maintenanceHistory.length === 0 ? (
-                  <p className="text-sm text-on-surface-variant">Sin mantenimientos en este periodo</p>
+                {expenseRows.length === 0 ? (
+                  <p className="text-sm text-on-surface-variant">Sin gastos en este periodo</p>
                 ) : (
                   <ul className="flex max-h-72 flex-col gap-2 overflow-y-auto pr-1">
-                    {maintenanceHistory.map((record) => (
-                      <li key={record.id} className="flex items-center justify-between gap-2 text-sm">
+                    {expenseRows.map((expense) => (
+                      <li key={expense.key} className="flex items-center justify-between gap-2 text-sm">
                         <div className="flex min-w-0 flex-col">
-                          <span className="truncate font-medium">{record.type}</span>
+                          <span className="truncate font-medium">{expense.description}</span>
                           <span className="text-on-surface-variant">
-                            {record.workshopEntryDate
-                              ? new Date(record.workshopEntryDate).toLocaleDateString('es-ES')
-                              : 'Sin fecha'}
+                            {expense.date ? new Date(expense.date).toLocaleDateString('es-ES') : 'Sin fecha'}
                           </span>
                         </div>
-                        <div className="flex shrink-0 flex-col items-end gap-1">
-                          <span className="font-medium">{formatCurrency(record.cost ?? 0)}</span>
-                          <MaintenanceStatusBadge status={record.status} />
-                        </div>
+                        <span className="shrink-0 font-medium">{formatCurrency(expense.amount)}</span>
                       </li>
                     ))}
                   </ul>
@@ -156,7 +204,7 @@ export function VehicleProfitabilityPanel({ vehicleId, vehicleLabel }: VehiclePr
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className={signCardClassName(profitability.margin)}>
               <CardHeader className="p-3 pb-0">
                 <CardTitle className="text-xs font-medium text-on-surface-variant">Margen</CardTitle>
               </CardHeader>
@@ -180,7 +228,7 @@ export function VehicleProfitabilityPanel({ vehicleId, vehicleLabel }: VehiclePr
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className={signCardClassName(profitability.profitPerUsageUnit)}>
               <CardHeader className="p-3 pb-0">
                 <CardTitle className="text-xs font-medium text-on-surface-variant">
                   Beneficio/{usageUnitLabel}

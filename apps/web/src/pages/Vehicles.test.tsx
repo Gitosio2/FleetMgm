@@ -171,13 +171,34 @@ describe('Vehicles', () => {
     await user.click(profitabilityButtons[0]!)
     await screen.findByText(`Rentabilidad — ${FIRST_VEHICLE!.make} ${FIRST_VEHICLE!.model}`)
 
-    // No range set — both maintenance records and both invoice line items for this vehicle are
-    // visible (SEED_MAINTENANCE has one with no workshopEntryDate, one dated July; SEED_VEHICLE_REVENUE
-    // has one July + one June item), and "Totales" shows the static all-time SEED_PROFITABILITY figures.
+    // No range set — both maintenance records, both supplier-invoice cost sources (a whole invoice
+    // tied directly to the vehicle, and a split line item on a bulk invoice with no header vehicle),
+    // and both invoice line items for this vehicle are visible (SEED_MAINTENANCE has one with no
+    // workshopEntryDate, one dated July; SEED_VEHICLE_REVENUE has one July + one June item), and
+    // "Totales" shows the static all-time SEED_PROFITABILITY figures.
     expect(await screen.findByText('Cambio de aceite y filtro')).toBeInTheDocument()
     expect(await screen.findByText('Cambio de pastillas de freno')).toBeInTheDocument()
+    expect(await screen.findByText('Taller Mecánico Norte – F-2026-0456')).toBeInTheDocument()
+    expect(await screen.findByText('Estación de Servicio Central: Gasoil - Toyota Hilux')).toBeInTheDocument()
     expect(await screen.findByText('INV-2026-00001')).toBeInTheDocument()
     expect(await screen.findByText('INV-2026-00002')).toBeInTheDocument()
+
+    // Merged list is sorted by date descending: the split line item (2026-07-08) is newer than the
+    // "Cambio de pastillas de freno" maintenance record (2026-07-03), which in turn is newer than
+    // the whole supplier invoice (2026-07-01) — proving maintenance and supplier-invoice costs are
+    // interleaved into ONE date-sorted list, not two separate sub-lists.
+    const gastosCard = (await screen.findByRole('heading', { name: /Historial de gastos/ })).closest(
+      '[data-slot="card"]',
+    ) as HTMLElement
+    const gastosItems = within(gastosCard)
+      .getAllByRole('listitem')
+      .map((item) => item.textContent ?? '')
+    const lineItemIndex = gastosItems.findIndex((text) => text.includes('Estación de Servicio Central'))
+    const maintenanceIndex = gastosItems.findIndex((text) => text.includes('Cambio de pastillas de freno'))
+    const wholeInvoiceIndex = gastosItems.findIndex((text) => text.includes('Taller Mecánico Norte'))
+    expect(lineItemIndex).toBeGreaterThanOrEqual(0)
+    expect(lineItemIndex).toBeLessThan(maintenanceIndex)
+    expect(maintenanceIndex).toBeLessThan(wholeInvoiceIndex)
 
     const profitability = SEED_PROFITABILITY.find((entry) => entry.vehicleId === FIRST_VEHICLE!.id)!
     expect(getTotalesCardValue(0).getByText(formatCurrency(profitability.revenue))).toBeInTheDocument()
@@ -235,7 +256,11 @@ describe('Vehicles', () => {
     expect(screen.queryByText('Cambio de aceite y filtro')).not.toBeInTheDocument()
     expect(screen.queryByText('Cambio de pastillas de freno')).not.toBeInTheDocument()
     expect(screen.queryByText('INV-2026-00001')).not.toBeInTheDocument()
-    expect(await screen.findByText('Sin mantenimientos en este periodo')).toBeInTheDocument()
+    // Both of this vehicle's supplier-invoice cost sources are dated in July (2026-07-01 and
+    // 2026-07-08) — narrowing to June-only also drops them, leaving the merged list empty.
+    expect(screen.queryByText('Taller Mecánico Norte – F-2026-0456')).not.toBeInTheDocument()
+    expect(screen.queryByText('Estación de Servicio Central: Gasoil - Toyota Hilux')).not.toBeInTheDocument()
+    expect(await screen.findByText('Sin gastos en este periodo')).toBeInTheDocument()
 
     // "Totales" now reflects the June-only range: revenue is just the June invoice line item
     // (300,00 €), and this vehicle has no maintenance cost or supplier invoice dated in June, so

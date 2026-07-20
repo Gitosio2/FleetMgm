@@ -1,6 +1,12 @@
 import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '@fleetmgm/api'
-import type { MonthlyFinancial, PageResponse, Profitability, VehicleRevenueLineItem } from '@fleetmgm/api'
+import type {
+  MonthlyFinancial,
+  PageResponse,
+  Profitability,
+  VehicleExpense,
+  VehicleRevenueLineItem,
+} from '@fleetmgm/api'
 
 export const PROFITABILITY_KEY = 'profitability'
 
@@ -36,6 +42,23 @@ export function useVehicleRevenue(vehicleId: string, from?: string, to?: string)
     queryFn: async () => {
       const { data } = await apiClient.get<VehicleRevenueLineItem[]>(
         `/reports/profitability/${vehicleId}/revenue`,
+        { params: { from, to } },
+      )
+      return data
+    },
+    enabled: Boolean(vehicleId),
+  })
+}
+
+// Merged "Historial de gastos" list (Hito 45) — supplier-invoice cost sources for a single vehicle,
+// merged client-side with maintenance records by VehicleProfitabilityPanel. Same shape/rationale as
+// useVehicleRevenue.
+export function useVehicleSupplierExpenses(vehicleId: string, from?: string, to?: string) {
+  return useQuery({
+    queryKey: [PROFITABILITY_KEY, 'vehicle', vehicleId, 'expenses', { from, to }],
+    queryFn: async () => {
+      const { data } = await apiClient.get<VehicleExpense[]>(
+        `/reports/profitability/${vehicleId}/expenses`,
         { params: { from, to } },
       )
       return data

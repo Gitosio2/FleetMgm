@@ -2,15 +2,21 @@ package com.fleetmgm.billing.application;
 
 import com.fleetmgm.billing.domain.Invoice;
 import com.fleetmgm.billing.domain.InvoiceLineItem;
+import com.fleetmgm.billing.domain.SupplierInvoice;
+import com.fleetmgm.billing.domain.SupplierInvoiceLineItem;
 import com.fleetmgm.billing.dto.MonthlyFinancialResponse;
 import com.fleetmgm.billing.dto.ProfitabilityResponse;
+import com.fleetmgm.billing.dto.VehicleExpenseResponse;
 import com.fleetmgm.billing.dto.VehicleRevenueLineItemResponse;
 import com.fleetmgm.billing.infrastructure.LineItemRepository;
 import com.fleetmgm.billing.infrastructure.MonthlyFinancialProjection;
 import com.fleetmgm.billing.infrastructure.ProfitabilityRepository;
+import com.fleetmgm.billing.infrastructure.SupplierInvoiceLineItemRepository;
+import com.fleetmgm.billing.infrastructure.SupplierInvoiceRepository;
 import com.fleetmgm.billing.infrastructure.VehicleProfitabilityProjection;
 import com.fleetmgm.shared.PageResponse;
 import com.fleetmgm.shared.exception.NotFoundException;
+import com.fleetmgm.supplier.domain.Supplier;
 import com.fleetmgm.vehicle.domain.UsageMeasure;
 import com.fleetmgm.vehicle.domain.Vehicle;
 import com.fleetmgm.vehicle.infrastructure.UsageLogRepository;
@@ -45,12 +51,15 @@ class ProfitabilityServiceTest {
     @Mock VehicleRepository vehicleRepository;
     @Mock LineItemRepository lineItemRepository;
     @Mock UsageLogRepository usageLogRepository;
+    @Mock SupplierInvoiceRepository supplierInvoiceRepository;
+    @Mock SupplierInvoiceLineItemRepository supplierInvoiceLineItemRepository;
     ProfitabilityService profitabilityService;
 
     @Test
     void list_computesMargin_asRevenueMinusCosts() {
         profitabilityService = new ProfitabilityService(
-                profitabilityRepository, vehicleRepository, lineItemRepository, usageLogRepository);
+                profitabilityRepository, vehicleRepository, lineItemRepository, usageLogRepository,
+                supplierInvoiceRepository, supplierInvoiceLineItemRepository);
         UUID vehicleId = UUID.randomUUID();
         VehicleProfitabilityProjection projection = buildProjection(
                 vehicleId, "1111AAA", "Toyota", "Hilux", new BigDecimal("1000.00"), new BigDecimal("400.00"));
@@ -74,7 +83,8 @@ class ProfitabilityServiceTest {
     @Test
     void list_allowsNegativeMargin_whenCostsExceedRevenue() {
         profitabilityService = new ProfitabilityService(
-                profitabilityRepository, vehicleRepository, lineItemRepository, usageLogRepository);
+                profitabilityRepository, vehicleRepository, lineItemRepository, usageLogRepository,
+                supplierInvoiceRepository, supplierInvoiceLineItemRepository);
         UUID vehicleId = UUID.randomUUID();
         VehicleProfitabilityProjection projection = buildProjection(
                 vehicleId, "2222BBB", "Ford", "Transit", new BigDecimal("100.00"), new BigDecimal("350.00"));
@@ -91,7 +101,8 @@ class ProfitabilityServiceTest {
     @Test
     void list_passesPageableThrough_toRepository() {
         profitabilityService = new ProfitabilityService(
-                profitabilityRepository, vehicleRepository, lineItemRepository, usageLogRepository);
+                profitabilityRepository, vehicleRepository, lineItemRepository, usageLogRepository,
+                supplierInvoiceRepository, supplierInvoiceLineItemRepository);
         Pageable pageable = PageRequest.of(2, 10);
         when(profitabilityRepository.findProfitabilityByVehicle(pageable))
                 .thenReturn(new PageImpl<>(List.of(), pageable, 0));
@@ -106,7 +117,8 @@ class ProfitabilityServiceTest {
     @Test
     void getByVehicleId_mapsProjection_toResponse() {
         profitabilityService = new ProfitabilityService(
-                profitabilityRepository, vehicleRepository, lineItemRepository, usageLogRepository);
+                profitabilityRepository, vehicleRepository, lineItemRepository, usageLogRepository,
+                supplierInvoiceRepository, supplierInvoiceLineItemRepository);
         UUID vehicleId = UUID.randomUUID();
         VehicleProfitabilityProjection projection = buildProjection(
                 vehicleId, "9999III", "Renault", "Kangoo", new BigDecimal("800.00"), new BigDecimal("300.00"));
@@ -128,7 +140,8 @@ class ProfitabilityServiceTest {
     @Test
     void getByVehicleId_throwsNotFoundException_whenVehicleUnknown() {
         profitabilityService = new ProfitabilityService(
-                profitabilityRepository, vehicleRepository, lineItemRepository, usageLogRepository);
+                profitabilityRepository, vehicleRepository, lineItemRepository, usageLogRepository,
+                supplierInvoiceRepository, supplierInvoiceLineItemRepository);
         UUID vehicleId = UUID.randomUUID();
         when(profitabilityRepository.findProfitabilityByVehicleId(vehicleId, null, null))
                 .thenReturn(Optional.empty());
@@ -142,7 +155,8 @@ class ProfitabilityServiceTest {
     @Test
     void getByVehicleId_forwardsFromAndToFilters_toRepository() {
         profitabilityService = new ProfitabilityService(
-                profitabilityRepository, vehicleRepository, lineItemRepository, usageLogRepository);
+                profitabilityRepository, vehicleRepository, lineItemRepository, usageLogRepository,
+                supplierInvoiceRepository, supplierInvoiceLineItemRepository);
         UUID vehicleId = UUID.randomUUID();
         LocalDate from = LocalDate.of(2026, 6, 1);
         LocalDate to = LocalDate.of(2026, 6, 30);
@@ -163,7 +177,8 @@ class ProfitabilityServiceTest {
     @Test
     void getByVehicleId_computesCostAndProfitPerUsageUnit_whenUsageDataAvailable() {
         profitabilityService = new ProfitabilityService(
-                profitabilityRepository, vehicleRepository, lineItemRepository, usageLogRepository);
+                profitabilityRepository, vehicleRepository, lineItemRepository, usageLogRepository,
+                supplierInvoiceRepository, supplierInvoiceLineItemRepository);
         UUID vehicleId = UUID.randomUUID();
         LocalDate from = LocalDate.of(2026, 6, 1);
         LocalDate to = LocalDate.of(2026, 6, 30);
@@ -187,7 +202,8 @@ class ProfitabilityServiceTest {
     @Test
     void getByVehicleId_returnsNullUsageMetrics_whenNoBaselineBeforeFrom() {
         profitabilityService = new ProfitabilityService(
-                profitabilityRepository, vehicleRepository, lineItemRepository, usageLogRepository);
+                profitabilityRepository, vehicleRepository, lineItemRepository, usageLogRepository,
+                supplierInvoiceRepository, supplierInvoiceLineItemRepository);
         UUID vehicleId = UUID.randomUUID();
         LocalDate from = LocalDate.of(2026, 6, 1);
         VehicleProfitabilityProjection projection = buildProjection(
@@ -213,7 +229,8 @@ class ProfitabilityServiceTest {
     @Test
     void getByVehicleId_returnsNullUsageMetrics_whenUsageInRangeIsZero() {
         profitabilityService = new ProfitabilityService(
-                profitabilityRepository, vehicleRepository, lineItemRepository, usageLogRepository);
+                profitabilityRepository, vehicleRepository, lineItemRepository, usageLogRepository,
+                supplierInvoiceRepository, supplierInvoiceLineItemRepository);
         UUID vehicleId = UUID.randomUUID();
         LocalDate from = LocalDate.of(2026, 6, 1);
         LocalDate to = LocalDate.of(2026, 6, 30);
@@ -236,7 +253,8 @@ class ProfitabilityServiceTest {
     @Test
     void list_neverComputesUsageMetrics_andLeavesThemNull() {
         profitabilityService = new ProfitabilityService(
-                profitabilityRepository, vehicleRepository, lineItemRepository, usageLogRepository);
+                profitabilityRepository, vehicleRepository, lineItemRepository, usageLogRepository,
+                supplierInvoiceRepository, supplierInvoiceLineItemRepository);
         UUID vehicleId = UUID.randomUUID();
         VehicleProfitabilityProjection projection = buildProjection(
                 vehicleId, "4040MMM", "Fiat", "Ducato", new BigDecimal("800.00"), new BigDecimal("300.00"));
@@ -258,7 +276,8 @@ class ProfitabilityServiceTest {
     @Test
     void getFinancialTrend_mapsProjections_toResponses() {
         profitabilityService = new ProfitabilityService(
-                profitabilityRepository, vehicleRepository, lineItemRepository, usageLogRepository);
+                profitabilityRepository, vehicleRepository, lineItemRepository, usageLogRepository,
+                supplierInvoiceRepository, supplierInvoiceLineItemRepository);
         MonthlyFinancialProjection projection =
                 buildMonthlyProjection("2026-06", new BigDecimal("1000.00"), new BigDecimal("400.00"));
         when(profitabilityRepository.findMonthlyFinancialTrend(any(), any()))
@@ -275,7 +294,8 @@ class ProfitabilityServiceTest {
     @Test
     void getFinancialTrend_computesFromAndTo_forGivenMonthsWindow() {
         profitabilityService = new ProfitabilityService(
-                profitabilityRepository, vehicleRepository, lineItemRepository, usageLogRepository);
+                profitabilityRepository, vehicleRepository, lineItemRepository, usageLogRepository,
+                supplierInvoiceRepository, supplierInvoiceLineItemRepository);
         when(profitabilityRepository.findMonthlyFinancialTrend(any(), any())).thenReturn(List.of());
 
         profitabilityService.getFinancialTrend(6);
@@ -292,7 +312,8 @@ class ProfitabilityServiceTest {
     @Test
     void getFinancialTrend_clampsMonths_whenBelowMinimum() {
         profitabilityService = new ProfitabilityService(
-                profitabilityRepository, vehicleRepository, lineItemRepository, usageLogRepository);
+                profitabilityRepository, vehicleRepository, lineItemRepository, usageLogRepository,
+                supplierInvoiceRepository, supplierInvoiceLineItemRepository);
         when(profitabilityRepository.findMonthlyFinancialTrend(any(), any())).thenReturn(List.of());
 
         profitabilityService.getFinancialTrend(0);
@@ -306,7 +327,8 @@ class ProfitabilityServiceTest {
     @Test
     void getFinancialTrend_clampsMonths_whenAboveMaximum() {
         profitabilityService = new ProfitabilityService(
-                profitabilityRepository, vehicleRepository, lineItemRepository, usageLogRepository);
+                profitabilityRepository, vehicleRepository, lineItemRepository, usageLogRepository,
+                supplierInvoiceRepository, supplierInvoiceLineItemRepository);
         when(profitabilityRepository.findMonthlyFinancialTrend(any(), any())).thenReturn(List.of());
 
         profitabilityService.getFinancialTrend(50);
@@ -320,7 +342,8 @@ class ProfitabilityServiceTest {
     @Test
     void getRevenueByVehicle_mapsLineItems_toResponses() {
         profitabilityService = new ProfitabilityService(
-                profitabilityRepository, vehicleRepository, lineItemRepository, usageLogRepository);
+                profitabilityRepository, vehicleRepository, lineItemRepository, usageLogRepository,
+                supplierInvoiceRepository, supplierInvoiceLineItemRepository);
         UUID vehicleId = UUID.randomUUID();
         LocalDate from = LocalDate.of(2026, 7, 1);
         LocalDate to = LocalDate.of(2026, 7, 31);
@@ -345,7 +368,8 @@ class ProfitabilityServiceTest {
     @Test
     void getRevenueByVehicle_throwsNotFoundException_whenVehicleUnknown() {
         profitabilityService = new ProfitabilityService(
-                profitabilityRepository, vehicleRepository, lineItemRepository, usageLogRepository);
+                profitabilityRepository, vehicleRepository, lineItemRepository, usageLogRepository,
+                supplierInvoiceRepository, supplierInvoiceLineItemRepository);
         UUID vehicleId = UUID.randomUUID();
         when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.empty());
 
@@ -353,6 +377,134 @@ class ProfitabilityServiceTest {
                 .isInstanceOf(NotFoundException.class)
                 .extracting(ex -> ((NotFoundException) ex).getCode())
                 .isEqualTo("VEHICLE_NOT_FOUND");
+    }
+
+    // --- getExpensesByVehicle (Hito 45 — merged "Historial de gastos" list) ---
+
+    @Test
+    void getExpensesByVehicle_mergesAndSortsInvoiceAndLineItemSources_byDateDescending() {
+        profitabilityService = new ProfitabilityService(
+                profitabilityRepository, vehicleRepository, lineItemRepository, usageLogRepository,
+                supplierInvoiceRepository, supplierInvoiceLineItemRepository);
+        UUID vehicleId = UUID.randomUUID();
+        when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(new Vehicle()));
+        SupplierInvoice invoice = buildSupplierInvoice(
+                "Taller Central", "F-2026-0456", LocalDate.of(2026, 7, 1), new BigDecimal("121.00"));
+        when(supplierInvoiceRepository.findAllByVehicleIdAndPeriod(vehicleId, null, null))
+                .thenReturn(List.of(invoice));
+        SupplierInvoiceLineItem lineItem = buildSupplierInvoiceLineItem(
+                "Gasolinera Norte", "Gasoil - Toyota Hilux", LocalDate.of(2026, 7, 8), new BigDecimal("60.00"));
+        when(supplierInvoiceLineItemRepository.findAllByVehicleIdAndPeriod(vehicleId, null, null))
+                .thenReturn(List.of(lineItem));
+
+        List<VehicleExpenseResponse> result = profitabilityService.getExpensesByVehicle(vehicleId, null, null);
+
+        // Line item is dated 2026-07-08 (newer) so it sorts before the 2026-07-01 invoice.
+        assertThat(result).hasSize(2);
+        assertThat(result.get(0).description()).isEqualTo("Gasolinera Norte: Gasoil - Toyota Hilux");
+        assertThat(result.get(0).date()).isEqualTo(LocalDate.of(2026, 7, 8));
+        assertThat(result.get(0).amount()).isEqualByComparingTo("60.00");
+        assertThat(result.get(1).description()).isEqualTo("Taller Central – F-2026-0456");
+        assertThat(result.get(1).date()).isEqualTo(LocalDate.of(2026, 7, 1));
+        assertThat(result.get(1).amount()).isEqualByComparingTo("121.00");
+    }
+
+    @Test
+    void getExpensesByVehicle_omitsInvoiceNumber_whenNull() {
+        profitabilityService = new ProfitabilityService(
+                profitabilityRepository, vehicleRepository, lineItemRepository, usageLogRepository,
+                supplierInvoiceRepository, supplierInvoiceLineItemRepository);
+        UUID vehicleId = UUID.randomUUID();
+        when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(new Vehicle()));
+        SupplierInvoice invoice = buildSupplierInvoice(
+                "Gasolinera Norte", null, LocalDate.of(2026, 7, 5), new BigDecimal("60.50"));
+        when(supplierInvoiceRepository.findAllByVehicleIdAndPeriod(vehicleId, null, null))
+                .thenReturn(List.of(invoice));
+        when(supplierInvoiceLineItemRepository.findAllByVehicleIdAndPeriod(vehicleId, null, null))
+                .thenReturn(List.of());
+
+        List<VehicleExpenseResponse> result = profitabilityService.getExpensesByVehicle(vehicleId, null, null);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).description()).isEqualTo("Gasolinera Norte");
+    }
+
+    @Test
+    void getExpensesByVehicle_returnsEmptyList_whenVehicleHasNoExpenses() {
+        profitabilityService = new ProfitabilityService(
+                profitabilityRepository, vehicleRepository, lineItemRepository, usageLogRepository,
+                supplierInvoiceRepository, supplierInvoiceLineItemRepository);
+        UUID vehicleId = UUID.randomUUID();
+        when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(new Vehicle()));
+        when(supplierInvoiceRepository.findAllByVehicleIdAndPeriod(vehicleId, null, null))
+                .thenReturn(List.of());
+        when(supplierInvoiceLineItemRepository.findAllByVehicleIdAndPeriod(vehicleId, null, null))
+                .thenReturn(List.of());
+
+        List<VehicleExpenseResponse> result = profitabilityService.getExpensesByVehicle(vehicleId, null, null);
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void getExpensesByVehicle_forwardsFromAndToFilters_toBothRepositories() {
+        profitabilityService = new ProfitabilityService(
+                profitabilityRepository, vehicleRepository, lineItemRepository, usageLogRepository,
+                supplierInvoiceRepository, supplierInvoiceLineItemRepository);
+        UUID vehicleId = UUID.randomUUID();
+        LocalDate from = LocalDate.of(2026, 6, 1);
+        LocalDate to = LocalDate.of(2026, 6, 30);
+        when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(new Vehicle()));
+        when(supplierInvoiceRepository.findAllByVehicleIdAndPeriod(vehicleId, from, to))
+                .thenReturn(List.of());
+        when(supplierInvoiceLineItemRepository.findAllByVehicleIdAndPeriod(vehicleId, from, to))
+                .thenReturn(List.of());
+
+        profitabilityService.getExpensesByVehicle(vehicleId, from, to);
+
+        verify(supplierInvoiceRepository).findAllByVehicleIdAndPeriod(vehicleId, from, to);
+        verify(supplierInvoiceLineItemRepository).findAllByVehicleIdAndPeriod(vehicleId, from, to);
+    }
+
+    @Test
+    void getExpensesByVehicle_throwsNotFoundException_andNeverQueriesEitherRepository_whenVehicleUnknown() {
+        profitabilityService = new ProfitabilityService(
+                profitabilityRepository, vehicleRepository, lineItemRepository, usageLogRepository,
+                supplierInvoiceRepository, supplierInvoiceLineItemRepository);
+        UUID vehicleId = UUID.randomUUID();
+        when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> profitabilityService.getExpensesByVehicle(vehicleId, null, null))
+                .isInstanceOf(NotFoundException.class)
+                .extracting(ex -> ((NotFoundException) ex).getCode())
+                .isEqualTo("VEHICLE_NOT_FOUND");
+        verifyNoInteractions(supplierInvoiceRepository, supplierInvoiceLineItemRepository);
+    }
+
+    private SupplierInvoice buildSupplierInvoice(String supplierName, String supplierInvoiceNumber,
+                                                  LocalDate invoiceDate, BigDecimal total) {
+        Supplier supplier = new Supplier();
+        supplier.setName(supplierName);
+        SupplierInvoice invoice = new SupplierInvoice();
+        invoice.setSupplier(supplier);
+        invoice.setSupplierInvoiceNumber(supplierInvoiceNumber);
+        invoice.setInvoiceDate(invoiceDate);
+        invoice.setTotal(total);
+        return invoice;
+    }
+
+    private SupplierInvoiceLineItem buildSupplierInvoiceLineItem(String supplierName, String description,
+                                                                   LocalDate invoiceDate, BigDecimal subtotal) {
+        Supplier supplier = new Supplier();
+        supplier.setName(supplierName);
+        SupplierInvoice invoice = new SupplierInvoice();
+        invoice.setSupplier(supplier);
+        invoice.setInvoiceDate(invoiceDate);
+        SupplierInvoiceLineItem lineItem = new SupplierInvoiceLineItem();
+        lineItem.setInvoice(invoice);
+        lineItem.setDescription(description);
+        lineItem.setSubtotal(subtotal);
+        return lineItem;
     }
 
     // The actual CANCELLED-invoice exclusion is proven at the SQL level in

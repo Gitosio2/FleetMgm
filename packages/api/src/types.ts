@@ -483,6 +483,15 @@ export type VehicleRevenueLineItem = {
   subtotal: number
 }
 
+// Vehicle profitability panel's merged "Historial de gastos" list (Hito 45) — supplier-invoice cost
+// sources (whole invoices tied to the vehicle + split line items on bulk invoices), merged with
+// maintenance records client-side and sorted by date descending. See ProfitabilityService.
+export type VehicleExpense = {
+  description: string
+  date: string
+  amount: number
+}
+
 export type GpsSource = 'MOCK' | 'DEVICE'
 
 export type GpsPosition = {

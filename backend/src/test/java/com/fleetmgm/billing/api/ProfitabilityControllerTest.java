@@ -4,6 +4,7 @@ import com.fleetmgm.auth.infrastructure.JwtAuthenticationFilter;
 import com.fleetmgm.billing.application.ProfitabilityService;
 import com.fleetmgm.billing.dto.MonthlyFinancialResponse;
 import com.fleetmgm.billing.dto.ProfitabilityResponse;
+import com.fleetmgm.billing.dto.VehicleExpenseResponse;
 import com.fleetmgm.billing.dto.VehicleRevenueLineItemResponse;
 import com.fleetmgm.shared.PageResponse;
 import com.fleetmgm.shared.exception.NotFoundException;
@@ -136,6 +137,44 @@ class ProfitabilityControllerTest {
                 .thenThrow(new NotFoundException("VEHICLE_NOT_FOUND", "Vehicle " + VEHICLE_ID + " not found"));
 
         mockMvc.perform(get("/api/v1/reports/profitability/{vehicleId}/revenue", VEHICLE_ID))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("VEHICLE_NOT_FOUND"));
+    }
+
+    // --- GET /api/v1/reports/profitability/{vehicleId}/expenses ---
+
+    @Test
+    void getExpensesByVehicle_returns200_withExpenses() throws Exception {
+        VehicleExpenseResponse response = new VehicleExpenseResponse(
+                "Taller Central – F-2026-0456", LocalDate.of(2026, 7, 1), new BigDecimal("121.00"));
+        when(profitabilityService.getExpensesByVehicle(eq(VEHICLE_ID), isNull(), isNull()))
+                .thenReturn(List.of(response));
+
+        mockMvc.perform(get("/api/v1/reports/profitability/{vehicleId}/expenses", VEHICLE_ID))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].description").value("Taller Central – F-2026-0456"))
+                .andExpect(jsonPath("$[0].amount").value(121.00));
+    }
+
+    @Test
+    void getExpensesByVehicle_forwardsFromAndToQueryParams() throws Exception {
+        when(profitabilityService.getExpensesByVehicle(
+                VEHICLE_ID, LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31)))
+                .thenReturn(List.of());
+
+        mockMvc.perform(get("/api/v1/reports/profitability/{vehicleId}/expenses", VEHICLE_ID)
+                        .param("from", "2026-07-01")
+                        .param("to", "2026-07-31"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray());
+    }
+
+    @Test
+    void getExpensesByVehicle_returns404_whenVehicleMissing() throws Exception {
+        when(profitabilityService.getExpensesByVehicle(eq(VEHICLE_ID), isNull(), isNull()))
+                .thenThrow(new NotFoundException("VEHICLE_NOT_FOUND", "Vehicle " + VEHICLE_ID + " not found"));
+
+        mockMvc.perform(get("/api/v1/reports/profitability/{vehicleId}/expenses", VEHICLE_ID))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("VEHICLE_NOT_FOUND"));
     }
