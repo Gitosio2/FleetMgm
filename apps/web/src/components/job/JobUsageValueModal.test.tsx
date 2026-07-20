@@ -235,6 +235,52 @@ describe('JobUsageValueModal', () => {
     expect(onConfirm).toHaveBeenCalledWith(1)
   })
 
+  it('blocks a negative value in start mode, where there is no floor to catch it', async () => {
+    const user = userEvent.setup()
+    const onConfirm = vi.fn()
+
+    renderWithClient(
+      <JobUsageValueModal
+        open
+        onOpenChange={() => {}}
+        job={KM_JOB}
+        mode="start"
+        onConfirm={onConfirm}
+        isPending={false}
+      />,
+    )
+
+    await user.type(await screen.findByLabelText('Kilómetros actuales'), '-1')
+    await user.click(screen.getByRole('button', { name: /^iniciar$/i }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/no puede ser negativo/i)
+    expect(onConfirm).not.toHaveBeenCalled()
+  })
+
+  it('blocks a negative value even when a below-current floor also exists, with the negative-specific message', async () => {
+    const user = userEvent.setup()
+    const onConfirm = vi.fn()
+
+    const IN_PROGRESS_JOB = SEED_JOBS.find((job) => job.id === 'job-2')!
+
+    renderWithClient(
+      <JobUsageValueModal
+        open
+        onOpenChange={() => {}}
+        job={IN_PROGRESS_JOB}
+        mode="complete"
+        onConfirm={onConfirm}
+        isPending={false}
+      />,
+    )
+
+    await user.type(await screen.findByLabelText('Kilómetros actuales'), '-1')
+    await user.click(screen.getByRole('button', { name: /^completar$/i }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/no puede ser negativo/i)
+    expect(onConfirm).not.toHaveBeenCalled()
+  })
+
   it('shows the backend error message when the error prop is set', async () => {
     const axiosLikeError = {
       isAxiosError: true,

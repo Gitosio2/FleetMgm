@@ -72,6 +72,12 @@ export function JobUsageValueModal({
     }
 
     const numericValue = Number(value)
+
+    if (numericValue < 0) {
+      setValidationError('El valor no puede ser negativo.')
+      return
+    }
+
     if (floor !== -Infinity && numericValue < floor) {
       setValidationError(JOB_ERROR_MESSAGES.JOB_USAGE_VALUE_BELOW_CURRENT!)
       return
