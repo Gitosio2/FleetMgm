@@ -89,4 +89,20 @@ public interface SupplierInvoiceRepository extends JpaRepository<SupplierInvoice
             + "WHERE si.status = com.fleetmgm.billing.domain.SupplierInvoiceStatus.PENDING AND si.dueDate <= :to "
             + "ORDER BY si.dueDate ASC")
     List<SupplierInvoice> findUpcomingPayables(@Param("to") LocalDate to, Pageable pageable);
+
+    // Vehicle profitability panel's merged "Historial de gastos" list (Hito 45) — whole invoices
+    // directly tied to this vehicle (si.vehicle.id = :vehicleId). This is one of two cost sources
+    // merged in ProfitabilityService.getExpensesByVehicle; the other,
+    // SupplierInvoiceLineItemRepository.findAllByVehicleIdAndPeriod, covers the complementary
+    // split-invoice case and explicitly excludes invoices already counted here (inv.vehicle IS NULL
+    // guard) to avoid double-counting against ProfitabilityRepository's cost sum. Same optional
+    // "(CAST(:param AS string) IS NULL OR ...)" date-range idiom as LineItemRepository's
+    // findAllByVehicleIdAndPeriod.
+    @Query("SELECT si FROM SupplierInvoice si JOIN FETCH si.supplier "
+            + "WHERE si.vehicle.id = :vehicleId "
+            + "AND (CAST(:invoiceDateFrom AS string) IS NULL OR si.invoiceDate >= :invoiceDateFrom) "
+            + "AND (CAST(:invoiceDateTo AS string) IS NULL OR si.invoiceDate <= :invoiceDateTo) "
+            + "ORDER BY si.invoiceDate DESC")
+    List<SupplierInvoice> findAllByVehicleIdAndPeriod(@Param("vehicleId") UUID vehicleId,
+            @Param("invoiceDateFrom") LocalDate invoiceDateFrom, @Param("invoiceDateTo") LocalDate invoiceDateTo);
 }

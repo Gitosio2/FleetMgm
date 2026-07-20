@@ -76,6 +76,16 @@ public interface ProfitabilityRepository extends Repository<Vehicle, UUID> {
     // a page. Not refactored into a shared SQL fragment/Java constant/PostgreSQL view — that's out
     // of scope for this slice. planning.md's "Rentabilidad" section already flags a PostgreSQL view
     // as a possible future alternative if this duplication becomes a maintenance problem.
+    // <p>
+    // {@code :from}/{@code :to} are optional (VehicleProfitabilityPanel's Desde/Hasta range,
+    // replacing the panel's old month/year selector) and bound each subquery on its own date
+    // column: revenue on {@code inv.issue_date}, maintenance costs on
+    // {@code mr.workshop_entry_date}, and both supplier-invoice cost sources on
+    // {@code si.invoice_date}/{@code si2.invoice_date}. Uses the same "(CAST(:param AS date) IS
+    // NULL OR ...)" idiom as the "(CAST(:param AS string) IS NULL OR ...)" optional-param idiom
+    // used elsewhere in this codebase (e.g. MaintenanceRepository.findAllJoinFetch), adapted to
+    // {@code date} since this is native SQL, not JPQL. When both are null every bound
+    // short-circuits to true, so this is byte-identical to the unbounded, all-time query above.
     @Query(value = """
             SELECT v.id AS vehicleId,
                    v.license_plate AS vehicleLicensePlate,
@@ -88,27 +98,36 @@ public interface ProfitabilityRepository extends Repository<Vehicle, UUID> {
                              WHERE j.vehicle_id = v.id
                                AND j.deleted_at IS NULL
                                AND inv.deleted_at IS NULL
-                               AND inv.status IN ('ISSUED', 'PAID', 'OVERDUE')), 0) AS revenue,
+                               AND inv.status IN ('ISSUED', 'PAID', 'OVERDUE')
+                               AND (CAST(:from AS date) IS NULL OR inv.issue_date >= CAST(:from AS date))
+                               AND (CAST(:to AS date) IS NULL OR inv.issue_date <= CAST(:to AS date))), 0) AS revenue,
                    COALESCE((SELECT SUM(mr.cost)
                              FROM maintenance_records mr
                              WHERE mr.vehicle_id = v.id
-                               AND mr.deleted_at IS NULL), 0)
+                               AND mr.deleted_at IS NULL
+                               AND (CAST(:from AS date) IS NULL OR mr.workshop_entry_date >= CAST(:from AS date))
+                               AND (CAST(:to AS date) IS NULL OR mr.workshop_entry_date <= CAST(:to AS date))), 0)
                    + COALESCE((SELECT SUM(si.total)
                                FROM supplier_invoices si
                                WHERE si.vehicle_id = v.id
-                                 AND si.deleted_at IS NULL), 0)
+                                 AND si.deleted_at IS NULL
+                                 AND (CAST(:from AS date) IS NULL OR si.invoice_date >= CAST(:from AS date))
+                                 AND (CAST(:to AS date) IS NULL OR si.invoice_date <= CAST(:to AS date))), 0)
                    + COALESCE((SELECT SUM(sili.subtotal)
                                FROM supplier_invoice_line_items sili
                                JOIN supplier_invoices si2 ON sili.invoice_id = si2.id
                                WHERE sili.vehicle_id = v.id
                                  AND si2.vehicle_id IS NULL
-                                 AND si2.deleted_at IS NULL), 0) AS costs
+                                 AND si2.deleted_at IS NULL
+                                 AND (CAST(:from AS date) IS NULL OR si2.invoice_date >= CAST(:from AS date))
+                                 AND (CAST(:to AS date) IS NULL OR si2.invoice_date <= CAST(:to AS date))), 0) AS costs
             FROM vehicles v
             WHERE v.id = :vehicleId
               AND v.deleted_at IS NULL
             """,
             nativeQuery = true)
-    Optional<VehicleProfitabilityProjection> findProfitabilityByVehicleId(@Param("vehicleId") UUID vehicleId);
+    Optional<VehicleProfitabilityProjection> findProfitabilityByVehicleId(
+            @Param("vehicleId") UUID vehicleId, @Param("from") LocalDate from, @Param("to") LocalDate to);
 
     /**
      * Fleet-wide (not per-vehicle) monthly revenue/costs trend backing the Dashboard's monthly

@@ -1,24 +1,36 @@
 package com.fleetmgm.billing.application;
 
 import com.fleetmgm.billing.domain.InvoiceLineItem;
+import com.fleetmgm.billing.domain.SupplierInvoice;
+import com.fleetmgm.billing.domain.SupplierInvoiceLineItem;
 import com.fleetmgm.billing.dto.MonthlyFinancialResponse;
 import com.fleetmgm.billing.dto.ProfitabilityResponse;
+import com.fleetmgm.billing.dto.VehicleExpenseResponse;
 import com.fleetmgm.billing.dto.VehicleRevenueLineItemResponse;
 import com.fleetmgm.billing.infrastructure.LineItemRepository;
 import com.fleetmgm.billing.infrastructure.ProfitabilityRepository;
+import com.fleetmgm.billing.infrastructure.SupplierInvoiceLineItemRepository;
+import com.fleetmgm.billing.infrastructure.SupplierInvoiceRepository;
 import com.fleetmgm.billing.infrastructure.VehicleProfitabilityProjection;
 import com.fleetmgm.shared.PageResponse;
 import com.fleetmgm.shared.exception.NotFoundException;
+import com.fleetmgm.vehicle.domain.UsageMeasure;
+import com.fleetmgm.vehicle.domain.Vehicle;
+import com.fleetmgm.vehicle.infrastructure.UsageLogRepository;
 import com.fleetmgm.vehicle.infrastructure.VehicleRepository;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 @Service
 public class ProfitabilityService {
@@ -38,13 +50,22 @@ public class ProfitabilityService {
     private final ProfitabilityRepository profitabilityRepository;
     private final VehicleRepository vehicleRepository;
     private final LineItemRepository lineItemRepository;
+    private final UsageLogRepository usageLogRepository;
+    private final SupplierInvoiceRepository supplierInvoiceRepository;
+    private final SupplierInvoiceLineItemRepository supplierInvoiceLineItemRepository;
 
     public ProfitabilityService(ProfitabilityRepository profitabilityRepository,
                                  VehicleRepository vehicleRepository,
-                                 LineItemRepository lineItemRepository) {
+                                 LineItemRepository lineItemRepository,
+                                 UsageLogRepository usageLogRepository,
+                                 SupplierInvoiceRepository supplierInvoiceRepository,
+                                 SupplierInvoiceLineItemRepository supplierInvoiceLineItemRepository) {
         this.profitabilityRepository = profitabilityRepository;
         this.vehicleRepository = vehicleRepository;
         this.lineItemRepository = lineItemRepository;
+        this.usageLogRepository = usageLogRepository;
+        this.supplierInvoiceRepository = supplierInvoiceRepository;
+        this.supplierInvoiceLineItemRepository = supplierInvoiceLineItemRepository;
     }
 
     @Transactional(readOnly = true)
@@ -54,12 +75,61 @@ public class ProfitabilityService {
                 .map(this::toResponse));
     }
 
+    // from/to are optional (VehicleProfitabilityPanel's Desde/Hasta range) — when both are null this
+    // must produce byte-identical results to the previously all-time-only behavior, since
+    // ProfitabilityRepository's CAST-to-date idiom short-circuits to "no bound" on a null param.
     @Transactional(readOnly = true)
     @PreAuthorize(ROLES)
-    public ProfitabilityResponse getByVehicleId(UUID vehicleId) {
-        VehicleProfitabilityProjection projection = profitabilityRepository.findProfitabilityByVehicleId(vehicleId)
+    public ProfitabilityResponse getByVehicleId(UUID vehicleId, LocalDate from, LocalDate to) {
+        VehicleProfitabilityProjection projection = profitabilityRepository
+                .findProfitabilityByVehicleId(vehicleId, from, to)
                 .orElseThrow(() -> new NotFoundException("VEHICLE_NOT_FOUND", "Vehicle " + vehicleId + " not found"));
-        return toResponse(projection);
+
+        // Needed for usageMeasure (km vs hora label) and getCurrentUsageValue() (the unbounded-`to`
+        // fallback below) — not loaded by the aggregate projection above.
+        Vehicle vehicle = vehicleRepository.findById(vehicleId)
+                .orElseThrow(() -> new NotFoundException("VEHICLE_NOT_FOUND", "Vehicle " + vehicleId + " not found"));
+
+        Long usageInRange = computeUsageInRange(vehicle, from, to);
+        BigDecimal margin = projection.getRevenue().subtract(projection.getCosts());
+        BigDecimal costPerUsageUnit = (usageInRange != null && usageInRange > 0)
+                ? projection.getCosts().divide(BigDecimal.valueOf(usageInRange), 2, RoundingMode.HALF_UP)
+                : null;
+        BigDecimal profitPerUsageUnit = (usageInRange != null && usageInRange > 0)
+                ? margin.divide(BigDecimal.valueOf(usageInRange), 2, RoundingMode.HALF_UP)
+                : null;
+
+        return toResponse(projection, costPerUsageUnit, profitPerUsageUnit, vehicle.getUsageMeasure());
+    }
+
+    // usage_logs.value is a CUMULATIVE reading (not a delta), so the amount used within [from, to]
+    // is (reading at end of period) - (reading at start of period). Deliberately returns null
+    // (rather than guessing 0) whenever a true baseline/end reading can't be established — dividing
+    // period cost by lifetime odometer would be misleading, and fabricating a "0 before" baseline
+    // would be worse (see CLAUDE.md's OWASP section N — never silently substitute a default for
+    // missing/uncertain data).
+    //
+    // measureType is always the vehicle's CURRENT usageMeasure, passed to every lookup below —
+    // usageMeasure is editable (UpdateVehicleRequest), so a vehicle switched between KILOMETERS and
+    // HOURS can have usage_logs rows in both units (each stamped with whatever measure was active
+    // when that job completed). Without this filter, "latest reading" could pick a baseline under
+    // the old measure and an end value under the new one, subtracting incompatible units.
+    private Long computeUsageInRange(Vehicle vehicle, LocalDate from, LocalDate to) {
+        String measureType = vehicle.getUsageMeasure().name();
+        Long endValue = (to != null)
+                ? usageLogRepository.findLatestValueUpToDate(vehicle.getId(), measureType, to).orElse(null)
+                : vehicle.getCurrentUsageValue();
+        if (endValue == null) {
+            return null;
+        }
+        Long startValue = (from != null)
+                ? usageLogRepository.findLatestValueBeforeDate(vehicle.getId(), measureType, from).orElse(null)
+                : usageLogRepository.findEarliestValue(vehicle.getId(), measureType).orElse(null);
+        if (startValue == null) {
+            return null;
+        }
+        long delta = endValue - startValue;
+        return delta >= 0 ? delta : null;
     }
 
     // Fleet-wide monthly Ingresos/Gastos trend for the Dashboard chart (Hito 43 redesign) — not
@@ -84,12 +154,51 @@ public class ProfitabilityService {
     // in the given period — the two cases must be distinguishable.
     @Transactional(readOnly = true)
     @PreAuthorize(ROLES)
-    public List<VehicleRevenueLineItemResponse> getRevenueByVehicle(UUID vehicleId, Integer year, Integer month) {
+    public List<VehicleRevenueLineItemResponse> getRevenueByVehicle(UUID vehicleId, LocalDate from, LocalDate to) {
         vehicleRepository.findById(vehicleId)
                 .orElseThrow(() -> new NotFoundException("VEHICLE_NOT_FOUND", "Vehicle " + vehicleId + " not found"));
-        return lineItemRepository.findAllByVehicleIdAndPeriod(vehicleId, year, month).stream()
+        return lineItemRepository.findAllByVehicleIdAndPeriod(vehicleId, from, to).stream()
                 .map(this::toRevenueResponse)
                 .toList();
+    }
+
+    // Vehicle profitability panel's merged "Historial de gastos" list (Hito 45) — replaces the old
+    // maintenance-only "Historial de mantenimientos" card, whose own subtotal never matched
+    // "Totales" -> "Gastos" (Gastos is a superset that also includes supplier-invoice costs, see
+    // ProfitabilityRepository). This does not change how Gastos is computed — it only surfaces the
+    // same supplier-invoice cost sources ProfitabilityRepository already sums, as a single list
+    // merged and sorted by date (user's explicit choice over two separate sub-lists), alongside
+    // maintenance records rendered separately by the frontend from useVehicleMaintenanceHistory.
+    // Existence check mirrors getRevenueByVehicle: an empty result is also the correct answer for a
+    // real vehicle with no supplier-invoice costs in the given period.
+    @Transactional(readOnly = true)
+    @PreAuthorize(ROLES)
+    public List<VehicleExpenseResponse> getExpensesByVehicle(UUID vehicleId, LocalDate from, LocalDate to) {
+        vehicleRepository.findById(vehicleId)
+                .orElseThrow(() -> new NotFoundException("VEHICLE_NOT_FOUND", "Vehicle " + vehicleId + " not found"));
+        Stream<VehicleExpenseResponse> invoiceExpenses = supplierInvoiceRepository
+                .findAllByVehicleIdAndPeriod(vehicleId, from, to).stream()
+                .map(this::toExpenseResponse);
+        Stream<VehicleExpenseResponse> lineItemExpenses = supplierInvoiceLineItemRepository
+                .findAllByVehicleIdAndPeriod(vehicleId, from, to).stream()
+                .map(this::toExpenseResponse);
+        return Stream.concat(invoiceExpenses, lineItemExpenses)
+                .sorted(Comparator.comparing(VehicleExpenseResponse::date).reversed())
+                .toList();
+    }
+
+    private VehicleExpenseResponse toExpenseResponse(SupplierInvoice invoice) {
+        String label = invoice.getSupplierInvoiceNumber() != null
+                ? invoice.getSupplier().getName() + " – " + invoice.getSupplierInvoiceNumber()
+                : invoice.getSupplier().getName();
+        return new VehicleExpenseResponse(label, invoice.getInvoiceDate(), invoice.getTotal());
+    }
+
+    private VehicleExpenseResponse toExpenseResponse(SupplierInvoiceLineItem lineItem) {
+        return new VehicleExpenseResponse(
+                lineItem.getInvoice().getSupplier().getName() + ": " + lineItem.getDescription(),
+                lineItem.getInvoice().getInvoiceDate(),
+                lineItem.getSubtotal());
     }
 
     private VehicleRevenueLineItemResponse toRevenueResponse(InvoiceLineItem lineItem) {
@@ -105,7 +214,19 @@ public class ProfitabilityService {
 
     // margin is derived math (revenue - costs) — computed here in the application layer, not in
     // SQL, mirroring how InvoiceService keeps tax/total calculations out of the database.
+    // Used by list() (fleet-wide paged table): costPerUsageUnit/profitPerUsageUnit/usageMeasure are
+    // always null there — computing a per-vehicle usage-log query for every row of a page would be
+    // an N+1 query pattern, and this feature only applies to the single-vehicle detail panel.
     private ProfitabilityResponse toResponse(VehicleProfitabilityProjection projection) {
+        return toResponse(projection, null, null, null);
+    }
+
+    // Used by getByVehicleId (single-vehicle detail panel), where costPerUsageUnit/
+    // profitPerUsageUnit/usageMeasure are already computed via computeUsageInRange.
+    private ProfitabilityResponse toResponse(VehicleProfitabilityProjection projection,
+                                              BigDecimal costPerUsageUnit,
+                                              BigDecimal profitPerUsageUnit,
+                                              UsageMeasure usageMeasure) {
         return new ProfitabilityResponse(
                 projection.getVehicleId(),
                 projection.getVehicleLicensePlate(),
@@ -113,7 +234,10 @@ public class ProfitabilityService {
                 projection.getVehicleModel(),
                 projection.getRevenue(),
                 projection.getCosts(),
-                projection.getRevenue().subtract(projection.getCosts())
+                projection.getRevenue().subtract(projection.getCosts()),
+                costPerUsageUnit,
+                profitPerUsageUnit,
+                usageMeasure
         );
     }
 }

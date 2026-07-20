@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -28,14 +29,22 @@ public interface LineItemRepository extends JpaRepository<InvoiceLineItem, UUID>
 
     // JPQL, not native — unlike ProfitabilityRepository's aggregate query, linkedJob.vehicle is a
     // real JPA path here, and Invoice's @SQLRestriction(deleted_at IS NULL) applies automatically
-    // through the join.
+    // through the join. issueDateFrom/issueDateTo replace the old year/month EXTRACT-based filter
+    // (optional Desde/Hasta range, same "(CAST(:param AS string) IS NULL OR ...)" idiom as
+    // InvoiceRepository's issueDateFrom/issueDateTo). The li.invoice.status allowlist mirrors
+    // ProfitabilityRepository.findProfitabilityByVehicle/findProfitabilityByVehicleId — an explicit
+    // ISSUED/PAID/OVERDUE allowlist, not a "<> CANCELLED" denylist, so a future InvoiceStatus value
+    // doesn't silently start counting as revenue here either. This was previously missing: a
+    // CANCELLED invoice's line items used to still show up in this vehicle revenue history.
     @Query("SELECT li FROM InvoiceLineItem li JOIN FETCH li.invoice JOIN li.linkedJob j "
             + "WHERE j.vehicle.id = :vehicleId "
-            + "AND (:year IS NULL OR EXTRACT(YEAR FROM li.invoice.issueDate) = :year) "
-            + "AND (:month IS NULL OR EXTRACT(MONTH FROM li.invoice.issueDate) = :month) "
+            + "AND li.invoice.status IN (com.fleetmgm.billing.domain.InvoiceStatus.ISSUED, "
+            + "     com.fleetmgm.billing.domain.InvoiceStatus.PAID, com.fleetmgm.billing.domain.InvoiceStatus.OVERDUE) "
+            + "AND (CAST(:issueDateFrom AS string) IS NULL OR li.invoice.issueDate >= :issueDateFrom) "
+            + "AND (CAST(:issueDateTo AS string) IS NULL OR li.invoice.issueDate <= :issueDateTo) "
             + "ORDER BY li.invoice.issueDate DESC")
     List<InvoiceLineItem> findAllByVehicleIdAndPeriod(
             @Param("vehicleId") UUID vehicleId,
-            @Param("year") Integer year,
-            @Param("month") Integer month);
+            @Param("issueDateFrom") LocalDate issueDateFrom,
+            @Param("issueDateTo") LocalDate issueDateTo);
 }

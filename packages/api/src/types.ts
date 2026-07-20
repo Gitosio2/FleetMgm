@@ -461,6 +461,11 @@ export type Profitability = {
   revenue: number
   costs: number
   margin: number
+  // Only populated by the single-vehicle detail panel (getByVehicleId) — always null on the
+  // fleet-wide paged list, see ProfitabilityService.toResponse on the backend.
+  costPerUsageUnit: number | null
+  profitPerUsageUnit: number | null
+  usageMeasure: UsageMeasure
 }
 
 export type MonthlyFinancial = {
@@ -476,6 +481,15 @@ export type VehicleRevenueLineItem = {
   quantity: number
   unitPrice: number
   subtotal: number
+}
+
+// Vehicle profitability panel's merged "Historial de gastos" list (Hito 45) — supplier-invoice cost
+// sources (whole invoices tied to the vehicle + split line items on bulk invoices), merged with
+// maintenance records client-side and sorted by date descending. See ProfitabilityService.
+export type VehicleExpense = {
+  description: string
+  date: string
+  amount: number
 }
 
 export type GpsSource = 'MOCK' | 'DEVICE'

@@ -84,16 +84,17 @@ class MaintenanceControllerTest {
     }
 
     @Test
-    void list_forwardsVehicleIdYearAndMonthQueryParams() throws Exception {
+    void list_forwardsVehicleIdAndWorkshopEntryDateRangeQueryParams() throws Exception {
         PageResponse<MaintenanceResponse> page = new PageResponse<>(List.of(sampleResponse()), 0, 20, 1, 1);
         when(maintenanceService.list(
-                eq(VEHICLE_ID), eq(2026), eq(7), any(), any(), any(), any(), any(), any(), any(Pageable.class)))
+                eq(VEHICLE_ID), eq(java.time.LocalDate.of(2026, 7, 1)), eq(java.time.LocalDate.of(2026, 7, 31)),
+                any(), any(), any(), any(), any(), any(), any(Pageable.class)))
                 .thenReturn(page);
 
         mockMvc.perform(get("/api/v1/maintenance")
                         .param("vehicleId", VEHICLE_ID.toString())
-                        .param("year", "2026")
-                        .param("month", "7"))
+                        .param("workshopEntryDateFrom", "2026-07-01")
+                        .param("workshopEntryDateTo", "2026-07-31"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(1));
     }
