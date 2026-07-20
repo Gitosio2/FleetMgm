@@ -106,6 +106,8 @@ Necesita una instancia de Postgres accesible en `jdbc:postgresql://localhost:543
 
 ### Frontend
 
+Requiere Node 22 (ver [`.nvmrc`](.nvmrc); con `nvm` alcanza con `nvm use`).
+
 ```bash
 npm install                     # desde la raíz del repo — instala todos los workspaces
 turbo dev                       # arranca todas las apps en modo dev (web en :5173)
@@ -137,6 +139,18 @@ El servidor de desarrollo mockea la API con MSW (`VITE_ENABLE_MSW=true` en `apps
    ```
 
 El CI lee la misma variable desde el secret `NVD_API_KEY` de GitHub Actions (ya configurado) — ahí no hace falta ningún `.env`.
+
+## Desarrollo local con Docker
+
+A diferencia del [arranque rápido](#arranque-rápido-demo-local) — pensado para correr la demo una sola vez —, esta opción sirve para seguir iterando sobre el código sin instalar Java ni Node en la máquina: se reconstruye solo el servicio que cambió en vez de los tres contenedores.
+
+```bash
+docker compose up -d --build backend   # después de un cambio en backend/
+docker compose up -d --build web       # después de un cambio en apps/web/
+docker compose logs -f backend         # ver logs en vivo de un servicio
+```
+
+Esto sigue reconstruyendo la imagen completa en cada cambio (el `docker-compose.yml` actual no monta el código fuente como volumen ni usa un dev server con hot-reload) — para un ciclo de feedback más rápido, usar la sección [Desarrollo local (sin Docker)](#desarrollo-local-sin-docker) de arriba.
 
 ## Despliegue a producción
 
