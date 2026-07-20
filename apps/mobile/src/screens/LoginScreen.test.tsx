@@ -1,8 +1,8 @@
 import { act, create, type ReactTestRenderer } from 'react-test-renderer'
-import { useLogin } from '@fleetmgm/hooks'
+import { useLogin } from '@fleetmgm/hooks/mobile'
 import { LoginScreen } from './LoginScreen'
 
-jest.mock('@fleetmgm/hooks', () => ({ useLogin: jest.fn() }))
+jest.mock('@fleetmgm/hooks/mobile', () => ({ useLogin: jest.fn() }))
 
 const mockedUseLogin = jest.mocked(useLogin)
 

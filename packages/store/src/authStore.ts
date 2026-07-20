@@ -27,10 +27,14 @@ const memoryStorage: StateStorage = {
   removeItem: () => undefined,
 }
 
-const defaultStorage = createJSONStorage<AuthState>(() =>
-  typeof localStorage === 'undefined' ? memoryStorage : localStorage,
-)
-const hasBrowserStorage = typeof localStorage !== 'undefined'
+type BrowserGlobals = typeof globalThis & { localStorage?: StateStorage }
+
+// Referencing the browser global through an optional structural type lets the
+// shared store remain type-safe in React Native projects that deliberately omit
+// DOM declarations.
+const browserStorage = (globalThis as BrowserGlobals).localStorage
+const defaultStorage = createJSONStorage<AuthState>(() => browserStorage ?? memoryStorage)
+const hasBrowserStorage = browserStorage !== undefined
 
 export const useAuthStore = create<AuthState>()(
   persist(

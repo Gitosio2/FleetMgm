@@ -9,7 +9,7 @@
     "ios": "expo start --ios",
     "build": "expo export --platform android",
     "build:ios": "expo export --platform ios",
-    "lint": "tsc --noEmit",
+    "lint": "tsc --noEmit --project tsconfig.typecheck.json && node scripts/assert-mobile-hooks-graph.mjs",
     "test": "jest --runInBand"
   },
   "dependencies": {

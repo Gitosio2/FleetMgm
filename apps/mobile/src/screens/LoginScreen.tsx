@@ -8,7 +8,7 @@ import {
   View,
 } from 'react-native'
 import { isAxiosError } from 'axios'
-import { useLogin } from '@fleetmgm/hooks'
+import { useLogin } from '@fleetmgm/hooks/mobile'
 
 export function LoginScreen() {
   const login = useLogin()
