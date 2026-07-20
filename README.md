@@ -39,6 +39,7 @@ Solo hacen falta para correr el proyecto en local — la demo en vivo de arriba 
 | Métricas | Micrometer + Prometheus |
 | CI/CD | GitHub Actions (tests, OWASP Dependency-Check, escaneo de seguridad semanal) |
 
+
 ## Arquitectura
 
 ```mermaid
@@ -190,6 +191,19 @@ Demo local expuesta con una URL pública temporal (no es un despliegue real):
 docker compose up -d --build
 ngrok http 8081
 ```
+
+## Valoración personal y conclusiones
+
+He decidido hacer uso del framework de Spring boot porque trabajo hace varios años con spring MVC y entornos JAVA, esto me da seguridad y control sobre el codigo que me generan los agentes al entender que se debería hacer y que no, con lo cual eso me ha servido para ver donde la IA empezaba a alucinar, sugerir cosas que no corresponden con lo necesario etc..
+
+El stack de REACT viene decidido por la posibilidad de reutilizar codigo entre el frontEnd web y la APP Mobile, sin embargo no disponia de conocimientos de REACT, pero me ha servido para salir de mi zona de confort, por ello que me ha sido más complicado controlar el código generado y en ciertas ocasiones he tenido que iterar con la IA para entender que pretendía hacer.
+
+A modo de conclusión, aunque se que el proyecto no me resuelve una problemática personal, me ha servido para conocer las capacidades de la IA, tanto en generación de código como en análisis del código generado y detección de BUGs antes de que el código llegue a la rama Main. 
+
+## Conclusiones
+
+La realización de este proyecto me ha servido de aprendizaje
+
 
 ## Autor
 
