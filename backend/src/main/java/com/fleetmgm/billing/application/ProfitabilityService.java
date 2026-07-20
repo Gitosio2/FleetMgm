@@ -108,16 +108,23 @@ public class ProfitabilityService {
     // period cost by lifetime odometer would be misleading, and fabricating a "0 before" baseline
     // would be worse (see CLAUDE.md's OWASP section N — never silently substitute a default for
     // missing/uncertain data).
+    //
+    // measureType is always the vehicle's CURRENT usageMeasure, passed to every lookup below —
+    // usageMeasure is editable (UpdateVehicleRequest), so a vehicle switched between KILOMETERS and
+    // HOURS can have usage_logs rows in both units (each stamped with whatever measure was active
+    // when that job completed). Without this filter, "latest reading" could pick a baseline under
+    // the old measure and an end value under the new one, subtracting incompatible units.
     private Long computeUsageInRange(Vehicle vehicle, LocalDate from, LocalDate to) {
+        String measureType = vehicle.getUsageMeasure().name();
         Long endValue = (to != null)
-                ? usageLogRepository.findLatestValueUpToDate(vehicle.getId(), to).orElse(null)
+                ? usageLogRepository.findLatestValueUpToDate(vehicle.getId(), measureType, to).orElse(null)
                 : vehicle.getCurrentUsageValue();
         if (endValue == null) {
             return null;
         }
         Long startValue = (from != null)
-                ? usageLogRepository.findLatestValueBeforeDate(vehicle.getId(), from).orElse(null)
-                : usageLogRepository.findEarliestValue(vehicle.getId()).orElse(null);
+                ? usageLogRepository.findLatestValueBeforeDate(vehicle.getId(), measureType, from).orElse(null)
+                : usageLogRepository.findEarliestValue(vehicle.getId(), measureType).orElse(null);
         if (startValue == null) {
             return null;
         }

@@ -1,9 +1,11 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { http, HttpResponse } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useAuthStore } from '@fleetmgm/store'
 import { resetVehiclesMock, SEED_PROFITABILITY, SEED_VEHICLE_REVENUE, SEED_VEHICLES } from '@/mocks/handlers'
+import { server } from '@/mocks/server'
 import { formatCurrency } from '@/lib/currency'
 import { Vehicles } from './Vehicles'
 
@@ -211,6 +213,52 @@ describe('Vehicles', () => {
     expect(screen.getByText('Beneficio/km')).toBeInTheDocument()
     expect(getTotalesCardValue(3).getByText(formatCurrency(profitability.costPerUsageUnit!))).toBeInTheDocument()
     expect(getTotalesCardValue(4).getByText(formatCurrency(profitability.profitPerUsageUnit!))).toBeInTheDocument()
+  })
+
+  it('fetches every page of maintenance history, not just the first, for a vehicle with more than one page of records', async () => {
+    const user = userEvent.setup()
+    loginAs('ADMIN')
+
+    // Regression: useVehicleMaintenanceHistory used to request only page 0 (size:100) — safe back
+    // when the panel was scoped to one month via a year/month selector, but silently dropping
+    // every record beyond the first page once the panel's Desde/Hasta range defaults to unbounded
+    // full history. Both pages' records — and their combined cost in the card header — must appear.
+    server.use(
+      http.get('/api/v1/maintenance', ({ request }) => {
+        const page = Number(new URL(request.url).searchParams.get('page') ?? 0)
+        const record = {
+          id: `maintenance-page-${page}`,
+          vehicleId: FIRST_VEHICLE!.id,
+          vehicleLicensePlate: FIRST_VEHICLE!.licensePlate,
+          vehicleMake: FIRST_VEHICLE!.make,
+          vehicleModel: FIRST_VEHICLE!.model,
+          type: page === 0 ? 'Mantenimiento página 1' : 'Mantenimiento página 2',
+          description: null,
+          usageAtService: null,
+          cost: 50,
+          workshopEntryDate: page === 0 ? '2026-07-10' : '2026-07-01',
+          workshopExitDate: null,
+          workshopEntryTime: null,
+          workshopExitTime: null,
+          technicianId: null,
+          technicianName: null,
+          status: 'COMPLETED',
+          category: 'PREVENTIVE',
+          createdAt: '2026-07-01T09:00:00Z',
+        }
+        return HttpResponse.json({ content: [record], page, size: 200, totalElements: 2, totalPages: 2 })
+      }),
+    )
+
+    renderVehicles()
+    await screen.findByText(`${FIRST_VEHICLE!.make} ${FIRST_VEHICLE!.model}`)
+
+    const profitabilityButtons = await screen.findAllByLabelText('Ver rentabilidad')
+    await user.click(profitabilityButtons[0]!)
+    await screen.findByText(`Rentabilidad — ${FIRST_VEHICLE!.make} ${FIRST_VEHICLE!.model}`)
+
+    expect(await screen.findByText('Mantenimiento página 1')).toBeInTheDocument()
+    expect(await screen.findByText('Mantenimiento página 2')).toBeInTheDocument()
   })
 
   it('labels the usage-scoped cards in hours for an HOURS-measured vehicle', async () => {

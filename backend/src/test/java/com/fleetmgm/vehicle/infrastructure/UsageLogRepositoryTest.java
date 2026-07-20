@@ -66,12 +66,12 @@ class UsageLogRepositoryTest {
         LocalDate to = LocalDate.of(2026, 6, 30);
         // Recorded at 23:59 on `to`'s date — must be included, since `to` is meant as an inclusive
         // whole-day boundary, not a timestamp cutoff at 00:00.
-        persistUsageLog(vehicle, 15000L, to.atTime(23, 59).toInstant(ZoneOffset.UTC));
+        persistUsageLog(vehicle, 15000L, UsageMeasure.KILOMETERS, to.atTime(23, 59).toInstant(ZoneOffset.UTC));
         // Recorded at 00:01 the day AFTER `to` — must be excluded.
-        persistUsageLog(vehicle, 15100L, to.plusDays(1).atTime(0, 1).toInstant(ZoneOffset.UTC));
+        persistUsageLog(vehicle, 15100L, UsageMeasure.KILOMETERS, to.plusDays(1).atTime(0, 1).toInstant(ZoneOffset.UTC));
         entityManager.getEntityManager().clear();
 
-        Optional<Long> result = usageLogRepository.findLatestValueUpToDate(vehicle.getId(), to);
+        Optional<Long> result = usageLogRepository.findLatestValueUpToDate(vehicle.getId(), "KILOMETERS", to);
 
         assertThat(result).contains(15000L);
     }
@@ -81,9 +81,31 @@ class UsageLogRepositoryTest {
         Vehicle vehicle = persistVehicle("2222BBB");
         entityManager.getEntityManager().clear();
 
-        Optional<Long> result = usageLogRepository.findLatestValueUpToDate(vehicle.getId(), LocalDate.of(2026, 6, 30));
+        Optional<Long> result =
+                usageLogRepository.findLatestValueUpToDate(vehicle.getId(), "KILOMETERS", LocalDate.of(2026, 6, 30));
 
         assertThat(result).isEmpty();
+    }
+
+    // Regression: usageMeasure is editable, so the same vehicle_id can accumulate usage_logs rows
+    // under both KILOMETERS and HOURS over its lifetime (each stamped with whatever measure was
+    // active when that job completed). A query for one measure must never return a reading
+    // recorded under the other, even when that reading is the most recent by date.
+    @Test
+    void findLatestValueUpToDate_ignoresReadings_ofADifferentMeasureType() {
+        Vehicle vehicle = persistVehicle("7777GGG");
+        LocalDate to = LocalDate.of(2026, 6, 30);
+        persistUsageLog(vehicle, 15000L, UsageMeasure.KILOMETERS, to.atTime(10, 0).toInstant(ZoneOffset.UTC));
+        // More recent than the KILOMETERS reading above, but a different measure — must be ignored
+        // when querying for KILOMETERS, not picked as "the latest reading" regardless of measure.
+        persistUsageLog(vehicle, 500L, UsageMeasure.HOURS, to.atTime(23, 0).toInstant(ZoneOffset.UTC));
+        entityManager.getEntityManager().clear();
+
+        Optional<Long> kilometersResult = usageLogRepository.findLatestValueUpToDate(vehicle.getId(), "KILOMETERS", to);
+        Optional<Long> hoursResult = usageLogRepository.findLatestValueUpToDate(vehicle.getId(), "HOURS", to);
+
+        assertThat(kilometersResult).contains(15000L);
+        assertThat(hoursResult).contains(500L);
     }
 
     // --- findLatestValueBeforeDate: the period's baseline ---
@@ -92,10 +114,10 @@ class UsageLogRepositoryTest {
     void findLatestValueBeforeDate_returnsLastReading_beforeFromDate() {
         Vehicle vehicle = persistVehicle("3333CCC");
         LocalDate from = LocalDate.of(2026, 6, 1);
-        persistUsageLog(vehicle, 14000L, from.minusDays(1).atTime(23, 59).toInstant(ZoneOffset.UTC));
+        persistUsageLog(vehicle, 14000L, UsageMeasure.KILOMETERS, from.minusDays(1).atTime(23, 59).toInstant(ZoneOffset.UTC));
         entityManager.getEntityManager().clear();
 
-        Optional<Long> result = usageLogRepository.findLatestValueBeforeDate(vehicle.getId(), from);
+        Optional<Long> result = usageLogRepository.findLatestValueBeforeDate(vehicle.getId(), "KILOMETERS", from);
 
         assertThat(result).contains(14000L);
     }
@@ -106,10 +128,22 @@ class UsageLogRepositoryTest {
         LocalDate from = LocalDate.of(2026, 6, 1);
         // Recorded at 00:00 exactly on `from`'s date — must be excluded, the baseline is strictly
         // before the period starts.
-        persistUsageLog(vehicle, 14500L, from.atStartOfDay().toInstant(ZoneOffset.UTC));
+        persistUsageLog(vehicle, 14500L, UsageMeasure.KILOMETERS, from.atStartOfDay().toInstant(ZoneOffset.UTC));
         entityManager.getEntityManager().clear();
 
-        Optional<Long> result = usageLogRepository.findLatestValueBeforeDate(vehicle.getId(), from);
+        Optional<Long> result = usageLogRepository.findLatestValueBeforeDate(vehicle.getId(), "KILOMETERS", from);
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void findLatestValueBeforeDate_excludesReadings_ofADifferentMeasureType() {
+        Vehicle vehicle = persistVehicle("8888HHH");
+        LocalDate from = LocalDate.of(2026, 6, 1);
+        persistUsageLog(vehicle, 500L, UsageMeasure.HOURS, from.minusDays(1).atTime(23, 59).toInstant(ZoneOffset.UTC));
+        entityManager.getEntityManager().clear();
+
+        Optional<Long> result = usageLogRepository.findLatestValueBeforeDate(vehicle.getId(), "KILOMETERS", from);
 
         assertThat(result).isEmpty();
     }
@@ -119,11 +153,11 @@ class UsageLogRepositoryTest {
     @Test
     void findEarliestValue_returnsFirstEverReading() {
         Vehicle vehicle = persistVehicle("5555EEE");
-        persistUsageLog(vehicle, 13000L, LocalDate.of(2026, 1, 1).atStartOfDay().toInstant(ZoneOffset.UTC));
-        persistUsageLog(vehicle, 14000L, LocalDate.of(2026, 3, 1).atStartOfDay().toInstant(ZoneOffset.UTC));
+        persistUsageLog(vehicle, 13000L, UsageMeasure.KILOMETERS, LocalDate.of(2026, 1, 1).atStartOfDay().toInstant(ZoneOffset.UTC));
+        persistUsageLog(vehicle, 14000L, UsageMeasure.KILOMETERS, LocalDate.of(2026, 3, 1).atStartOfDay().toInstant(ZoneOffset.UTC));
         entityManager.getEntityManager().clear();
 
-        Optional<Long> result = usageLogRepository.findEarliestValue(vehicle.getId());
+        Optional<Long> result = usageLogRepository.findEarliestValue(vehicle.getId(), "KILOMETERS");
 
         assertThat(result).contains(13000L);
     }
@@ -133,9 +167,23 @@ class UsageLogRepositoryTest {
         Vehicle vehicle = persistVehicle("6666FFF");
         entityManager.getEntityManager().clear();
 
-        Optional<Long> result = usageLogRepository.findEarliestValue(vehicle.getId());
+        Optional<Long> result = usageLogRepository.findEarliestValue(vehicle.getId(), "KILOMETERS");
 
         assertThat(result).isEmpty();
+    }
+
+    @Test
+    void findEarliestValue_ignoresReadings_ofADifferentMeasureType() {
+        Vehicle vehicle = persistVehicle("9999III");
+        // The earliest-ever reading is under HOURS; a KILOMETERS-scoped query must skip it and
+        // fall through to the earliest KILOMETERS reading instead, not the earliest reading overall.
+        persistUsageLog(vehicle, 100L, UsageMeasure.HOURS, LocalDate.of(2026, 1, 1).atStartOfDay().toInstant(ZoneOffset.UTC));
+        persistUsageLog(vehicle, 13000L, UsageMeasure.KILOMETERS, LocalDate.of(2026, 3, 1).atStartOfDay().toInstant(ZoneOffset.UTC));
+        entityManager.getEntityManager().clear();
+
+        Optional<Long> result = usageLogRepository.findEarliestValue(vehicle.getId(), "KILOMETERS");
+
+        assertThat(result).contains(13000L);
     }
 
     private Vehicle persistVehicle(String licensePlate) {
@@ -149,11 +197,11 @@ class UsageLogRepositoryTest {
         return entityManager.persistAndFlush(vehicle);
     }
 
-    private void persistUsageLog(Vehicle vehicle, long value, java.time.Instant recordedAt) {
+    private void persistUsageLog(Vehicle vehicle, long value, UsageMeasure measureType, java.time.Instant recordedAt) {
         UsageLog usageLog = new UsageLog();
         usageLog.setVehicle(vehicle);
         usageLog.setValue(value);
-        usageLog.setMeasureType(UsageMeasure.KILOMETERS);
+        usageLog.setMeasureType(measureType);
         usageLog.setRecordedAt(recordedAt);
         usageLog.setSource(UsageSource.JOB_COMPLETION);
         entityManager.persistAndFlush(usageLog);

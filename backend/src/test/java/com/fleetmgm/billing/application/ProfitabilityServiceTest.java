@@ -188,8 +188,8 @@ class ProfitabilityServiceTest {
                 .thenReturn(Optional.of(projection));
         Vehicle vehicle = buildVehicle(vehicleId, UsageMeasure.KILOMETERS);
         when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(vehicle));
-        when(usageLogRepository.findLatestValueBeforeDate(vehicleId, from)).thenReturn(Optional.of(15000L));
-        when(usageLogRepository.findLatestValueUpToDate(vehicleId, to)).thenReturn(Optional.of(15300L));
+        when(usageLogRepository.findLatestValueBeforeDate(vehicleId, "KILOMETERS", from)).thenReturn(Optional.of(15000L));
+        when(usageLogRepository.findLatestValueUpToDate(vehicleId, "KILOMETERS", to)).thenReturn(Optional.of(15300L));
 
         ProfitabilityResponse response = profitabilityService.getByVehicleId(vehicleId, from, to);
 
@@ -197,6 +197,39 @@ class ProfitabilityServiceTest {
         assertThat(response.costPerUsageUnit()).isEqualByComparingTo("1.00");
         assertThat(response.profitPerUsageUnit()).isEqualByComparingTo("1.67");
         assertThat(response.usageMeasure()).isEqualTo(UsageMeasure.KILOMETERS);
+    }
+
+    // Regression: usageMeasure is editable (UpdateVehicleRequest), so a vehicle switched between
+    // KILOMETERS and HOURS can have usage_logs rows in both units. computeUsageInRange must query
+    // by the vehicle's CURRENT measure only — a stray KILOMETERS reading for this vehicle_id must
+    // never be picked up for an HOURS-measured vehicle, even though the repository is stubbed
+    // per-argument here (not a real cross-measure mix), the test proves the service passes
+    // "HOURS", not "KILOMETERS", by never stubbing the KILOMETERS overload at all: if the service
+    // regressed to omitting/hardcoding the measure, Mockito would return an empty Optional (its
+    // default for an unstubbed call) and costPerUsageUnit/profitPerUsageUnit would go null instead
+    // of the expected values below.
+    @Test
+    void getByVehicleId_queriesUsageLogsByTheVehiclesCurrentMeasure_notAHardcodedOne() {
+        profitabilityService = new ProfitabilityService(
+                profitabilityRepository, vehicleRepository, lineItemRepository, usageLogRepository,
+                supplierInvoiceRepository, supplierInvoiceLineItemRepository);
+        UUID vehicleId = UUID.randomUUID();
+        LocalDate from = LocalDate.of(2026, 6, 1);
+        LocalDate to = LocalDate.of(2026, 6, 30);
+        VehicleProfitabilityProjection projection = buildProjection(
+                vehicleId, "4040MMM", "JCB", "3CX", new BigDecimal("800.00"), new BigDecimal("300.00"));
+        when(profitabilityRepository.findProfitabilityByVehicleId(vehicleId, from, to))
+                .thenReturn(Optional.of(projection));
+        Vehicle vehicle = buildVehicle(vehicleId, UsageMeasure.HOURS);
+        when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(vehicle));
+        when(usageLogRepository.findLatestValueBeforeDate(vehicleId, "HOURS", from)).thenReturn(Optional.of(500L));
+        when(usageLogRepository.findLatestValueUpToDate(vehicleId, "HOURS", to)).thenReturn(Optional.of(550L));
+
+        ProfitabilityResponse response = profitabilityService.getByVehicleId(vehicleId, from, to);
+
+        // usageInRange = 550 - 500 = 50 h; costs 300.00 / 50 = 6.00
+        assertThat(response.costPerUsageUnit()).isEqualByComparingTo("6.00");
+        assertThat(response.usageMeasure()).isEqualTo(UsageMeasure.HOURS);
     }
 
     @Test
@@ -218,7 +251,7 @@ class ProfitabilityServiceTest {
         when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(vehicle));
         // No usage log recorded before `from` — the period baseline can't be established, so this
         // must NOT fabricate a "0 km before" assumption (see ProfitabilityService's convention).
-        when(usageLogRepository.findLatestValueBeforeDate(vehicleId, from)).thenReturn(Optional.empty());
+        when(usageLogRepository.findLatestValueBeforeDate(vehicleId, "KILOMETERS", from)).thenReturn(Optional.empty());
 
         ProfitabilityResponse response = profitabilityService.getByVehicleId(vehicleId, from, null);
 
@@ -241,8 +274,8 @@ class ProfitabilityServiceTest {
         Vehicle vehicle = buildVehicle(vehicleId, UsageMeasure.KILOMETERS);
         when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(vehicle));
         // Vehicle recorded no movement in the period — start and end readings are identical.
-        when(usageLogRepository.findLatestValueBeforeDate(vehicleId, from)).thenReturn(Optional.of(15000L));
-        when(usageLogRepository.findLatestValueUpToDate(vehicleId, to)).thenReturn(Optional.of(15000L));
+        when(usageLogRepository.findLatestValueBeforeDate(vehicleId, "KILOMETERS", from)).thenReturn(Optional.of(15000L));
+        when(usageLogRepository.findLatestValueUpToDate(vehicleId, "KILOMETERS", to)).thenReturn(Optional.of(15000L));
 
         ProfitabilityResponse response = profitabilityService.getByVehicleId(vehicleId, from, to);
 

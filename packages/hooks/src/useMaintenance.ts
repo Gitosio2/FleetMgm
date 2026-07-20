@@ -48,16 +48,29 @@ export function useMaintenanceRecords(filters: MaintenanceFilters = {}, page = 0
 export const useUpdateMaintenance = maintenanceHooks.useUpdate
 
 // Bypasses createCrudHooks.useList (page/size only, no arbitrary filters) — same rationale as
-// useVehicleProfitability being hand-written rather than reusing a factory. Fetches a single
-// generous page since results are already scoped to one vehicle + an optional Desde/Hasta range.
+// useVehicleProfitability being hand-written rather than reusing a factory. Loops pages the same
+// way useAllVehicles/useAllClients/useAllWorkers/useAllSuppliers do — a single size:100 page was
+// safe back when this was scoped to one month via a year/month selector, but the panel's Desde/
+// Hasta range now defaults to unbounded full history, so a vehicle with more than 100 maintenance
+// records would silently lose older ones from both the list and its displayed total while
+// "Totales" (a true backend aggregate over every row) stayed correct — the two figures would then
+// disagree for no visible reason.
 export function useVehicleMaintenanceHistory(vehicleId: string, from?: string, to?: string) {
   return useQuery({
     queryKey: [MAINTENANCE_KEY, 'vehicle', vehicleId, { from, to }],
     queryFn: async () => {
-      const { data } = await apiClient.get<PageResponse<MaintenanceRecord>>('/maintenance', {
-        params: { vehicleId, workshopEntryDateFrom: from, workshopEntryDateTo: to, size: 100 },
-      })
-      return data.content
+      const all: MaintenanceRecord[] = []
+      let page = 0
+      let totalPages = 1
+      do {
+        const { data } = await apiClient.get<PageResponse<MaintenanceRecord>>('/maintenance', {
+          params: { vehicleId, workshopEntryDateFrom: from, workshopEntryDateTo: to, page, size: 200 },
+        })
+        all.push(...data.content)
+        totalPages = data.totalPages
+        page += 1
+      } while (page < totalPages)
+      return all
     },
     enabled: Boolean(vehicleId),
   })
