@@ -200,11 +200,6 @@ El stack de REACT viene decidido por la posibilidad de reutilizar codigo entre e
 
 A modo de conclusión, aunque se que el proyecto no me resuelve una problemática personal, me ha servido para conocer las capacidades de la IA, tanto en generación de código como en análisis del código generado y detección de BUGs antes de que el código llegue a la rama Main. 
 
-## Conclusiones
-
-La realización de este proyecto me ha servido de aprendizaje
-
-
 ## Autor
 
 Marcos Cuevas Alonso — Trabajo Fin de Máster.
