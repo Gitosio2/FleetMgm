@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { JOB_ERROR_MESSAGES, resolveJobErrorMessage } from './job-shared'
 
 const USAGE_MEASURE_LABEL: Record<UsageMeasure, string> = {
   KILOMETERS: 'Kilómetros',
@@ -23,6 +24,7 @@ type JobUsageValueModalProps = {
   mode: 'start' | 'complete'
   onConfirm: (value: number | null) => void
   isPending: boolean
+  error?: unknown
 }
 
 export function JobUsageValueModal({
@@ -32,15 +34,18 @@ export function JobUsageValueModal({
   mode,
   onConfirm,
   isPending,
+  error,
 }: JobUsageValueModalProps) {
   const { data: vehicle } = useVehicle(job.vehicleId)
   const [value, setValue] = useState('')
+  const [validationError, setValidationError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!open) {
       return
     }
     setValue('')
+    setValidationError(null)
   }, [open])
 
   const fieldLabel = vehicle ? `${USAGE_MEASURE_LABEL[vehicle.usageMeasure]} actuales` : 'Valor de uso actual'
@@ -50,11 +55,29 @@ export function JobUsageValueModal({
       : vehicle.currentHours
     : null
 
+  // Only `complete` has a backend-enforced floor (JobService.assertUsageValueNotRegressing) —
+  // `start` never validates startUsageValue against anything, so no client-side check applies there.
+  const floor =
+    mode === 'complete' ? Math.max(currentValue ?? -Infinity, job.startUsageValue ?? -Infinity) : -Infinity
+
   const { title, confirmLabel } = MODE_COPY[mode]
+  const errorMessage = validationError ?? (error ? resolveJobErrorMessage(error) : null)
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    onConfirm(value === '' ? null : Number(value))
+
+    if (value === '') {
+      onConfirm(null)
+      return
+    }
+
+    const numericValue = Number(value)
+    if (floor !== -Infinity && numericValue < floor) {
+      setValidationError(JOB_ERROR_MESSAGES.JOB_USAGE_VALUE_BELOW_CURRENT!)
+      return
+    }
+
+    onConfirm(numericValue)
   }
 
   return (
@@ -71,10 +94,19 @@ export function JobUsageValueModal({
               id="job-usage-value"
               type="number"
               value={value}
-              onChange={(e) => setValue(e.target.value)}
+              onChange={(e) => {
+                setValue(e.target.value)
+                setValidationError(null)
+              }}
               placeholder={currentValue != null ? `Actual: ${currentValue}` : undefined}
             />
           </div>
+
+          {errorMessage && (
+            <p role="alert" className="text-sm text-error">
+              {errorMessage}
+            </p>
+          )}
 
           <DialogFooter>
             <Button

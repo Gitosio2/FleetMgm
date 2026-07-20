@@ -114,6 +114,27 @@ describe('Jobs', () => {
     await waitFor(() => expect(within(row).getByText('Completado')).toBeInTheDocument())
   })
 
+  it('blocks completing a job with a usage value below the vehicle\'s current km and keeps it En curso', async () => {
+    loginAs('ADMIN')
+    const user = userEvent.setup()
+    renderJobs()
+
+    // Reparto semanal -> vehicle-1, currentKm 15000, startUsageValue 14500.
+    const row = (await screen.findByText('Reparto semanal')).closest('tr')!
+    expect(within(row).getByText('En curso')).toBeInTheDocument()
+
+    await user.click(within(row).getByRole('button', { name: /completar/i }))
+    const dialog = await screen.findByRole('dialog')
+    await user.type(within(dialog).getByLabelText('Kilómetros actuales'), '10000')
+    await user.click(within(dialog).getByRole('button', { name: /^completar$/i }))
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      /el valor ingresado es menor al que ya tiene registrado el vehículo/i,
+    )
+    expect(within(row).getByText('En curso')).toBeInTheDocument()
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+  })
+
   it('cancelling a job transitions its status badge to Cancelado', async () => {
     loginAs('ADMIN')
     const user = userEvent.setup()
@@ -126,7 +147,7 @@ describe('Jobs', () => {
     await waitFor(() => expect(within(row).getByText('Cancelado')).toBeInTheDocument())
   })
 
-  it('shows an error message when a double "Iniciar" click causes an invalid state transition', async () => {
+  it('still starts the job when a double "Iniciar" click races, without leaving a stuck dialog', async () => {
     loginAs('ADMIN')
     const user = userEvent.setup()
     renderJobs()
@@ -138,12 +159,15 @@ describe('Jobs', () => {
     const confirmButton = within(dialog).getByRole('button', { name: /^iniciar$/i })
     // Concurrent (Promise.all), not sequential — awaiting each click in turn would let React
     // flush the confirm button's disabled={isPending} state between them, and user-event refuses
-    // to click a disabled element, so the second click would silently never fire.
+    // to click a disabled element, so the second click would silently never fire. One of the two
+    // requests wins and starts the job; the other lands on an already-IN_PROGRESS job and gets a
+    // 409 (JOB_INVALID_STATE_TRANSITION) — but since the modal only closes onSuccess, that
+    // redundant failure has nothing left to attach an error to once the successful one already
+    // closed the dialog. The job did start, which is the outcome that actually matters here.
     await Promise.all([user.click(confirmButton), user.click(confirmButton)])
 
-    await waitFor(() =>
-      expect(within(row).getByRole('alert')).toHaveTextContent(/no se pudo completar la acción/i),
-    )
+    await waitFor(() => expect(within(row).getByText('En curso')).toBeInTheDocument())
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
   it('shows "<make> <model>" in the job list when the vehicle has no license plate', async () => {

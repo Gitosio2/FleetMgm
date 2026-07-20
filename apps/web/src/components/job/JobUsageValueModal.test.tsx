@@ -161,4 +161,107 @@ describe('JobUsageValueModal', () => {
 
     expect(await screen.findByRole('button', { name: /^iniciar$/i })).toBeDisabled()
   })
+
+  it('blocks submission and shows an error when completing with a value below the vehicle\'s current usage', async () => {
+    const user = userEvent.setup()
+    const onConfirm = vi.fn()
+    const onOpenChange = vi.fn()
+
+    // job-2 (Reparto semanal) uses vehicle-1, currentKm 15000, startUsageValue 14500 — floor is 15000.
+    const IN_PROGRESS_JOB = SEED_JOBS.find((job) => job.id === 'job-2')!
+
+    renderWithClient(
+      <JobUsageValueModal
+        open
+        onOpenChange={onOpenChange}
+        job={IN_PROGRESS_JOB}
+        mode="complete"
+        onConfirm={onConfirm}
+        isPending={false}
+      />,
+    )
+
+    await user.type(await screen.findByLabelText('Kilómetros actuales'), '10000')
+    await user.click(screen.getByRole('button', { name: /^completar$/i }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /el valor ingresado es menor al que ya tiene registrado el vehículo/i,
+    )
+    expect(onConfirm).not.toHaveBeenCalled()
+    expect(onOpenChange).not.toHaveBeenCalled()
+  })
+
+  it('allows submission when the value equals or exceeds the current usage', async () => {
+    const user = userEvent.setup()
+    const onConfirm = vi.fn()
+
+    const IN_PROGRESS_JOB = SEED_JOBS.find((job) => job.id === 'job-2')!
+
+    renderWithClient(
+      <JobUsageValueModal
+        open
+        onOpenChange={() => {}}
+        job={IN_PROGRESS_JOB}
+        mode="complete"
+        onConfirm={onConfirm}
+        isPending={false}
+      />,
+    )
+
+    await user.type(await screen.findByLabelText('Kilómetros actuales'), '15300')
+    await user.click(screen.getByRole('button', { name: /^completar$/i }))
+
+    expect(onConfirm).toHaveBeenCalledWith(15300)
+  })
+
+  it('does not apply the below-current check in start mode', async () => {
+    const user = userEvent.setup()
+    const onConfirm = vi.fn()
+
+    renderWithClient(
+      <JobUsageValueModal
+        open
+        onOpenChange={() => {}}
+        job={KM_JOB}
+        mode="start"
+        onConfirm={onConfirm}
+        isPending={false}
+      />,
+    )
+
+    await user.type(await screen.findByLabelText('Kilómetros actuales'), '1')
+    await user.click(screen.getByRole('button', { name: /^iniciar$/i }))
+
+    expect(onConfirm).toHaveBeenCalledWith(1)
+  })
+
+  it('shows the backend error message when the error prop is set', async () => {
+    const axiosLikeError = {
+      isAxiosError: true,
+      response: {
+        data: {
+          status: 409,
+          code: 'JOB_USAGE_VALUE_BELOW_CURRENT',
+          message: 'endUsageValue 100 for job job-2 is lower than the current recorded usage (15000)',
+          correlationId: 'test-correlation-id',
+        },
+      },
+    }
+
+    renderWithClient(
+      <JobUsageValueModal
+        open
+        onOpenChange={() => {}}
+        job={KM_JOB}
+        mode="complete"
+        onConfirm={() => {}}
+        isPending={false}
+        error={axiosLikeError}
+      />,
+    )
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /el valor ingresado es menor al que ya tiene registrado el vehículo/i,
+    )
+  })
 })

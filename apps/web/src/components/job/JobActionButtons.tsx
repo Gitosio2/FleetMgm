@@ -15,22 +15,20 @@ export function JobActionButtons({ job }: JobActionButtonsProps) {
   const [usageModalMode, setUsageModalMode] = useState<'start' | 'complete' | null>(null)
 
   const isPending = startJob.isPending || completeJob.isPending || cancelJob.isPending
-  const isError = startJob.isError || completeJob.isError || cancelJob.isError
+  // Start/complete errors render inside JobUsageValueModal itself now — this alert is
+  // cancel-only, since "Cancelar" doesn't go through a modal.
+  const isError = cancelJob.isError
 
   function handleConfirmUsageValue(value: number | null) {
-    // onSettled, not onSuccess — closing only on success left the modal open (and the
-    // row's error alert stuck behind Radix's aria-hidden background overlay, effectively
-    // invisible/inaccessible) on failure. Closing either way surfaces the row's existing
-    // alert, matching how the pre-modal single-button flow always kept the alert visible.
     if (usageModalMode === 'start') {
       startJob.mutate(
         { id: job.id, startUsageValue: value },
-        { onSettled: () => setUsageModalMode(null) },
+        { onSuccess: () => setUsageModalMode(null) },
       )
     } else if (usageModalMode === 'complete') {
       completeJob.mutate(
         { id: job.id, endUsageValue: value },
-        { onSettled: () => setUsageModalMode(null) },
+        { onSuccess: () => setUsageModalMode(null) },
       )
     }
   }
@@ -43,6 +41,7 @@ export function JobActionButtons({ job }: JobActionButtonsProps) {
       mode={usageModalMode ?? 'start'}
       onConfirm={handleConfirmUsageValue}
       isPending={usageModalMode === 'start' ? startJob.isPending : completeJob.isPending}
+      error={usageModalMode === 'start' ? startJob.error : completeJob.error}
     />
   )
 
