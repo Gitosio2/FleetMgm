@@ -1,13 +1,9 @@
-import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Truck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
-import { LoginForm } from '@/components/auth/LoginForm'
 import dashboardPreview from '@/assets/landing-dashboard-preview.png'
 
 export function Landing() {
-  const [loginOpen, setLoginOpen] = useState(false)
-
   return (
     <div className="min-h-screen bg-surface-container-low text-on-surface">
       <header className="mx-auto flex max-w-[1360px] items-center justify-between px-6 py-5 sm:px-16">
@@ -21,7 +17,9 @@ export function Landing() {
           <a href="#historia" className="hidden text-sm font-medium text-on-surface-variant sm:inline">
             Sobre el proyecto
           </a>
-          <Button onClick={() => setLoginOpen(true)}>Acceder al login</Button>
+          <Button asChild>
+            <Link to="/login">Acceder al login</Link>
+          </Button>
         </nav>
       </header>
 
@@ -37,8 +35,8 @@ export function Landing() {
             Diseñado para flotas de PYMES que necesitan visibilidad, orden y trazabilidad en la gestión.
           </p>
           <div className="flex flex-wrap gap-3.5">
-            <Button size="lg" onClick={() => setLoginOpen(true)}>
-              Acceder al login
+            <Button size="lg" asChild>
+              <Link to="/login">Acceder al login</Link>
             </Button>
             <Button size="lg" variant="outline" asChild>
               <a href="#historia">Conoce el proyecto</a>
@@ -79,12 +77,8 @@ export function Landing() {
       <section className="bg-primary px-6 py-16 text-center text-on-primary sm:px-16">
         <h2 className="mb-3 font-display text-3xl font-bold tracking-tight">Empieza a gestionar tu flota hoy</h2>
         <p className="mb-8 text-on-primary/70">Ingresa a tu panel y toma el control de tu operación.</p>
-        <Button
-          size="lg"
-          className="bg-surface-container-lowest text-on-surface hover:opacity-90"
-          onClick={() => setLoginOpen(true)}
-        >
-          Acceder al login
+        <Button size="lg" className="bg-surface-container-lowest text-on-surface hover:opacity-90" asChild>
+          <Link to="/login">Acceder al login</Link>
         </Button>
       </section>
 
@@ -92,16 +86,6 @@ export function Landing() {
         <span>© 2026 FleetMgm</span>
         <span className="font-body">Gestión de flotas y facturación</span>
       </footer>
-
-      <Dialog open={loginOpen} onOpenChange={setLoginOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Inicio de sesión seguro</DialogTitle>
-            <DialogDescription>Ingresa tus credenciales institucionales.</DialogDescription>
-          </DialogHeader>
-          <LoginForm />
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

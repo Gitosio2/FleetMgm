@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
 import { Landing } from './Landing'
 
@@ -13,48 +13,43 @@ function renderLanding() {
   return render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={['/']}>
-        <Landing />
+        <Routes>
+          <Route path="/" element={<Landing />} />
+          <Route path="/login" element={<div>Login page</div>} />
+        </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
   )
 }
 
 describe('Landing', () => {
-  it('keeps the login dialog closed by default', () => {
-    renderLanding()
-
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-  })
-
-  it('opens the login dialog when the nav "Acceder al login" button is clicked', async () => {
+  it('navigates to /login when the nav "Acceder al login" link is clicked', async () => {
     const user = userEvent.setup()
     renderLanding()
 
-    await user.click(screen.getAllByRole('button', { name: /acceder al login/i })[0]!)
+    await user.click(screen.getAllByRole('link', { name: /acceder al login/i })[0]!)
 
-    const dialog = await screen.findByRole('dialog')
-    expect(dialog).toBeInTheDocument()
-    expect(screen.getByLabelText(/correo electrónico/i)).toBeInTheDocument()
+    expect(await screen.findByText('Login page')).toBeInTheDocument()
   })
 
-  it('opens the login dialog from the hero CTA', async () => {
+  it('navigates to /login from the hero CTA', async () => {
     const user = userEvent.setup()
     renderLanding()
 
-    const heroButton = screen.getAllByRole('button', { name: /acceder al login/i })[1]!
-    await user.click(heroButton)
+    const heroLink = screen.getAllByRole('link', { name: /acceder al login/i })[1]!
+    await user.click(heroLink)
 
-    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+    expect(await screen.findByText('Login page')).toBeInTheDocument()
   })
 
-  it('opens the login dialog from the footer CTA', async () => {
+  it('navigates to /login from the footer CTA', async () => {
     const user = userEvent.setup()
     renderLanding()
 
-    const buttons = screen.getAllByRole('button', { name: /acceder al login/i })
-    await user.click(buttons[buttons.length - 1]!)
+    const links = screen.getAllByRole('link', { name: /acceder al login/i })
+    await user.click(links[links.length - 1]!)
 
-    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+    expect(await screen.findByText('Login page')).toBeInTheDocument()
   })
 
   it('shows the origin story section', () => {
