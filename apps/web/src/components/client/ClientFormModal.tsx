@@ -61,50 +61,52 @@ export function ClientFormModal({ open, onOpenChange, client, readOnly = false }
           <DialogTitle>{readOnly ? 'Datos del cliente' : isEditing ? 'Editar cliente' : 'Nuevo cliente'}</DialogTitle>
         </DialogHeader>
 
-        <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="client-name">Nombre</Label>
-            <Input id="client-name" value={name} onChange={(e) => setName(e.target.value)} required disabled={readOnly} />
-          </div>
+        <div className="flex-1 overflow-y-auto px-6">
+          <form id="client-form" className="flex flex-col gap-4" onSubmit={handleSubmit}>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="client-name">Nombre</Label>
+              <Input id="client-name" value={name} onChange={(e) => setName(e.target.value)} required disabled={readOnly} />
+            </div>
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="client-tax-id">ID fiscal</Label>
-            <Input id="client-tax-id" value={taxId} onChange={(e) => setTaxId(e.target.value)} required disabled={readOnly} />
-          </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="client-tax-id">ID fiscal</Label>
+              <Input id="client-tax-id" value={taxId} onChange={(e) => setTaxId(e.target.value)} required disabled={readOnly} />
+            </div>
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="client-email">Correo electrónico</Label>
-            <Input
-              id="client-email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={readOnly}
-            />
-          </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="client-email">Correo electrónico</Label>
+              <Input
+                id="client-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={readOnly}
+              />
+            </div>
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="client-phone">Teléfono</Label>
-            <Input id="client-phone" value={phone} onChange={(e) => setPhone(e.target.value)} disabled={readOnly} />
-          </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="client-phone">Teléfono</Label>
+              <Input id="client-phone" value={phone} onChange={(e) => setPhone(e.target.value)} disabled={readOnly} />
+            </div>
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="client-address">Dirección</Label>
-            <Input id="client-address" value={address} onChange={(e) => setAddress(e.target.value)} disabled={readOnly} />
-          </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="client-address">Dirección</Label>
+              <Input id="client-address" value={address} onChange={(e) => setAddress(e.target.value)} disabled={readOnly} />
+            </div>
+          </form>
+        </div>
 
-          <DialogFooter>
-            {readOnly ? (
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                Cerrar
-              </Button>
-            ) : (
-              <Button type="submit" disabled={isPending}>
-                {isEditing ? 'Guardar cambios' : 'Crear cliente'}
-              </Button>
-            )}
-          </DialogFooter>
-        </form>
+        <DialogFooter>
+          {readOnly ? (
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Cerrar
+            </Button>
+          ) : (
+            <Button type="submit" form="client-form" disabled={isPending}>
+              {isEditing ? 'Guardar cambios' : 'Crear cliente'}
+            </Button>
+          )}
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )

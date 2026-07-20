@@ -128,13 +128,15 @@ export function Vehicles() {
               Asignación — {assignmentVehicle && `${assignmentVehicle.make} ${assignmentVehicle.model}`}
             </DialogTitle>
           </DialogHeader>
-          {assignmentVehicle && (
-            <VehicleAssignmentPanel
-              vehicleId={assignmentVehicle.id}
-              vehicleLabel={`${assignmentVehicle.make} ${assignmentVehicle.model}`}
-              canManage={canManage}
-            />
-          )}
+          <div className="flex-1 overflow-y-auto px-6">
+            {assignmentVehicle && (
+              <VehicleAssignmentPanel
+                vehicleId={assignmentVehicle.id}
+                vehicleLabel={`${assignmentVehicle.make} ${assignmentVehicle.model}`}
+                canManage={canManage}
+              />
+            )}
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -148,12 +150,14 @@ export function Vehicles() {
               Rentabilidad — {profitabilityVehicle && `${profitabilityVehicle.make} ${profitabilityVehicle.model}`}
             </DialogTitle>
           </DialogHeader>
-          {profitabilityVehicle && (
-            <VehicleProfitabilityPanel
-              vehicleId={profitabilityVehicle.id}
-              vehicleLabel={`${profitabilityVehicle.make} ${profitabilityVehicle.model}`}
-            />
-          )}
+          <div className="flex-1 overflow-y-auto px-6">
+            {profitabilityVehicle && (
+              <VehicleProfitabilityPanel
+                vehicleId={profitabilityVehicle.id}
+                vehicleLabel={`${profitabilityVehicle.make} ${profitabilityVehicle.model}`}
+              />
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>

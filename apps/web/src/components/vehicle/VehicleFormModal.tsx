@@ -135,190 +135,193 @@ export function VehicleFormModal({ open, onOpenChange, vehicle }: VehicleFormMod
           <DialogTitle>{isEditing ? 'Editar vehículo' : 'Nuevo vehículo'}</DialogTitle>
         </DialogHeader>
 
-        <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="vehicle-category">Categoría</Label>
-              <select
-                id="vehicle-category"
-                className={selectClassName}
-                value={vehicleCategory}
-                onChange={(e) => setVehicleCategory(e.target.value as VehicleCategory)}
-              >
-                {VEHICLE_CATEGORIES.map((category) => (
-                  <option key={category} value={category}>
-                    {VEHICLE_CATEGORY_LABEL[category]}
-                  </option>
-                ))}
-              </select>
+        <div className="flex-1 overflow-y-auto px-6">
+          <form id="vehicle-form" className="flex flex-col gap-4" onSubmit={handleSubmit}>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="vehicle-category">Categoría</Label>
+                <select
+                  id="vehicle-category"
+                  className={selectClassName}
+                  value={vehicleCategory}
+                  onChange={(e) => setVehicleCategory(e.target.value as VehicleCategory)}
+                >
+                  {VEHICLE_CATEGORIES.map((category) => (
+                    <option key={category} value={category}>
+                      {VEHICLE_CATEGORY_LABEL[category]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="vehicle-usage-measure">Unidad de uso</Label>
+                <select
+                  id="vehicle-usage-measure"
+                  className={selectClassName}
+                  value={usageMeasure}
+                  onChange={(e) => setUsageMeasure(e.target.value as UsageMeasure)}
+                >
+                  {USAGE_MEASURES.map((measure) => (
+                    <option key={measure} value={measure}>
+                      {USAGE_MEASURE_LABEL[measure]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="vehicle-make">Marca</Label>
+                <Input id="vehicle-make" value={make} onChange={(e) => setMake(e.target.value)} required />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="vehicle-model">Modelo</Label>
+                <Input id="vehicle-model" value={model} onChange={(e) => setModel(e.target.value)} required />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="vehicle-year">Año</Label>
+                <Input
+                  id="vehicle-year"
+                  type="number"
+                  value={year}
+                  onChange={(e) => setYear(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="vehicle-license-plate">Matrícula</Label>
+                <Input
+                  id="vehicle-license-plate"
+                  value={licensePlate}
+                  onChange={(e) => setLicensePlate(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="vehicle-heavy-subtype">Subtipo pesado</Label>
+                <Input
+                  id="vehicle-heavy-subtype"
+                  value={heavySubtype}
+                  onChange={(e) => setHeavySubtype(e.target.value)}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="vehicle-vin">VIN</Label>
+                <Input id="vehicle-vin" value={vin} onChange={(e) => setVin(e.target.value)} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="vehicle-color">Color</Label>
+                <Input id="vehicle-color" value={color} onChange={(e) => setColor(e.target.value)} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="vehicle-acquisition-type">Tipo de adquisición</Label>
+                <select
+                  id="vehicle-acquisition-type"
+                  className={selectClassName}
+                  value={acquisitionType}
+                  onChange={(e) => setAcquisitionType(e.target.value as AcquisitionType | '')}
+                >
+                  <option value="">—</option>
+                  {ACQUISITION_TYPES.map((type) => (
+                    <option key={type} value={type}>
+                      {ACQUISITION_TYPE_LABEL[type]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="vehicle-current-km">Km actuales</Label>
+                <Input
+                  id="vehicle-current-km"
+                  type="number"
+                  value={currentKm}
+                  onChange={(e) => setCurrentKm(e.target.value)}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="vehicle-current-hours">Horas actuales</Label>
+                <Input
+                  id="vehicle-current-hours"
+                  type="number"
+                  value={currentHours}
+                  onChange={(e) => setCurrentHours(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="vehicle-acquisition-date">Fecha de adquisición</Label>
+                <Input
+                  id="vehicle-acquisition-date"
+                  type="date"
+                  value={acquisitionDate}
+                  onChange={(e) => setAcquisitionDate(e.target.value)}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="vehicle-contract-end-date">Fecha de fin de contrato</Label>
+                <Input
+                  id="vehicle-contract-end-date"
+                  type="date"
+                  value={contractEndDate}
+                  onChange={(e) => setContractEndDate(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="vehicle-purchase-price">Precio de compra</Label>
+                <Input
+                  id="vehicle-purchase-price"
+                  type="number"
+                  value={purchasePrice}
+                  onChange={(e) => setPurchasePrice(e.target.value)}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="vehicle-amortization-years">Años de amortización</Label>
+                <Input
+                  id="vehicle-amortization-years"
+                  type="number"
+                  value={amortizationYears}
+                  onChange={(e) => setAmortizationYears(e.target.value)}
+                />
+              </div>
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="vehicle-usage-measure">Unidad de uso</Label>
-              <select
-                id="vehicle-usage-measure"
-                className={selectClassName}
-                value={usageMeasure}
-                onChange={(e) => setUsageMeasure(e.target.value as UsageMeasure)}
-              >
-                {USAGE_MEASURES.map((measure) => (
-                  <option key={measure} value={measure}>
-                    {USAGE_MEASURE_LABEL[measure]}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="vehicle-make">Marca</Label>
-              <Input id="vehicle-make" value={make} onChange={(e) => setMake(e.target.value)} required />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="vehicle-model">Modelo</Label>
-              <Input id="vehicle-model" value={model} onChange={(e) => setModel(e.target.value)} required />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="vehicle-year">Año</Label>
+              <Label htmlFor="vehicle-monthly-fee">Cuota mensual</Label>
               <Input
-                id="vehicle-year"
+                id="vehicle-monthly-fee"
                 type="number"
-                value={year}
-                onChange={(e) => setYear(e.target.value)}
-                required
+                value={monthlyFee}
+                onChange={(e) => setMonthlyFee(e.target.value)}
               />
             </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="vehicle-license-plate">Matrícula</Label>
-              <Input
-                id="vehicle-license-plate"
-                value={licensePlate}
-                onChange={(e) => setLicensePlate(e.target.value)}
-              />
-            </div>
-          </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="vehicle-heavy-subtype">Subtipo pesado</Label>
-              <Input
-                id="vehicle-heavy-subtype"
-                value={heavySubtype}
-                onChange={(e) => setHeavySubtype(e.target.value)}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="vehicle-vin">VIN</Label>
-              <Input id="vehicle-vin" value={vin} onChange={(e) => setVin(e.target.value)} />
-            </div>
-          </div>
+          </form>
+        </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="vehicle-color">Color</Label>
-              <Input id="vehicle-color" value={color} onChange={(e) => setColor(e.target.value)} />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="vehicle-acquisition-type">Tipo de adquisición</Label>
-              <select
-                id="vehicle-acquisition-type"
-                className={selectClassName}
-                value={acquisitionType}
-                onChange={(e) => setAcquisitionType(e.target.value as AcquisitionType | '')}
-              >
-                <option value="">—</option>
-                {ACQUISITION_TYPES.map((type) => (
-                  <option key={type} value={type}>
-                    {ACQUISITION_TYPE_LABEL[type]}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="vehicle-current-km">Km actuales</Label>
-              <Input
-                id="vehicle-current-km"
-                type="number"
-                value={currentKm}
-                onChange={(e) => setCurrentKm(e.target.value)}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="vehicle-current-hours">Horas actuales</Label>
-              <Input
-                id="vehicle-current-hours"
-                type="number"
-                value={currentHours}
-                onChange={(e) => setCurrentHours(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="vehicle-acquisition-date">Fecha de adquisición</Label>
-              <Input
-                id="vehicle-acquisition-date"
-                type="date"
-                value={acquisitionDate}
-                onChange={(e) => setAcquisitionDate(e.target.value)}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="vehicle-contract-end-date">Fecha de fin de contrato</Label>
-              <Input
-                id="vehicle-contract-end-date"
-                type="date"
-                value={contractEndDate}
-                onChange={(e) => setContractEndDate(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="vehicle-purchase-price">Precio de compra</Label>
-              <Input
-                id="vehicle-purchase-price"
-                type="number"
-                value={purchasePrice}
-                onChange={(e) => setPurchasePrice(e.target.value)}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="vehicle-amortization-years">Años de amortización</Label>
-              <Input
-                id="vehicle-amortization-years"
-                type="number"
-                value={amortizationYears}
-                onChange={(e) => setAmortizationYears(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="vehicle-monthly-fee">Cuota mensual</Label>
-            <Input
-              id="vehicle-monthly-fee"
-              type="number"
-              value={monthlyFee}
-              onChange={(e) => setMonthlyFee(e.target.value)}
-            />
-          </div>
-
-          <DialogFooter>
-            <Button type="submit" disabled={isPending}>
-              {isEditing ? 'Guardar cambios' : 'Crear vehículo'}
-            </Button>
-          </DialogFooter>
-        </form>
+        <DialogFooter>
+          <Button type="submit" form="vehicle-form" disabled={isPending}>
+            {isEditing ? 'Guardar cambios' : 'Crear vehículo'}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )

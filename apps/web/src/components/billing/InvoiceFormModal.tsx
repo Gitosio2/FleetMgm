@@ -122,118 +122,120 @@ export function InvoiceFormModal({
           <DialogTitle>{isReadOnly ? 'Factura' : isEditing ? 'Editar factura' : 'Nueva factura'}</DialogTitle>
         </DialogHeader>
 
-        <form id="invoice-form" className="flex flex-col gap-4" onSubmit={handleSubmit}>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="invoice-client">Cliente</Label>
-            <select
-              id="invoice-client"
-              className={selectClassName}
-              value={clientId}
-              onChange={(e) => setClientId(e.target.value)}
-              disabled={isReadOnly}
-              required
-            >
-              <option value="" disabled>
-                Seleccioná un cliente
-              </option>
-              {clients.map((client) => (
-                <option key={client.id} value={client.id}>
-                  {client.name}
+        <div className="flex-1 overflow-y-auto px-6">
+          <form id="invoice-form" className="flex flex-col gap-4" onSubmit={handleSubmit}>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="invoice-client">Cliente</Label>
+              <select
+                id="invoice-client"
+                className={selectClassName}
+                value={clientId}
+                onChange={(e) => setClientId(e.target.value)}
+                disabled={isReadOnly}
+                required
+              >
+                <option value="" disabled>
+                  Seleccioná un cliente
                 </option>
-              ))}
-            </select>
-          </div>
-
-          {invoice?.issueDate != null && (
-            <div className="flex flex-col gap-1.5">
-              <Label>Fecha de emisión</Label>
-              <p className="text-sm text-on-surface-variant">{invoice.issueDate}</p>
+                {clients.map((client) => (
+                  <option key={client.id} value={client.id}>
+                    {client.name}
+                  </option>
+                ))}
+              </select>
             </div>
-          )}
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {invoice?.issueDate != null && (
+              <div className="flex flex-col gap-1.5">
+                <Label>Fecha de emisión</Label>
+                <p className="text-sm text-on-surface-variant">{invoice.issueDate}</p>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="invoice-due-date">Fecha de vencimiento</Label>
+                <Input
+                  id="invoice-due-date"
+                  type="date"
+                  value={dueDate}
+                  onChange={(e) => setDueDate(e.target.value)}
+                  disabled={isReadOnly}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center gap-1">
+                  <Label htmlFor="invoice-tax-rate">IVA (opcional)</Label>
+                  <span title="Si se deja vacío, se usa el valor por defecto configurado.">
+                    <Info className="size-3.5 text-on-surface-variant" />
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="invoice-tax-rate"
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={taxRate}
+                    onChange={(e) => setTaxRate(e.target.value)}
+                    disabled={isReadOnly}
+                  />
+                  <span className="text-sm text-on-surface-variant">%</span>
+                </div>
+              </div>
+            </div>
+
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="invoice-due-date">Fecha de vencimiento</Label>
+              <Label htmlFor="invoice-notes">Notas</Label>
               <Input
-                id="invoice-due-date"
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
+                id="invoice-notes"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
                 disabled={isReadOnly}
               />
             </div>
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center gap-1">
-                <Label htmlFor="invoice-tax-rate">IVA (opcional)</Label>
-                <span title="Si se deja vacío, se usa el valor por defecto configurado.">
-                  <Info className="size-3.5 text-on-surface-variant" />
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Input
-                  id="invoice-tax-rate"
-                  type="number"
-                  min="0"
-                  step="any"
-                  value={taxRate}
-                  onChange={(e) => setTaxRate(e.target.value)}
-                  disabled={isReadOnly}
-                />
-                <span className="text-sm text-on-surface-variant">%</span>
-              </div>
-            </div>
-          </div>
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="invoice-notes">Notas</Label>
-            <Input
-              id="invoice-notes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              disabled={isReadOnly}
-            />
-          </div>
-
-          {(createInvoice.isError || updateInvoice.isError) && (
-            <p role="alert" className="text-sm text-error">
-              No se pudo completar la acción.
-            </p>
-          )}
-        </form>
-
-        {isEditing && (
-          <div className="mt-6 flex flex-col gap-2 border-t border-outline-variant/40 pt-4">
-            <h3 className="font-display text-sm font-semibold">Líneas de factura</h3>
-            {/* LineItemList itself only shows the "add line" form when status === 'DRAFT' and
-                !readOnly — the table of existing lines is always rendered, so ISSUED/PAID
-                invoices (or a forced-readOnly DRAFT one) show them read-only instead of not
-                being shown at all. */}
-            <LineItemList invoice={invoice} readOnly={isReadOnly} />
-          </div>
-        )}
-
-        {isEditing && (
-          <div className="mt-4 grid grid-cols-3 gap-4 rounded-lg border border-outline-variant/40 p-4 text-sm">
-            <div>
-              <p className="text-on-surface-variant">Subtotal</p>
-              <p className="font-semibold">{formatCurrency(isDraft ? previewSubtotal : invoice.subtotal)}</p>
-            </div>
-            <div>
-              <p className="text-on-surface-variant">IVA</p>
-              <p className="font-semibold">{formatCurrency(isDraft ? previewTaxAmount : invoice.taxAmount)}</p>
-            </div>
-            <div>
-              <p className="text-on-surface-variant">Total</p>
-              <p className="font-semibold">{formatCurrency(isDraft ? previewTotal : invoice.total)}</p>
-            </div>
-            {isDraft && (
-              <p className="col-span-3 text-xs text-on-surface-variant">
-                Estimado a partir de las líneas actuales y el IVA configurado — se recalcula y queda fijo al
-                emitir la factura.
+            {(createInvoice.isError || updateInvoice.isError) && (
+              <p role="alert" className="text-sm text-error">
+                No se pudo completar la acción.
               </p>
             )}
-          </div>
-        )}
+          </form>
+
+          {isEditing && (
+            <div className="mt-6 flex flex-col gap-2 border-t border-outline-variant/40 pt-4">
+              <h3 className="font-display text-sm font-semibold">Líneas de factura</h3>
+              {/* LineItemList itself only shows the "add line" form when status === 'DRAFT' and
+                  !readOnly — the table of existing lines is always rendered, so ISSUED/PAID
+                  invoices (or a forced-readOnly DRAFT one) show them read-only instead of not
+                  being shown at all. */}
+              <LineItemList invoice={invoice} readOnly={isReadOnly} />
+            </div>
+          )}
+
+          {isEditing && (
+            <div className="mt-4 grid grid-cols-3 gap-4 rounded-lg border border-outline-variant/40 p-4 text-sm">
+              <div>
+                <p className="text-on-surface-variant">Subtotal</p>
+                <p className="font-semibold">{formatCurrency(isDraft ? previewSubtotal : invoice.subtotal)}</p>
+              </div>
+              <div>
+                <p className="text-on-surface-variant">IVA</p>
+                <p className="font-semibold">{formatCurrency(isDraft ? previewTaxAmount : invoice.taxAmount)}</p>
+              </div>
+              <div>
+                <p className="text-on-surface-variant">Total</p>
+                <p className="font-semibold">{formatCurrency(isDraft ? previewTotal : invoice.total)}</p>
+              </div>
+              {isDraft && (
+                <p className="col-span-3 text-xs text-on-surface-variant">
+                  Estimado a partir de las líneas actuales y el IVA configurado — se recalcula y queda fijo al
+                  emitir la factura.
+                </p>
+              )}
+            </div>
+          )}
+        </div>
 
         <DialogFooter>
           {isReadOnly ? (
