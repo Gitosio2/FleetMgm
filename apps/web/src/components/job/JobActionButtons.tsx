@@ -33,14 +33,25 @@ export function JobActionButtons({ job }: JobActionButtonsProps) {
     }
   }
 
+  const usageMutationPending = usageModalMode === 'start' ? startJob.isPending : completeJob.isPending
+
   const usageModal = (
     <JobUsageValueModal
       open={usageModalMode != null}
-      onOpenChange={(open) => setUsageModalMode(open ? usageModalMode : null)}
+      onOpenChange={(open) => {
+        // Ignore close attempts (X, Escape, outside click) while the request is still in
+        // flight — otherwise a failure that arrives after the user closed the dialog has
+        // nowhere left to render (the row-level alert below is cancel-only), leaving the job
+        // unchanged with no visible feedback at all.
+        if (!open && usageMutationPending) {
+          return
+        }
+        setUsageModalMode(open ? usageModalMode : null)
+      }}
       job={job}
       mode={usageModalMode ?? 'start'}
       onConfirm={handleConfirmUsageValue}
-      isPending={usageModalMode === 'start' ? startJob.isPending : completeJob.isPending}
+      isPending={usageMutationPending}
       error={usageModalMode === 'start' ? startJob.error : completeJob.error}
     />
   )

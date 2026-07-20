@@ -135,6 +135,47 @@ describe('Jobs', () => {
     expect(screen.getByRole('dialog')).toBeInTheDocument()
   })
 
+  it('keeps the modal open when closed while pending, and shows the error once the request fails', async () => {
+    loginAs('ADMIN')
+    const user = userEvent.setup()
+
+    let resolveComplete: (() => void) | undefined
+    server.use(
+      http.patch('/api/v1/jobs/:id/complete', async () => {
+        await new Promise<void>((resolve) => {
+          resolveComplete = resolve
+        })
+        return HttpResponse.json(
+          {
+            status: 409,
+            code: 'JOB_INVALID_STATE_TRANSITION',
+            message: 'Job already completed',
+            correlationId: 'test-correlation-id',
+          },
+          { status: 409 },
+        )
+      }),
+    )
+
+    renderJobs()
+
+    const row = (await screen.findByText('Reparto semanal')).closest('tr')!
+    await user.click(within(row).getByRole('button', { name: /completar/i }))
+    const dialog = await screen.findByRole('dialog')
+    await user.click(within(dialog).getByRole('button', { name: /^completar$/i }))
+
+    await waitFor(() => expect(resolveComplete).not.toBeUndefined())
+    await user.keyboard('{Escape}')
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+
+    resolveComplete!()
+
+    expect(await within(screen.getByRole('dialog')).findByRole('alert')).toHaveTextContent(
+      /el trabajo ya no está en un estado válido/i,
+    )
+    expect(within(row).getByText('En curso')).toBeInTheDocument()
+  })
+
   it('cancelling a job transitions its status badge to Cancelado', async () => {
     loginAs('ADMIN')
     const user = userEvent.setup()
