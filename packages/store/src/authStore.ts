@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { createJSONStorage, persist, type StateStorage } from 'zustand/middleware'
 
 export type AppRole = 'ADMIN' | 'MANAGER' | 'ADMINISTRATIVE' | 'WORKSHOP_STAFF' | 'DRIVER'
 
@@ -10,7 +10,7 @@ export type AuthSession = {
   refreshToken: string
 }
 
-type AuthState = {
+export type AuthState = {
   email: string | null
   role: AppRole | null
   accessToken: string | null
@@ -20,6 +20,17 @@ type AuthState = {
   logout: () => void
   setAccessToken: (accessToken: string) => void
 }
+
+const memoryStorage: StateStorage = {
+  getItem: () => null,
+  setItem: () => undefined,
+  removeItem: () => undefined,
+}
+
+const defaultStorage = createJSONStorage<AuthState>(() =>
+  typeof localStorage === 'undefined' ? memoryStorage : localStorage,
+)
+const hasBrowserStorage = typeof localStorage !== 'undefined'
 
 export const useAuthStore = create<AuthState>()(
   persist(
@@ -40,6 +51,6 @@ export const useAuthStore = create<AuthState>()(
         }),
       setAccessToken: (accessToken) => set({ accessToken }),
     }),
-    { name: 'fleetmgm-auth' },
+    { name: 'fleetmgm-auth', skipHydration: !hasBrowserStorage, storage: defaultStorage },
   ),
 )
