@@ -2443,13 +2443,35 @@ export const handlers = [
     }
 
     const body = (await request.json().catch(() => null)) as { startUsageValue?: number | null } | null
+    const startUsageValue = body?.startUsageValue ?? existing.startUsageValue
+
+    // Mirrors JobService.assertUsageValueNotRegressing(): reject a startUsageValue lower than
+    // the vehicle's currently recorded usage. Nothing is recorded on the job yet at start time,
+    // so the floor is the vehicle's current value alone (no prior startValue to compare against).
+    const vehicle = vehicles.find((v) => v.id === existing.vehicleId)
+    const currentUsage = vehicle
+      ? vehicle.usageMeasure === 'KILOMETERS'
+        ? vehicle.currentKm
+        : vehicle.currentHours
+      : null
+    if (startUsageValue != null && currentUsage != null && startUsageValue < currentUsage) {
+      return HttpResponse.json(
+        {
+          status: 409,
+          code: 'JOB_USAGE_VALUE_BELOW_CURRENT',
+          message: `startUsageValue ${startUsageValue} for job ${params.id} is lower than the current recorded usage (${currentUsage})`,
+          correlationId: 'test-correlation-id',
+        },
+        { status: 409 },
+      )
+    }
 
     const updated: Job = {
       ...existing,
       status: 'IN_PROGRESS',
       // Preserve a manually-set actualStart instead of overwriting it — mirrors JobService.start().
       actualStart: existing.actualStart ?? new Date().toISOString(),
-      startUsageValue: body?.startUsageValue ?? existing.startUsageValue,
+      startUsageValue,
     }
     jobs = jobs.map((job, i) => (i === index ? updated : job))
 
