@@ -24,7 +24,7 @@ class JwtServiceTest {
         @Test
         @DisplayName("Should generate and validate JWT tokens correctly with dev secret")
         void shouldGenerateAndValidateTokens() {
-            JwtService jwtService = new JwtService(DEV_SECRET, EXPIRATION_MS);
+            JwtService jwtService = new JwtService(DEV_SECRET, EXPIRATION_MS, null);
 
             String token = jwtService.generateAccessToken("admin@fleetmgm.com", "ADMIN");
 
@@ -37,7 +37,7 @@ class JwtServiceTest {
         @Test
         @DisplayName("Should return false for invalid token")
         void shouldReturnFalseForInvalidToken() {
-            JwtService jwtService = new JwtService(DEV_SECRET, EXPIRATION_MS);
+            JwtService jwtService = new JwtService(DEV_SECRET, EXPIRATION_MS, null);
 
             assertThat(jwtService.isTokenValid("invalid.token.structure")).isFalse();
         }

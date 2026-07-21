@@ -21,6 +21,10 @@ public class JwtService {
     private final SecretKey signingKey;
     private final long accessTokenExpirationMs;
 
+    // Exactly one constructor: Spring can only implicitly autowire a bean with a single
+    // constructor. A second public constructor (even a test-only convenience overload) makes
+    // this ambiguous and fails bean creation with "No default constructor found". Tests call this
+    // one directly, passing null for environment where prod validation isn't under test.
     public JwtService(
             @Value("${jwt.secret}") String secret,
             @Value("${jwt.access-token-expiration-ms}") long accessTokenExpirationMs,
@@ -30,12 +34,6 @@ public class JwtService {
         }
         this.signingKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.accessTokenExpirationMs = accessTokenExpirationMs;
-    }
-
-    public JwtService(
-            String secret,
-            long accessTokenExpirationMs) {
-        this(secret, accessTokenExpirationMs, null);
     }
 
     private void validateProdSecret(String secret) {
