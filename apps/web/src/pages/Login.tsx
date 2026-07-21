@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { ThemeToggle } from '@/components/layout/ThemeToggle'
+import { DEMO_LOGIN_ACCOUNTS, DEMO_PASSWORD } from '@/lib/demo-login'
 
 export function Login() {
   const navigate = useNavigate()
@@ -14,12 +15,19 @@ export function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
 
+  function completeLogin(credentials: { email: string; password: string }) {
+    login.mutate(credentials, {
+      onSuccess: () => navigate('/dashboard', { replace: true }),
+    })
+  }
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    login.mutate(
-      { email, password },
-      { onSuccess: () => navigate('/dashboard', { replace: true }) },
-    )
+    completeLogin({ email, password })
+  }
+
+  function handleDemoLogin(demoEmail: string) {
+    completeLogin({ email: demoEmail, password: DEMO_PASSWORD })
   }
 
   return (
@@ -74,6 +82,25 @@ export function Login() {
               Iniciar sesión
             </Button>
           </form>
+
+          {/* Intentional demo shortcut: embeds seeded credentials in the client for live demos. */}
+          <div className="mt-6 flex flex-col gap-3 border-t border-outline-variant/40 pt-5">
+            <p className="text-xs text-on-surface-variant">Acceso rápido para demo</p>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {DEMO_LOGIN_ACCOUNTS.map((account) => (
+                <Button
+                  key={account.role}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={login.isPending}
+                  onClick={() => handleDemoLogin(account.email)}
+                >
+                  {account.label}
+                </Button>
+              ))}
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>

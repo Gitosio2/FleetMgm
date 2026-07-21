@@ -1,6 +1,7 @@
 import { http, HttpResponse } from 'msw'
 import { useAuthStore } from '@fleetmgm/store'
 import { computeTaxAndTotal } from '@/components/billing/invoice-shared'
+import { findDemoAccount } from '@/lib/demo-login'
 
 export const VALID_CREDENTIALS = {
   email: 'admin@fleetmgm.com',
@@ -4251,15 +4252,24 @@ export const handlers = [
   http.post('/api/v1/auth/login', async ({ request }) => {
     const body = (await request.json()) as LoginRequestBody
 
-    if (body.email !== VALID_CREDENTIALS.email || body.password !== VALID_CREDENTIALS.password) {
-      return invalidCredentialsResponse()
+    if (body.email === VALID_CREDENTIALS.email && body.password === VALID_CREDENTIALS.password) {
+      return HttpResponse.json({
+        accessToken: MOCK_ACCESS_TOKEN,
+        refreshToken: MOCK_REFRESH_TOKEN,
+        role: MOCK_ROLE,
+      })
     }
 
-    return HttpResponse.json({
-      accessToken: MOCK_ACCESS_TOKEN,
-      refreshToken: MOCK_REFRESH_TOKEN,
-      role: MOCK_ROLE,
-    })
+    const demoAccount = findDemoAccount(body.email, body.password)
+    if (demoAccount) {
+      return HttpResponse.json({
+        accessToken: MOCK_ACCESS_TOKEN,
+        refreshToken: MOCK_REFRESH_TOKEN,
+        role: demoAccount.role,
+      })
+    }
+
+    return invalidCredentialsResponse()
   }),
 
   http.post('/api/v1/auth/refresh', async ({ request }) => {

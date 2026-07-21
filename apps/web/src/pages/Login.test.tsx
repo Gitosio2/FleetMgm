@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { useAuthStore, useThemeStore } from '@fleetmgm/store'
 import { Login } from './Login'
 import { VALID_CREDENTIALS } from '@/mocks/handlers'
+import { DEMO_LOGIN_ACCOUNTS } from '@/lib/demo-login'
 
 function renderLogin() {
   const queryClient = new QueryClient({
@@ -38,6 +39,14 @@ describe('Login', () => {
     expect(screen.getByRole('button', { name: /iniciar sesión/i })).toBeInTheDocument()
   })
 
+  it('renders one demo shortcut button per AppRole', () => {
+    renderLogin()
+
+    for (const account of DEMO_LOGIN_ACCOUNTS) {
+      expect(screen.getByRole('button', { name: account.label })).toBeInTheDocument()
+    }
+  })
+
   it('redirects to the dashboard on successful login', async () => {
     const user = userEvent.setup()
     renderLogin()
@@ -47,6 +56,17 @@ describe('Login', () => {
     await user.click(screen.getByRole('button', { name: /iniciar sesión/i }))
 
     await waitFor(() => expect(screen.getByText('Dashboard Home')).toBeInTheDocument())
+  })
+
+  it('logs in as the selected demo role with one click', async () => {
+    const user = userEvent.setup()
+    renderLogin()
+
+    await user.click(screen.getByRole('button', { name: 'Conductor' }))
+
+    await waitFor(() => expect(screen.getByText('Dashboard Home')).toBeInTheDocument())
+    expect(useAuthStore.getState().role).toBe('DRIVER')
+    expect(useAuthStore.getState().email).toBe('conductor1@fleetmgm.demo')
   })
 
   it('shows a generic error message on invalid credentials', async () => {
