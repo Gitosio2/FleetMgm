@@ -236,8 +236,11 @@ FleetMgm/
 │           ├── V15__add_job_price.sql                           ← aplicada, Hito 31 (precio del job, para la línea de factura automática)
 │           ├── V16__create_invoice_number_seq.sql               ← aplicada, Hito 31 (secuencia PostgreSQL para INV-2026-00001)
 │           ├── V17__drop_dead_invoice_maintenance_links.sql     ← aplicada (limpieza: MaintenanceRecord.invoice e InvoiceLineItem.linkedMaintenance, nunca usados)
-│           ├── V18__seed_demo_data.sql                          ← pendiente, Hito 46 (única migración de datos que falta)
-│           └── V19__create_suppliers.sql                        ← aplicada, Hito 36 (entidad maestra Supplier + FK supplier_invoices.supplier_id)
+│           ├── V19__create_suppliers.sql                        ← aplicada, Hito 36 (entidad maestra Supplier + FK supplier_invoices.supplier_id)
+│           └── V21__add_unique_active_assignment_per_vehicle.sql ← aplicada, Hito 18 (índice único parcial, respaldo a nivel de BBDD)
+│       └── db/seed/                                             ← solo se añade a las Flyway locations bajo el perfil `demo`
+│           ├── V20__seed_demo_data.sql                          ← aplicada, Hito 46 (nota: no V18 — reservada para la seed antes de que V19 se adelantara, quedó sin usar a propósito)
+│           └── V22__backfill_due_date_for_seeded_invoices.sql   ← aplicada (fix hacia adelante de un gap de la seed de V20, no se edita V20 ya aplicada)
 │
 ├── packages/                                   ← lógica compartida entre web y mobile
 │   ├── api/                                    ← @fleetmgm/api

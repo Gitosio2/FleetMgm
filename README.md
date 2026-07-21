@@ -1,6 +1,12 @@
 # FleetMgm
 
-Sistema de gestión de flotas desarrollado como Trabajo Fin de Máster. Backend: Java 21 + Spring Boot 3.5. Frontend: React + Vite + TypeScript (monorepo, con lógica compartida preparada para una futura app móvil). Las decisiones de arquitectura y su justificación viven en [`planning.md`](planning.md).
+Sistema de gestión de flotas. Backend: Java 21 + Spring Boot 3.5. Frontend: React + Vite + TypeScript (monorepo, con lógica compartida preparada para una futura app móvil). Las decisiones de arquitectura y su justificación viven en [`planning.md`](planning.md).
+
+## Por qué surge FleetMgm
+
+Antes de convertirse en un TFM, este proyecto surge como respuesta a un problema real que viví de cerca. Trabajé como administrativo en una PYME del sector de transporte y logística, y desde dentro pude ver cómo se gestionaba el día a día de la flota: facturacion en formularios de Access guardados en un NAS, GPS en múltiples apps, trabajos anotados en papel, mantenimientos en hojas de excel, al igual que las mercancías que llevan los camiones. Ninguna se integraba ni intercambiaba datos automáticamente con las demás. Todo ello anotado a mano, disperso, y solo accesible desde el ordenador de la oficina.
+
+FleetMgm nace como la respuesta que a mí me habría gustado tener entonces: una única plataforma que centraliza vehículos, personal, trabajos, mantenimiento, facturación y GPS, pensada para pymes que no necesitan (ni pueden permitirse) un ERP corporativo, y accesible desde cualquier lugar — no solo desde la oficina. (App mobile en proceso)
 
 ## Demo en vivo
 
@@ -8,6 +14,17 @@ Sistema de gestión de flotas desarrollado como Trabajo Fin de Máster. Backend:
 - **Backend**: https://fleetmgm-production.up.railway.app (`/actuator/health` para confirmar que está activo)
 
 Credenciales de acceso: ver la tabla en [Credenciales demo](#credenciales-demo) más abajo — son las mismas tanto en este despliegue como en el demo local con `docker compose`.
+
+## Requisitos previos
+
+Solo hacen falta para correr el proyecto en local — la demo en vivo de arriba no requiere nada instalado.
+
+| Herramienta | Versión | Para qué |
+|---|---|---|
+| Docker Desktop | reciente | [Arranque rápido](#arranque-rápido-demo-local) y [Desarrollo local con Docker](#desarrollo-local-con-docker) |
+| Java | 21 | [Backend sin Docker](#backend) — el Maven Wrapper (`./mvnw`) ya está incluido, no hace falta instalar Maven |
+| Node | 22 (ver [`.nvmrc`](.nvmrc)) | [Frontend sin Docker](#frontend) |
+| PostgreSQL | 16 | Solo si corrés el backend sin Docker (ver cómo levantarlo con `docker run` más abajo) |
 
 ## Stack tecnológico
 
@@ -21,6 +38,7 @@ Credenciales de acceso: ver la tabla en [Credenciales demo](#credenciales-demo) 
 | Logging | Logstash Logback Encoder (JSON estructurado) |
 | Métricas | Micrometer + Prometheus |
 | CI/CD | GitHub Actions (tests, OWASP Dependency-Check, escaneo de seguridad semanal) |
+
 
 ## Arquitectura
 
@@ -54,10 +72,6 @@ El detalle completo — modelo de dominio, matriz de permisos, esquema de base d
 - Reporte de rentabilidad por vehículo y dashboard financiero de toda la flota
 - Mapa GPS de flota en vivo (posiciones simuladas, renderizado real con Leaflet)
 - Visor completo de auditoría con filtros
-
-## Capturas de pantalla
-
-*(Agregar capturas aqui— entrá a la demo corriendo en `http://localhost:8081` con las credenciales de abajo y capturá: Dashboard, listado de Vehículos, panel de rentabilidad por vehículo, ciclo de vida de un trabajo, mapa GPS, visor de auditoría.)*
 
 ## Arranque rápido (demo local)
 
@@ -104,11 +118,17 @@ cd backend
 
 Necesita una instancia de Postgres accesible en `jdbc:postgresql://localhost:5432/fleetmgm` (usuario/contraseña `fleetmgm`), o se puede sobreescribir vía `SPRING_DATASOURCE_URL`/`_USERNAME`/`_PASSWORD`. `docker run -d -e POSTGRES_DB=fleetmgm -e POSTGRES_USER=fleetmgm -e POSTGRES_PASSWORD=fleetmgm -p 5432:5432 postgres:16` es la forma más rápida de tener una.
 
+Documentación interactiva de la API (Swagger UI) corriendo así: **http://localhost:8080/swagger-ui.html** — solo disponible sin el perfil `prod` (el que usa `docker compose`, donde queda deshabilitada).
+
 ### Frontend
+
+Requiere Node 22 (ver [`.nvmrc`](.nvmrc); con `nvm` alcanza con `nvm use`).
 
 ```bash
 npm install                     # desde la raíz del repo — instala todos los workspaces
 turbo dev                       # arranca todas las apps en modo dev (web en :5173)
+turbo test                      # Vitest en todos los workspaces (packages/ + apps/web)
+turbo lint                      # oxlint en todos los workspaces
 ```
 
 El servidor de desarrollo mockea la API con MSW (`VITE_ENABLE_MSW=true` en `apps/web/.env.local`) — no hace falta un backend corriendo para trabajar solo en el frontend.
@@ -138,6 +158,18 @@ El servidor de desarrollo mockea la API con MSW (`VITE_ENABLE_MSW=true` en `apps
 
 El CI lee la misma variable desde el secret `NVD_API_KEY` de GitHub Actions (ya configurado) — ahí no hace falta ningún `.env`.
 
+## Desarrollo local con Docker
+
+A diferencia del [arranque rápido](#arranque-rápido-demo-local) — pensado para correr la demo una sola vez —, esta opción sirve para seguir iterando sobre el código sin instalar Java ni Node en la máquina: se reconstruye solo el servicio que cambió en vez de los tres contenedores.
+
+```bash
+docker compose up -d --build backend   # después de un cambio en backend/
+docker compose up -d --build web       # después de un cambio en apps/web/
+docker compose logs -f backend         # ver logs en vivo de un servicio
+```
+
+Esto sigue reconstruyendo la imagen completa en cada cambio (el `docker-compose.yml` actual no monta el código fuente como volumen ni usa un dev server con hot-reload) — para un ciclo de feedback más rápido, usar la sección [Desarrollo local (sin Docker)](#desarrollo-local-sin-docker) de arriba.
+
 ## Despliegue a producción
 
 Configuración recomendada de costo cero: **frontend → Vercel**, **backend + base de datos → Railway**.
@@ -159,3 +191,19 @@ Demo local expuesta con una URL pública temporal (no es un despliegue real):
 docker compose up -d --build
 ngrok http 8081
 ```
+
+## Valoración personal y conclusiones
+
+He decidido hacer uso del framework de Spring boot porque trabajo hace varios años con spring MVC y entornos JAVA, esto me da seguridad y control sobre el codigo que me generan los agentes al entender que se debería hacer y que no, con lo cual eso me ha servido para ver donde la IA empezaba a alucinar, sugerir cosas que no corresponden con lo necesario etc..
+
+El stack de REACT viene decidido por la posibilidad de reutilizar codigo entre el frontEnd web y la APP Mobile, sin embargo no disponia de conocimientos de REACT, pero me ha servido para salir de mi zona de confort, por ello que me ha sido más complicado controlar el código generado y en ciertas ocasiones he tenido que iterar con la IA para entender que pretendía hacer.
+
+A modo de conclusión, aunque se que el proyecto no me resuelve una problemática personal, me ha servido para conocer las capacidades de la IA, tanto en generación de código como en análisis del código generado y detección de BUGs antes de que el código llegue a la rama Main. 
+
+## Autor
+
+Marcos Cuevas Alonso — Trabajo Fin de Máster.
+
+## Licencia
+
+Todos los derechos reservados — ver [`LICENSE`](LICENSE).
