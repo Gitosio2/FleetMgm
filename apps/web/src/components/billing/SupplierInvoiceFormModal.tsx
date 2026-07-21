@@ -19,6 +19,7 @@ type SupplierInvoiceFormModalProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   supplierInvoice?: SupplierInvoice
+  onCreated?: (invoice: SupplierInvoice) => void
   readOnly?: boolean
 }
 
@@ -26,6 +27,7 @@ export function SupplierInvoiceFormModal({
   open,
   onOpenChange,
   supplierInvoice,
+  onCreated,
   readOnly = false,
 }: SupplierInvoiceFormModalProps) {
   const isEditing = supplierInvoice != null
@@ -131,7 +133,13 @@ export function SupplierInvoiceFormModal({
         { onSuccess: () => onOpenChange(false) },
       )
     } else {
-      createSupplierInvoice.mutate(request, { onSuccess: () => onOpenChange(false) })
+      // Stay open and switch into edit mode for the newly created invoice instead of closing —
+      // a supplier invoice can't be created with line items in one step (CreateSupplierInvoiceRequest
+      // has none), so this lets the user add per-vehicle line items immediately without having to
+      // close the modal, find the invoice in the list, and reopen it via "Editar".
+      createSupplierInvoice.mutate(request, {
+        onSuccess: (createdInvoice) => onCreated?.(createdInvoice),
+      })
     }
   }
 
