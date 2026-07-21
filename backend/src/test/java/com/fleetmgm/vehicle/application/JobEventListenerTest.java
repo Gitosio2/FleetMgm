@@ -21,7 +21,9 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -116,5 +118,21 @@ class JobEventListenerTest {
         verify(vehicleRepository, never()).save(any());
         verifyNoInteractions(usageLogRepository);
         verifyNoInteractions(jobRepository);
+    }
+
+    // AFTER_COMMIT: the triggering transaction already committed and the original HTTP call already
+    // returned 200 OK, so a failure here (e.g. the vehicle was deleted between job start and
+    // completion) must never propagate — same contract as InvoiceJobCompletionListener.
+    @Test
+    void onJobCompleted_doesNotThrow_whenVehicleLookupFails() {
+        UUID vehicleId = UUID.randomUUID();
+        UUID jobId = UUID.randomUUID();
+        JobCompletedEvent event = new JobCompletedEvent(jobId, vehicleId, null, null, null, 15000L, Instant.now());
+
+        doThrow(new RuntimeException("boom")).when(vehicleRepository).findById(vehicleId);
+
+        assertThatCode(() -> jobEventListener.onJobCompleted(event)).doesNotThrowAnyException();
+
+        verifyNoInteractions(usageLogRepository);
     }
 }
