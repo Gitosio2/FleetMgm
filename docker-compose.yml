@@ -27,6 +27,7 @@ services:
       # activate `prod` or nothing, never see the seed migration. See application.yml's `demo`
       # profile block for why this split exists.
       SPRING_PROFILES_ACTIVE: prod,demo
+      JWT_SECRET: demo-jwt-secret-key-must-be-at-least-64-bytes-long-for-hs512-security-compliance-demo-only
       FRONTEND_URL: http://localhost:8081,http://localhost:5173
     ports:
       - "8080:8080"
