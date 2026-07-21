@@ -39,6 +39,9 @@ public class PdfExportService {
     private static final int PERCENTAGE_SCALE = 2;
     private static final BigDecimal ONE_HUNDRED = new BigDecimal("100");
 
+    // Mirrors InvoiceService.MONEY_SCALE — same HALF_UP-at-2-decimals convention for currency math.
+    private static final int MONEY_SCALE = 2;
+
     private final InvoiceRepository invoiceRepository;
     private final LineItemRepository lineItemRepository;
 
@@ -60,7 +63,7 @@ public class PdfExportService {
             document.open();
             addHeader(document, invoice);
             addLineItemsTable(document, lineItems);
-            addTotals(document, invoice);
+            addTotals(document, invoice, lineItems);
         } catch (DocumentException e) {
             throw new IllegalStateException("Failed to generate PDF for invoice " + invoiceId, e);
         } finally {
@@ -110,14 +113,27 @@ public class PdfExportService {
         document.add(Chunk.NEWLINE);
     }
 
-    private void addTotals(Document document, Invoice invoice) throws DocumentException {
+    // Computed straight from the line items rather than read off invoice.getSubtotal() /
+    // getTaxAmount() / getTotal() — those fields default to BigDecimal.ZERO and are only ever
+    // populated by InvoiceService.issue(), so a DRAFT invoice's PDF would otherwise always show
+    // 0.00 totals despite having real line items. Line items are frozen once an invoice leaves
+    // DRAFT (InvoiceService.assertIsDraft() blocks further add/update), so recomputing here is
+    // numerically identical to the stored total for ISSUED/PAID/OVERDUE invoices.
+    private void addTotals(Document document, Invoice invoice, List<InvoiceLineItem> lineItems) throws DocumentException {
         Font normalFont = new Font(Font.HELVETICA, 11, Font.NORMAL);
         Font boldFont = new Font(Font.HELVETICA, 12, Font.BOLD);
 
-        document.add(new Paragraph("Subtotal: " + invoice.getSubtotal().toPlainString(), normalFont));
+        BigDecimal subtotal = lineItems.stream()
+                .map(InvoiceLineItem::getSubtotal)
+                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                .setScale(MONEY_SCALE, RoundingMode.HALF_UP);
+        BigDecimal taxAmount = subtotal.multiply(invoice.getTaxRate()).setScale(MONEY_SCALE, RoundingMode.HALF_UP);
+        BigDecimal total = subtotal.add(taxAmount).setScale(MONEY_SCALE, RoundingMode.HALF_UP);
+
+        document.add(new Paragraph("Subtotal: " + subtotal.toPlainString(), normalFont));
         document.add(new Paragraph("IVA: " + formatTaxRate(invoice.getTaxRate()), normalFont));
-        document.add(new Paragraph("Importe IVA: " + invoice.getTaxAmount().toPlainString(), normalFont));
-        document.add(new Paragraph("Total: " + invoice.getTotal().toPlainString(), boldFont));
+        document.add(new Paragraph("Importe IVA: " + taxAmount.toPlainString(), normalFont));
+        document.add(new Paragraph("Total: " + total.toPlainString(), boldFont));
     }
 
     // Formats invoice.getTaxRate() (a fraction, e.g. 0.2100) as a percentage string (e.g.
