@@ -6,6 +6,7 @@ import com.fleetmgm.shared.domain.AuditAction;
 import com.fleetmgm.shared.dto.AuditLogPerformerResponse;
 import com.fleetmgm.shared.dto.AuditLogResponse;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -33,7 +34,7 @@ public class AuditLogController {
             @RequestParam(required = false) Instant from,
             @RequestParam(required = false) Instant to,
             @RequestParam(required = false) String performedByEmail,
-            @PageableDefault(size = 20, sort = "performedAt") Pageable pageable) {
+            @PageableDefault(size = 20, sort = "performedAt", direction = Sort.Direction.DESC) Pageable pageable) {
         return ResponseEntity.ok(auditLogService.list(entityType, action, from, to, performedByEmail, pageable));
     }
 
