@@ -15,9 +15,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
@@ -63,7 +67,7 @@ class GpsMockSchedulerTest {
     }
 
     @Test
-    void generatePositions_coordinatesWithinInitialSpread_whenVehicleHasNoPriorPosition() {
+    void generatePositions_coordinatesWithinInitialSpread_ofSomeCityBase_whenVehicleHasNoPriorPosition() {
         Vehicle vehicle = vehicleWithId(UUID.randomUUID());
         when(vehicleRepository.findAllByStatus(VehicleStatus.ACTIVE)).thenReturn(List.of(vehicle));
         when(gpsRepository.findFirstByVehicleIdOrderByRecordedAtDesc(vehicle.getId())).thenReturn(Optional.empty());
@@ -73,12 +77,46 @@ class GpsMockSchedulerTest {
         ArgumentCaptor<GpsPosition> captor = ArgumentCaptor.forClass(GpsPosition.class);
         verify(gpsRepository).save(captor.capture());
         GpsPosition saved = captor.getValue();
-        assertThat(saved.getLatitude()).isBetween(
-                GpsMockScheduler.BASE_LATITUDE - GpsMockScheduler.INITIAL_SPREAD_DEGREES,
-                GpsMockScheduler.BASE_LATITUDE + GpsMockScheduler.INITIAL_SPREAD_DEGREES);
-        assertThat(saved.getLongitude()).isBetween(
-                GpsMockScheduler.BASE_LONGITUDE - GpsMockScheduler.INITIAL_SPREAD_DEGREES,
-                GpsMockScheduler.BASE_LONGITUDE + GpsMockScheduler.INITIAL_SPREAD_DEGREES);
+
+        boolean withinSomeCityBase = Arrays.stream(GpsMockScheduler.SPANISH_CITY_BASES).anyMatch(city ->
+                Math.abs(saved.getLatitude() - city[0]) <= GpsMockScheduler.INITIAL_SPREAD_DEGREES
+                        && Math.abs(saved.getLongitude() - city[1]) <= GpsMockScheduler.INITIAL_SPREAD_DEGREES);
+        assertThat(withinSomeCityBase).isTrue();
+    }
+
+    @Test
+    void generatePositions_spreadsAcrossMultipleCities_whenManyVehiclesHaveNoPriorPosition() {
+        List<Vehicle> vehicles = new ArrayList<>();
+        for (int i = 0; i < 50; i++) {
+            vehicles.add(vehicleWithId(UUID.randomUUID()));
+        }
+        when(vehicleRepository.findAllByStatus(VehicleStatus.ACTIVE)).thenReturn(vehicles);
+        when(gpsRepository.findFirstByVehicleIdOrderByRecordedAtDesc(any())).thenReturn(Optional.empty());
+
+        gpsMockScheduler.generatePositions();
+
+        ArgumentCaptor<GpsPosition> captor = ArgumentCaptor.forClass(GpsPosition.class);
+        verify(gpsRepository, times(50)).save(captor.capture());
+
+        Set<Integer> citiesUsed = captor.getAllValues().stream()
+                .map(position -> closestCityIndex(position.getLatitude(), position.getLongitude()))
+                .collect(Collectors.toSet());
+
+        assertThat(citiesUsed.size()).isGreaterThan(1);
+    }
+
+    private static int closestCityIndex(double latitude, double longitude) {
+        int closest = 0;
+        double closestDistance = Double.MAX_VALUE;
+        for (int i = 0; i < GpsMockScheduler.SPANISH_CITY_BASES.length; i++) {
+            double[] city = GpsMockScheduler.SPANISH_CITY_BASES[i];
+            double distance = Math.hypot(latitude - city[0], longitude - city[1]);
+            if (distance < closestDistance) {
+                closestDistance = distance;
+                closest = i;
+            }
+        }
+        return closest;
     }
 
     @Test
