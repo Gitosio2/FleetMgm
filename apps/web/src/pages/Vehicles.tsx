@@ -150,7 +150,7 @@ export function Vehicles() {
               Rentabilidad — {profitabilityVehicle && `${profitabilityVehicle.make} ${profitabilityVehicle.model}`}
             </DialogTitle>
           </DialogHeader>
-          <DialogBody>
+          <DialogBody className="pb-6">
             {profitabilityVehicle && (
               <VehicleProfitabilityPanel
                 vehicleId={profitabilityVehicle.id}
