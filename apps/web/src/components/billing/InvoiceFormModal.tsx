@@ -5,7 +5,7 @@ import { useAllClients, useCreateInvoice, useUpdateInvoice } from '@fleetmgm/hoo
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogBody, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { formatCurrency } from '@/lib/currency'
 import { LineItemList } from './LineItemList'
 import { computeTaxAndTotal, sumLineItemSubtotals } from './invoice-shared'
@@ -122,7 +122,7 @@ export function InvoiceFormModal({
           <DialogTitle>{isReadOnly ? 'Factura' : isEditing ? 'Editar factura' : 'Nueva factura'}</DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto px-6">
+        <DialogBody>
           <form id="invoice-form" className="flex flex-col gap-4" onSubmit={handleSubmit}>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="invoice-client">Cliente</Label>
@@ -235,7 +235,7 @@ export function InvoiceFormModal({
               )}
             </div>
           )}
-        </div>
+        </DialogBody>
 
         <DialogFooter>
           {isReadOnly ? (
