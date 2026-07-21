@@ -3,6 +3,7 @@ package com.fleetmgm.worker.application;
 import com.fleetmgm.auth.domain.User;
 import com.fleetmgm.auth.infrastructure.UserRepository;
 import com.fleetmgm.shared.PageResponse;
+import com.fleetmgm.shared.domain.AuditLogHelper;
 import com.fleetmgm.shared.exception.ConflictException;
 import com.fleetmgm.shared.exception.NotFoundException;
 import com.fleetmgm.worker.domain.Worker;
@@ -41,6 +42,7 @@ class WorkerServiceTest {
     @Mock WorkerRepository workerRepository;
     @Mock UserRepository userRepository;
     @Mock WorkerMapper workerMapper;
+    @Mock AuditLogHelper auditLogHelper;
     @InjectMocks WorkerService workerService;
 
     @AfterEach

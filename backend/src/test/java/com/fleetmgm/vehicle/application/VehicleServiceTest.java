@@ -1,6 +1,7 @@
 package com.fleetmgm.vehicle.application;
 
 import com.fleetmgm.shared.PageResponse;
+import com.fleetmgm.shared.domain.AuditLogHelper;
 import com.fleetmgm.shared.exception.ConflictException;
 import com.fleetmgm.shared.exception.NotFoundException;
 import com.fleetmgm.vehicle.domain.DriverVehicleAssignment;
@@ -47,6 +48,7 @@ class VehicleServiceTest {
     @Mock VehicleRepository vehicleRepository;
     @Mock AssignmentRepository assignmentRepository;
     @Mock VehicleMapper vehicleMapper;
+    @Mock AuditLogHelper auditLogHelper;
     @InjectMocks VehicleService vehicleService;
 
     @AfterEach

@@ -1,14 +1,10 @@
 package com.fleetmgm.workshop.application;
 
-import com.fleetmgm.auth.domain.User;
-import com.fleetmgm.auth.infrastructure.UserRepository;
 import com.fleetmgm.shared.PageResponse;
-import com.fleetmgm.shared.domain.AuditAction;
-import com.fleetmgm.shared.domain.AuditLog;
+import com.fleetmgm.shared.domain.AuditLogHelper;
 import com.fleetmgm.shared.exception.BadRequestException;
 import com.fleetmgm.shared.exception.ConflictException;
 import com.fleetmgm.shared.exception.NotFoundException;
-import com.fleetmgm.shared.infrastructure.AuditLogRepository;
 import com.fleetmgm.vehicle.domain.Vehicle;
 import com.fleetmgm.vehicle.infrastructure.VehicleRepository;
 import com.fleetmgm.worker.domain.Worker;
@@ -63,8 +59,7 @@ class MaintenanceServiceTest {
     @Mock WorkerRepository workerRepository;
     @Mock MaintenanceMapper maintenanceMapper;
     @Mock ApplicationEventPublisher eventPublisher;
-    @Mock AuditLogRepository auditLogRepository;
-    @Mock UserRepository userRepository;
+    @Mock AuditLogHelper auditLogHelper;
     MaintenanceService maintenanceService;
 
     @BeforeEach
@@ -75,7 +70,7 @@ class MaintenanceServiceTest {
         // application.yml (workshop.auto-create-schedule-on-maintenance-create) — the one test that
         // needs it off flips it back via ReflectionTestUtils instead of a second manual construction.
         maintenanceService = new MaintenanceService(maintenanceRepository, vehicleRepository, workerRepository,
-                maintenanceMapper, eventPublisher, auditLogRepository, userRepository, true);
+                maintenanceMapper, eventPublisher, auditLogHelper, true);
     }
 
     @AfterEach
@@ -93,6 +88,7 @@ class MaintenanceServiceTest {
 
         Vehicle vehicle = new Vehicle();
         MaintenanceRecord entity = new MaintenanceRecord();
+        setId(entity, UUID.randomUUID());
         MaintenanceResponse expected = buildResponse(UUID.randomUUID());
 
         when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(vehicle));
@@ -122,6 +118,7 @@ class MaintenanceServiceTest {
 
         Vehicle vehicle = new Vehicle();
         MaintenanceRecord entity = new MaintenanceRecord();
+        setId(entity, UUID.randomUUID());
         MaintenanceResponse expected = buildResponse(UUID.randomUUID());
 
         when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(vehicle));
@@ -144,6 +141,7 @@ class MaintenanceServiceTest {
 
         Vehicle vehicle = new Vehicle();
         MaintenanceRecord entity = new MaintenanceRecord();
+        setId(entity, UUID.randomUUID());
         MaintenanceResponse expected = buildResponse(UUID.randomUUID());
 
         when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(vehicle));
@@ -183,6 +181,7 @@ class MaintenanceServiceTest {
         Vehicle vehicle = new Vehicle();
         Worker technician = new Worker();
         MaintenanceRecord entity = new MaintenanceRecord();
+        setId(entity, UUID.randomUUID());
         MaintenanceResponse expected = buildResponse(UUID.randomUUID());
 
         when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(vehicle));
@@ -270,6 +269,7 @@ class MaintenanceServiceTest {
 
         Vehicle vehicle = new Vehicle();
         MaintenanceRecord entity = new MaintenanceRecord();
+        setId(entity, UUID.randomUUID());
         MaintenanceResponse expected = buildResponse(UUID.randomUUID());
 
         when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(vehicle));
@@ -321,6 +321,7 @@ class MaintenanceServiceTest {
         MaintenanceRecord record = new MaintenanceRecord();
         record.setStatus(MaintenanceStatus.SCHEDULED);
         record.setVehicle(new Vehicle());
+        setId(record, UUID.randomUUID());
         MaintenanceResponse expected = buildResponse(id);
 
         when(maintenanceRepository.findById(id)).thenReturn(Optional.of(record));
@@ -341,6 +342,7 @@ class MaintenanceServiceTest {
     void start_setsEntryTimeToNow_whenRequestIsNull_andScheduled() {
         UUID id = UUID.randomUUID();
         MaintenanceRecord record = new MaintenanceRecord();
+        setId(record, id);
         record.setStatus(MaintenanceStatus.SCHEDULED);
         record.setVehicle(new Vehicle());
         MaintenanceResponse expected = buildResponse(id);
@@ -379,6 +381,7 @@ class MaintenanceServiceTest {
     void complete_transitionsToCompleted_andPublishesEvent_whenInProgress() {
         UUID id = UUID.randomUUID();
         MaintenanceRecord record = new MaintenanceRecord();
+        setId(record, id);
         record.setStatus(MaintenanceStatus.IN_PROGRESS);
         record.setVehicle(new Vehicle());
         MaintenanceResponse expected = buildResponse(id);
@@ -401,6 +404,7 @@ class MaintenanceServiceTest {
     void complete_setsExitTimeToNow_whenRequestIsNull_andInProgress() {
         UUID id = UUID.randomUUID();
         MaintenanceRecord record = new MaintenanceRecord();
+        setId(record, id);
         record.setStatus(MaintenanceStatus.IN_PROGRESS);
         record.setVehicle(new Vehicle());
         MaintenanceResponse expected = buildResponse(id);
@@ -442,6 +446,7 @@ class MaintenanceServiceTest {
         Vehicle vehicle = new Vehicle();
         setId(vehicle, vehicleId);
         MaintenanceRecord record = new MaintenanceRecord();
+        setId(record, id);
         record.setStatus(MaintenanceStatus.SCHEDULED);
         record.setVehicle(vehicle);
         MaintenanceResponse expected = buildResponse(id);
@@ -605,6 +610,7 @@ class MaintenanceServiceTest {
                 vehicleId, "Brake check", "front pads", technicianId, MaintenanceCategory.CORRECTIVE,
                 new BigDecimal("150.00"));
         MaintenanceRecord record = new MaintenanceRecord();
+        setId(record, id);
         Vehicle vehicle = new Vehicle();
         Worker technician = new Worker();
         MaintenanceResponse expected = buildResponse(id);
@@ -643,31 +649,18 @@ class MaintenanceServiceTest {
     @Test
     void delete_softDeletesScheduledRecord_andWritesAuditLog() {
         UUID id = UUID.randomUUID();
-        UUID userId = UUID.randomUUID();
         MaintenanceRecord record = new MaintenanceRecord();
         setId(record, id);
         record.setStatus(MaintenanceStatus.SCHEDULED);
 
-        User user = new User();
-        setId(user, userId);
-        user.setEmail("manager@fleetmgm.com");
-
         setAuthentication("manager@fleetmgm.com");
         when(maintenanceRepository.findById(id)).thenReturn(Optional.of(record));
-        when(userRepository.findByEmail("manager@fleetmgm.com")).thenReturn(Optional.of(user));
 
         maintenanceService.delete(id);
 
         assertThat(record.getDeletedAt()).isNotNull();
         verify(maintenanceRepository).save(record);
-        ArgumentCaptor<AuditLog> captor = ArgumentCaptor.forClass(AuditLog.class);
-        verify(auditLogRepository).save(captor.capture());
-        AuditLog log = captor.getValue();
-        assertThat(log.getAction()).isEqualTo(AuditAction.DELETE);
-        assertThat(log.getEntityType()).isEqualTo("MaintenanceRecord");
-        assertThat(log.getEntityId()).isEqualTo(id.toString());
-        assertThat(log.getPerformedByEmail()).isEqualTo("manager@fleetmgm.com");
-        assertThat(log.getPerformedByUserId()).isEqualTo(userId);
+        verify(auditLogHelper).log(any(), any(), any());
     }
 
     @Test
@@ -684,7 +677,7 @@ class MaintenanceServiceTest {
                         .isEqualTo("MAINTENANCE_DELETE_NOT_ALLOWED"));
 
         verify(maintenanceRepository, never()).save(any());
-        verify(auditLogRepository, never()).save(any());
+        verify(auditLogHelper, never()).log(any(), any(), any());
     }
 
     private static void setAuthentication(String email) {

@@ -1,6 +1,8 @@
 package com.fleetmgm.vehicle.application;
 
 import com.fleetmgm.shared.PageResponse;
+import com.fleetmgm.shared.domain.AuditAction;
+import com.fleetmgm.shared.domain.AuditLogHelper;
 import com.fleetmgm.shared.exception.ConflictException;
 import com.fleetmgm.shared.exception.NotFoundException;
 import com.fleetmgm.vehicle.domain.VehicleCategory;
@@ -27,16 +29,21 @@ import java.util.UUID;
 @Service
 public class VehicleService {
 
+    private static final String ENTITY_TYPE = "Vehicle";
+
     private final VehicleRepository vehicleRepository;
     private final AssignmentRepository assignmentRepository;
     private final VehicleMapper vehicleMapper;
+    private final AuditLogHelper auditLogHelper;
 
     public VehicleService(VehicleRepository vehicleRepository,
                           AssignmentRepository assignmentRepository,
-                          VehicleMapper vehicleMapper) {
+                          VehicleMapper vehicleMapper,
+                          AuditLogHelper auditLogHelper) {
         this.vehicleRepository = vehicleRepository;
         this.assignmentRepository = assignmentRepository;
         this.vehicleMapper = vehicleMapper;
+        this.auditLogHelper = auditLogHelper;
     }
 
     @Transactional(readOnly = true)
@@ -63,7 +70,9 @@ public class VehicleService {
         }
         var vehicle = vehicleMapper.toEntity(request);
         try {
-            return vehicleMapper.toResponse(vehicleRepository.save(vehicle));
+            var saved = vehicleMapper.toResponse(vehicleRepository.save(vehicle));
+            auditLogHelper.log(ENTITY_TYPE, saved.id().toString(), AuditAction.CREATE);
+            return saved;
         } catch (DataIntegrityViolationException ex) {
             throw new ConflictException("VEHICLE_LICENSE_PLATE_CONFLICT",
                     "License plate " + request.licensePlate() + " already in use");
@@ -93,7 +102,9 @@ public class VehicleService {
         }
         vehicleMapper.updateEntity(request, vehicle);
         try {
-            return vehicleMapper.toResponse(vehicleRepository.save(vehicle));
+            var saved = vehicleMapper.toResponse(vehicleRepository.save(vehicle));
+            auditLogHelper.log(ENTITY_TYPE, saved.id().toString(), AuditAction.UPDATE);
+            return saved;
         } catch (DataIntegrityViolationException ex) {
             throw new ConflictException("VEHICLE_LICENSE_PLATE_CONFLICT",
                     "License plate " + request.licensePlate() + " already in use");
@@ -107,6 +118,7 @@ public class VehicleService {
                 .orElseThrow(() -> new NotFoundException("VEHICLE_NOT_FOUND", "Vehicle " + id + " not found"));
         vehicle.setDeletedAt(Instant.now());
         vehicleRepository.save(vehicle);
+        auditLogHelper.log(ENTITY_TYPE, id.toString(), AuditAction.DELETE);
     }
 
     // --- driver helpers ---

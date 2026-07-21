@@ -1,6 +1,5 @@
 package com.fleetmgm.billing.application;
 
-import com.fleetmgm.auth.infrastructure.UserRepository;
 import com.fleetmgm.billing.domain.Invoice;
 import com.fleetmgm.billing.domain.InvoiceLineItem;
 import com.fleetmgm.billing.domain.InvoiceStatus;
@@ -19,16 +18,14 @@ import com.fleetmgm.job.domain.Job;
 import com.fleetmgm.job.infrastructure.JobRepository;
 import com.fleetmgm.shared.PageResponse;
 import com.fleetmgm.shared.domain.AuditAction;
-import com.fleetmgm.shared.domain.AuditLog;
+import com.fleetmgm.shared.domain.AuditLogHelper;
 import com.fleetmgm.shared.exception.ConflictException;
 import com.fleetmgm.shared.exception.NotFoundException;
-import com.fleetmgm.shared.infrastructure.AuditLogRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,6 +42,7 @@ import java.util.stream.Collectors;
 public class InvoiceService {
 
     private static final String ROLES = "hasAnyRole('ADMIN', 'MANAGER', 'ADMINISTRATIVE')";
+    private static final String ENTITY_TYPE = "Invoice";
 
     // Standard 2-decimal currency rounding — no other BigDecimal money math exists elsewhere in
     // this codebase to mirror (MaintenanceRecord.cost is stored, not computed), so HALF_UP at
@@ -57,8 +55,7 @@ public class InvoiceService {
     private final JobRepository jobRepository;
     private final InvoiceMapper invoiceMapper;
     private final InvoiceNumberGenerator invoiceNumberGenerator;
-    private final AuditLogRepository auditLogRepository;
-    private final UserRepository userRepository;
+    private final AuditLogHelper auditLogHelper;
     private final BigDecimal defaultTaxRate;
 
     public InvoiceService(InvoiceRepository invoiceRepository,
@@ -67,8 +64,7 @@ public class InvoiceService {
                            JobRepository jobRepository,
                            InvoiceMapper invoiceMapper,
                            InvoiceNumberGenerator invoiceNumberGenerator,
-                           AuditLogRepository auditLogRepository,
-                           UserRepository userRepository,
+                           AuditLogHelper auditLogHelper,
                            @Value("${billing.default-tax-rate}") BigDecimal defaultTaxRate) {
         this.invoiceRepository = invoiceRepository;
         this.lineItemRepository = lineItemRepository;
@@ -76,8 +72,7 @@ public class InvoiceService {
         this.jobRepository = jobRepository;
         this.invoiceMapper = invoiceMapper;
         this.invoiceNumberGenerator = invoiceNumberGenerator;
-        this.auditLogRepository = auditLogRepository;
-        this.userRepository = userRepository;
+        this.auditLogHelper = auditLogHelper;
         this.defaultTaxRate = defaultTaxRate;
     }
 
@@ -114,7 +109,9 @@ public class InvoiceService {
         invoice.setTaxRate(request.taxRate() != null ? request.taxRate() : defaultTaxRate);
         // A brand-new invoice can't have pre-existing line items (they're only added afterward via
         // addLineItem()), so there's nothing to fetch here - skip the query entirely.
-        return toResponseWithLineItems(invoiceRepository.save(invoice), List.of());
+        var saved = invoiceRepository.save(invoice);
+        auditLogHelper.log(ENTITY_TYPE, saved.getId().toString(), AuditAction.CREATE);
+        return toResponseWithLineItems(saved, List.of());
     }
 
     @Transactional(readOnly = true)
@@ -138,6 +135,7 @@ public class InvoiceService {
             invoice.setTaxRate(request.taxRate());
         }
         Invoice saved = invoiceRepository.save(invoice);
+        auditLogHelper.log(ENTITY_TYPE, saved.getId().toString(), AuditAction.UPDATE);
         return toResponseWithLineItems(saved, lineItemRepository.findAllByInvoiceId(saved.getId()));
     }
 
@@ -158,19 +156,7 @@ public class InvoiceService {
                     "Invoice " + id + " cannot be deleted from state " + invoice.getStatus());
         }
         invoiceRepository.save(invoice);
-        auditDeletion(invoice);
-    }
-
-    private void auditDeletion(Invoice invoice) {
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        AuditLog log = new AuditLog();
-        log.setEntityType("Invoice");
-        log.setEntityId(invoice.getId().toString());
-        log.setAction(AuditAction.DELETE);
-        log.setPerformedByEmail(email);
-        userRepository.findByEmail(email).ifPresent(user -> log.setPerformedByUserId(user.getId()));
-        log.setPerformedAt(Instant.now());
-        auditLogRepository.save(log);
+        auditLogHelper.log(ENTITY_TYPE, id.toString(), AuditAction.DELETE);
     }
 
     @Transactional
@@ -198,7 +184,9 @@ public class InvoiceService {
         invoice.setStatus(InvoiceStatus.ISSUED);
         invoice.setIssueDate(LocalDate.now());
         // Reuse the lineItems already fetched above for the tax computation - no extra query needed.
-        return toResponseWithLineItems(invoiceRepository.save(invoice), lineItems);
+        var saved = invoiceRepository.save(invoice);
+        auditLogHelper.log(ENTITY_TYPE, saved.getId().toString(), AuditAction.UPDATE, "Invoice issued");
+        return toResponseWithLineItems(saved, lineItems);
     }
 
     @Transactional
@@ -213,6 +201,7 @@ public class InvoiceService {
         invoice.setPaymentDate(request != null && request.paymentDate() != null
                 ? request.paymentDate() : LocalDate.now());
         Invoice saved = invoiceRepository.save(invoice);
+        auditLogHelper.log(ENTITY_TYPE, saved.getId().toString(), AuditAction.UPDATE, "Invoice paid");
         return toResponseWithLineItems(saved, lineItemRepository.findAllByInvoiceId(saved.getId()));
     }
 

@@ -12,6 +12,8 @@ import com.fleetmgm.job.dto.JobResponse;
 import com.fleetmgm.job.dto.UpdateJobRequest;
 import com.fleetmgm.job.infrastructure.JobRepository;
 import com.fleetmgm.shared.PageResponse;
+import com.fleetmgm.shared.domain.AuditAction;
+import com.fleetmgm.shared.domain.AuditLogHelper;
 import com.fleetmgm.shared.exception.BadRequestException;
 import com.fleetmgm.shared.exception.ConflictException;
 import com.fleetmgm.shared.exception.NotFoundException;
@@ -37,6 +39,8 @@ import java.util.UUID;
 @Service
 public class JobService {
 
+    private static final String ENTITY_TYPE = "Job";
+
     private final JobRepository jobRepository;
     private final VehicleRepository vehicleRepository;
     private final WorkerRepository workerRepository;
@@ -44,6 +48,7 @@ public class JobService {
     private final UserRepository userRepository;
     private final JobMapper jobMapper;
     private final ApplicationEventPublisher eventPublisher;
+    private final AuditLogHelper auditLogHelper;
 
     public JobService(JobRepository jobRepository,
                       VehicleRepository vehicleRepository,
@@ -51,7 +56,8 @@ public class JobService {
                       ClientRepository clientRepository,
                       UserRepository userRepository,
                       JobMapper jobMapper,
-                      ApplicationEventPublisher eventPublisher) {
+                      ApplicationEventPublisher eventPublisher,
+                      AuditLogHelper auditLogHelper) {
         this.jobRepository = jobRepository;
         this.vehicleRepository = vehicleRepository;
         this.workerRepository = workerRepository;
@@ -59,6 +65,7 @@ public class JobService {
         this.userRepository = userRepository;
         this.jobMapper = jobMapper;
         this.eventPublisher = eventPublisher;
+        this.auditLogHelper = auditLogHelper;
     }
 
     @Transactional(readOnly = true)
@@ -95,7 +102,9 @@ public class JobService {
         job.setAssignedDriver(assignedDriver);
         job.setClient(client);
         validateActualDates(job);
-        return jobMapper.toResponse(jobRepository.save(job));
+        var saved = jobMapper.toResponse(jobRepository.save(job));
+        auditLogHelper.log(ENTITY_TYPE, saved.id().toString(), AuditAction.CREATE);
+        return saved;
     }
 
     @Transactional(readOnly = true)
@@ -126,7 +135,9 @@ public class JobService {
         job.setAssignedDriver(assignedDriver);
         job.setClient(client);
         validateActualDates(job);
-        return jobMapper.toResponse(jobRepository.save(job));
+        var saved = jobMapper.toResponse(jobRepository.save(job));
+        auditLogHelper.log(ENTITY_TYPE, saved.id().toString(), AuditAction.UPDATE);
+        return saved;
     }
 
     @Transactional
@@ -136,6 +147,7 @@ public class JobService {
                 .orElseThrow(() -> new NotFoundException("JOB_NOT_FOUND", "Job " + id + " not found"));
         job.setDeletedAt(Instant.now());
         jobRepository.save(job);
+        auditLogHelper.log(ENTITY_TYPE, id.toString(), AuditAction.DELETE);
     }
 
     @Transactional
@@ -159,7 +171,9 @@ public class JobService {
         if (startUsageValue != null) {
             job.setStartUsageValue(startUsageValue);
         }
-        return jobMapper.toResponse(jobRepository.save(job));
+        var saved = jobMapper.toResponse(jobRepository.save(job));
+        auditLogHelper.log(ENTITY_TYPE, saved.id().toString(), AuditAction.UPDATE, "Job started");
+        return saved;
     }
 
     @Transactional
@@ -184,6 +198,7 @@ public class JobService {
             job.setActualEnd(Instant.now());
         }
         Job saved = jobRepository.save(job);
+        auditLogHelper.log(ENTITY_TYPE, saved.getId().toString(), AuditAction.UPDATE, "Job completed");
         eventPublisher.publishEvent(new JobCompletedEvent(
                 saved.getId(), saved.getVehicle().getId(),
                 saved.getClient() != null ? saved.getClient().getId() : null,
@@ -205,7 +220,9 @@ public class JobService {
                     "Job " + id + " cannot be cancelled from state " + job.getStatus());
         }
         job.setStatus(JobStatus.CANCELLED);
-        return jobMapper.toResponse(jobRepository.save(job));
+        var saved = jobMapper.toResponse(jobRepository.save(job));
+        auditLogHelper.log(ENTITY_TYPE, saved.id().toString(), AuditAction.UPDATE, "Job cancelled");
+        return saved;
     }
 
     // actualStart/actualEnd represent things that already happened (unlike scheduledStart/scheduledEnd,

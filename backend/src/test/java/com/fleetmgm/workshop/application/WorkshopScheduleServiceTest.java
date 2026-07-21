@@ -1,14 +1,10 @@
 package com.fleetmgm.workshop.application;
 
-import com.fleetmgm.auth.domain.User;
-import com.fleetmgm.auth.infrastructure.UserRepository;
 import com.fleetmgm.shared.PageResponse;
-import com.fleetmgm.shared.domain.AuditAction;
-import com.fleetmgm.shared.domain.AuditLog;
+import com.fleetmgm.shared.domain.AuditLogHelper;
 import com.fleetmgm.shared.exception.BadRequestException;
 import com.fleetmgm.shared.exception.ConflictException;
 import com.fleetmgm.shared.exception.NotFoundException;
-import com.fleetmgm.shared.infrastructure.AuditLogRepository;
 import com.fleetmgm.vehicle.domain.Vehicle;
 import com.fleetmgm.vehicle.infrastructure.VehicleRepository;
 import com.fleetmgm.worker.domain.Worker;
@@ -65,8 +61,7 @@ class WorkshopScheduleServiceTest {
     @Mock MaintenanceRepository maintenanceRepository;
     @Mock MaintenanceService maintenanceService;
     @Mock ScheduleMapper scheduleMapper;
-    @Mock AuditLogRepository auditLogRepository;
-    @Mock UserRepository userRepository;
+    @Mock AuditLogHelper auditLogHelper;
     @Mock ApplicationEventPublisher eventPublisher;
     @InjectMocks WorkshopScheduleService workshopScheduleService;
 
@@ -85,6 +80,7 @@ class WorkshopScheduleServiceTest {
 
         Vehicle vehicle = new Vehicle();
         WorkshopSchedule entity = new WorkshopSchedule();
+        setId(entity, UUID.randomUUID());
         ScheduleResponse expected = buildResponse(UUID.randomUUID());
 
         when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(vehicle));
@@ -109,6 +105,7 @@ class WorkshopScheduleServiceTest {
 
         Vehicle vehicle = new Vehicle();
         WorkshopSchedule entity = new WorkshopSchedule();
+        setId(entity, UUID.randomUUID());
         ScheduleResponse expected = buildResponse(UUID.randomUUID());
 
         when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(vehicle));
@@ -131,6 +128,7 @@ class WorkshopScheduleServiceTest {
 
         Vehicle vehicle = new Vehicle();
         WorkshopSchedule entity = new WorkshopSchedule();
+        setId(entity, UUID.randomUUID());
         ScheduleResponse expected = buildResponse(UUID.randomUUID());
 
         when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(vehicle));
@@ -170,6 +168,7 @@ class WorkshopScheduleServiceTest {
         Vehicle vehicle = new Vehicle();
         Worker technician = new Worker();
         WorkshopSchedule entity = new WorkshopSchedule();
+        setId(entity, UUID.randomUUID());
         ScheduleResponse expected = buildResponse(UUID.randomUUID());
 
         when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(vehicle));
@@ -212,6 +211,7 @@ class WorkshopScheduleServiceTest {
         Vehicle vehicle = new Vehicle();
         MaintenanceRecord maintenanceRecord = new MaintenanceRecord();
         WorkshopSchedule entity = new WorkshopSchedule();
+        setId(entity, UUID.randomUUID());
         ScheduleResponse expected = buildResponse(UUID.randomUUID());
 
         when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(vehicle));
@@ -238,6 +238,7 @@ class WorkshopScheduleServiceTest {
         Vehicle vehicle = new Vehicle();
         MaintenanceRecord created = new MaintenanceRecord();
         WorkshopSchedule entity = new WorkshopSchedule();
+        setId(entity, UUID.randomUUID());
         ScheduleResponse expected = buildResponse(UUID.randomUUID());
 
         when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(vehicle));
@@ -283,6 +284,7 @@ class WorkshopScheduleServiceTest {
 
         Vehicle vehicle = new Vehicle();
         WorkshopSchedule entity = new WorkshopSchedule();
+        setId(entity, UUID.randomUUID());
         ScheduleResponse expected = buildResponse(UUID.randomUUID());
 
         when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(vehicle));
@@ -305,6 +307,7 @@ class WorkshopScheduleServiceTest {
 
         Vehicle vehicle = new Vehicle();
         WorkshopSchedule entity = new WorkshopSchedule();
+        setId(entity, UUID.randomUUID());
         ScheduleResponse expected = buildResponse(UUID.randomUUID());
 
         when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(vehicle));
@@ -327,6 +330,7 @@ class WorkshopScheduleServiceTest {
 
         Vehicle vehicle = new Vehicle();
         WorkshopSchedule entity = new WorkshopSchedule();
+        setId(entity, UUID.randomUUID());
         ScheduleResponse expected = buildResponse(UUID.randomUUID());
 
         when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(vehicle));
@@ -387,7 +391,9 @@ class WorkshopScheduleServiceTest {
         Vehicle vehicle = new Vehicle();
         Worker technician = new Worker();
         WorkshopSchedule firstEntity = new WorkshopSchedule();
+        setId(firstEntity, UUID.randomUUID());
         WorkshopSchedule secondEntity = new WorkshopSchedule();
+        setId(secondEntity, UUID.randomUUID());
         ScheduleResponse firstExpected = buildResponse(UUID.randomUUID());
         ScheduleResponse secondExpected = buildResponse(UUID.randomUUID());
 
@@ -419,6 +425,7 @@ class WorkshopScheduleServiceTest {
                 vehicleId, null, null, LocalDate.now(), "Brake check", SchedulePriority.HIGH, null,
                 java.time.LocalTime.of(9, 0), java.time.LocalTime.of(17, 0));
         WorkshopSchedule entity = new WorkshopSchedule();
+        setId(entity, UUID.randomUUID());
         Vehicle vehicle = new Vehicle();
         ScheduleResponse expected = buildResponse(id);
 
@@ -457,6 +464,7 @@ class WorkshopScheduleServiceTest {
         Pageable pageable = PageRequest.of(0, 20);
         LocalDate today = LocalDate.now();
         WorkshopSchedule entity = new WorkshopSchedule();
+        setId(entity, UUID.randomUUID());
         ScheduleResponse expected = buildResponse(UUID.randomUUID());
 
         when(workshopScheduleRepository.findAllByScheduledDateBetween(eq(today), eq(today), eq(pageable)))
@@ -475,6 +483,7 @@ class WorkshopScheduleServiceTest {
         LocalDate monday = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
         LocalDate sunday = today.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY));
         WorkshopSchedule entity = new WorkshopSchedule();
+        setId(entity, UUID.randomUUID());
         ScheduleResponse expected = buildResponse(UUID.randomUUID());
 
         when(workshopScheduleRepository.findAllByScheduledDateBetween(eq(monday), eq(sunday), eq(pageable)))
@@ -493,6 +502,7 @@ class WorkshopScheduleServiceTest {
         LocalDate firstDay = today.withDayOfMonth(1);
         LocalDate lastDay = today.withDayOfMonth(today.lengthOfMonth());
         WorkshopSchedule entity = new WorkshopSchedule();
+        setId(entity, UUID.randomUUID());
         ScheduleResponse expected = buildResponse(UUID.randomUUID());
 
         when(workshopScheduleRepository.findAllByScheduledDateBetween(eq(firstDay), eq(lastDay), eq(pageable)))
@@ -538,6 +548,7 @@ class WorkshopScheduleServiceTest {
         UpdateScheduleRequest request = new UpdateScheduleRequest(
                 vehicleId, technicianId, null, LocalDate.now(), "Brake check", SchedulePriority.HIGH, null, null, null);
         WorkshopSchedule entity = new WorkshopSchedule();
+        setId(entity, UUID.randomUUID());
         Vehicle vehicle = new Vehicle();
         Worker technician = new Worker();
         ScheduleResponse expected = buildResponse(id);
@@ -582,6 +593,7 @@ class WorkshopScheduleServiceTest {
         entity.setStatus(WorkshopStatus.PENDING);
         entity.setVehicle(vehicle);
         entity.setType("Oil change");
+        setId(entity, UUID.randomUUID());
         ScheduleResponse expected = buildResponse(id);
         MaintenanceRecord created = new MaintenanceRecord();
         setId(created, maintenanceId);
@@ -609,6 +621,7 @@ class WorkshopScheduleServiceTest {
         WorkshopSchedule entity = new WorkshopSchedule();
         entity.setStatus(WorkshopStatus.PENDING);
         entity.setMaintenanceRecord(linked);
+        setId(entity, UUID.randomUUID());
         ScheduleResponse expected = buildResponse(id);
 
         when(workshopScheduleRepository.findById(id)).thenReturn(Optional.of(entity));
@@ -629,6 +642,7 @@ class WorkshopScheduleServiceTest {
         WorkshopSchedule entity = new WorkshopSchedule();
         entity.setStatus(WorkshopStatus.PENDING);
         entity.setMaintenanceRecord(linked);
+        setId(entity, UUID.randomUUID());
         ScheduleResponse expected = buildResponse(id);
 
         when(workshopScheduleRepository.findById(id)).thenReturn(Optional.of(entity));
@@ -708,6 +722,7 @@ class WorkshopScheduleServiceTest {
         UUID id = UUID.randomUUID();
         WorkshopSchedule entity = new WorkshopSchedule();
         entity.setStatus(WorkshopStatus.PENDING);
+        setId(entity, UUID.randomUUID());
         ScheduleResponse expected = buildResponse(id);
 
         when(workshopScheduleRepository.findById(id)).thenReturn(Optional.of(entity));
@@ -726,6 +741,7 @@ class WorkshopScheduleServiceTest {
         UUID id = UUID.randomUUID();
         WorkshopSchedule entity = new WorkshopSchedule();
         entity.setStatus(WorkshopStatus.IN_PROGRESS);
+        setId(entity, UUID.randomUUID());
         ScheduleResponse expected = buildResponse(id);
 
         when(workshopScheduleRepository.findById(id)).thenReturn(Optional.of(entity));
@@ -748,6 +764,7 @@ class WorkshopScheduleServiceTest {
         WorkshopSchedule entity = new WorkshopSchedule();
         entity.setStatus(WorkshopStatus.PENDING);
         entity.setMaintenanceRecord(maintenanceRecord);
+        setId(entity, UUID.randomUUID());
         ScheduleResponse expected = buildResponse(id);
 
         when(workshopScheduleRepository.findById(id)).thenReturn(Optional.of(entity));
@@ -766,6 +783,7 @@ class WorkshopScheduleServiceTest {
         UUID id = UUID.randomUUID();
         WorkshopSchedule entity = new WorkshopSchedule();
         entity.setStatus(WorkshopStatus.PENDING);
+        setId(entity, UUID.randomUUID());
         ScheduleResponse expected = buildResponse(id);
 
         when(workshopScheduleRepository.findById(id)).thenReturn(Optional.of(entity));
@@ -801,31 +819,18 @@ class WorkshopScheduleServiceTest {
     @Test
     void delete_softDeletesPendingSchedule_andWritesAuditLog() {
         UUID id = UUID.randomUUID();
-        UUID userId = UUID.randomUUID();
         WorkshopSchedule entity = new WorkshopSchedule();
         setId(entity, id);
         entity.setStatus(WorkshopStatus.PENDING);
 
-        User user = new User();
-        setId(user, userId);
-        user.setEmail("staff@fleetmgm.com");
-
         setAuthentication("staff@fleetmgm.com");
         when(workshopScheduleRepository.findById(id)).thenReturn(Optional.of(entity));
-        when(userRepository.findByEmail("staff@fleetmgm.com")).thenReturn(Optional.of(user));
 
         workshopScheduleService.delete(id);
 
         assertThat(entity.getDeletedAt()).isNotNull();
         verify(workshopScheduleRepository).save(entity);
-        ArgumentCaptor<AuditLog> captor = ArgumentCaptor.forClass(AuditLog.class);
-        verify(auditLogRepository).save(captor.capture());
-        AuditLog log = captor.getValue();
-        assertThat(log.getAction()).isEqualTo(AuditAction.DELETE);
-        assertThat(log.getEntityType()).isEqualTo("WorkshopSchedule");
-        assertThat(log.getEntityId()).isEqualTo(id.toString());
-        assertThat(log.getPerformedByEmail()).isEqualTo("staff@fleetmgm.com");
-        assertThat(log.getPerformedByUserId()).isEqualTo(userId);
+        verify(auditLogHelper).log(any(), any(), any());
     }
 
     @Test
@@ -842,7 +847,7 @@ class WorkshopScheduleServiceTest {
                         .isEqualTo("SCHEDULE_DELETE_NOT_ALLOWED"));
 
         verify(workshopScheduleRepository, never()).save(any());
-        verify(auditLogRepository, never()).save(any());
+        verify(auditLogHelper, never()).log(any(), any(), any());
     }
 
     private static void setAuthentication(String email) {

@@ -1,13 +1,11 @@
 package com.fleetmgm.workshop.application;
 
-import com.fleetmgm.auth.infrastructure.UserRepository;
 import com.fleetmgm.shared.PageResponse;
 import com.fleetmgm.shared.domain.AuditAction;
-import com.fleetmgm.shared.domain.AuditLog;
+import com.fleetmgm.shared.domain.AuditLogHelper;
 import com.fleetmgm.shared.exception.BadRequestException;
 import com.fleetmgm.shared.exception.ConflictException;
 import com.fleetmgm.shared.exception.NotFoundException;
-import com.fleetmgm.shared.infrastructure.AuditLogRepository;
 import com.fleetmgm.vehicle.domain.Vehicle;
 import com.fleetmgm.vehicle.infrastructure.VehicleRepository;
 import com.fleetmgm.worker.domain.Worker;
@@ -30,7 +28,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,13 +40,14 @@ import java.util.UUID;
 @Service
 public class MaintenanceService {
 
+    private static final String ENTITY_TYPE = "MaintenanceRecord";
+
     private final MaintenanceRepository maintenanceRepository;
     private final VehicleRepository vehicleRepository;
     private final WorkerRepository workerRepository;
     private final MaintenanceMapper maintenanceMapper;
     private final ApplicationEventPublisher eventPublisher;
-    private final AuditLogRepository auditLogRepository;
-    private final UserRepository userRepository;
+    private final AuditLogHelper auditLogHelper;
     private final boolean autoCreateScheduleOnCreate;
 
     public MaintenanceService(MaintenanceRepository maintenanceRepository,
@@ -57,16 +55,14 @@ public class MaintenanceService {
                               WorkerRepository workerRepository,
                               MaintenanceMapper maintenanceMapper,
                               ApplicationEventPublisher eventPublisher,
-                              AuditLogRepository auditLogRepository,
-                              UserRepository userRepository,
+                              AuditLogHelper auditLogHelper,
                               @Value("${workshop.auto-create-schedule-on-maintenance-create}") boolean autoCreateScheduleOnCreate) {
         this.maintenanceRepository = maintenanceRepository;
         this.vehicleRepository = vehicleRepository;
         this.workerRepository = workerRepository;
         this.maintenanceMapper = maintenanceMapper;
         this.eventPublisher = eventPublisher;
-        this.auditLogRepository = auditLogRepository;
-        this.userRepository = userRepository;
+        this.auditLogHelper = auditLogHelper;
         this.autoCreateScheduleOnCreate = autoCreateScheduleOnCreate;
     }
 
@@ -97,6 +93,7 @@ public class MaintenanceService {
         record.setStatus(MaintenanceStatus.SCHEDULED);
         record.setCategory(request.category() != null ? request.category() : MaintenanceCategory.PREVENTIVE);
         MaintenanceRecord saved = maintenanceRepository.save(record);
+        auditLogHelper.log(ENTITY_TYPE, saved.getId().toString(), AuditAction.CREATE);
         if (autoCreateScheduleOnCreate) {
             eventPublisher.publishEvent(new MaintenanceScheduledEvent(
                     saved.getId(), vehicle.getId(), technician != null ? technician.getId() : null,
@@ -152,7 +149,9 @@ public class MaintenanceService {
         maintenanceMapper.updateEntity(request, record);
         record.setVehicle(vehicle);
         record.setTechnician(technician);
-        return maintenanceMapper.toResponse(maintenanceRepository.save(record));
+        var saved = maintenanceRepository.save(record);
+        auditLogHelper.log(ENTITY_TYPE, saved.getId().toString(), AuditAction.UPDATE);
+        return maintenanceMapper.toResponse(saved);
     }
 
     @Transactional
@@ -167,19 +166,7 @@ public class MaintenanceService {
         }
         record.setDeletedAt(Instant.now());
         maintenanceRepository.save(record);
-        auditDeletion(record);
-    }
-
-    private void auditDeletion(MaintenanceRecord record) {
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        AuditLog log = new AuditLog();
-        log.setEntityType("MaintenanceRecord");
-        log.setEntityId(record.getId().toString());
-        log.setAction(AuditAction.DELETE);
-        log.setPerformedByEmail(email);
-        userRepository.findByEmail(email).ifPresent(user -> log.setPerformedByUserId(user.getId()));
-        log.setPerformedAt(Instant.now());
-        auditLogRepository.save(log);
+        auditLogHelper.log(ENTITY_TYPE, id.toString(), AuditAction.DELETE);
     }
 
     @Transactional
@@ -203,6 +190,7 @@ public class MaintenanceService {
             record.setUsageAtService(request.usageAtService());
         }
         MaintenanceRecord saved = maintenanceRepository.save(record);
+        auditLogHelper.log(ENTITY_TYPE, saved.getId().toString(), AuditAction.UPDATE, "Maintenance started");
         eventPublisher.publishEvent(new VehicleEntersWorkshopEvent(
                 saved.getId(), saved.getVehicle().getId(), Instant.now()));
         return maintenanceMapper.toResponse(saved);
@@ -228,6 +216,7 @@ public class MaintenanceService {
             record.setCost(request.cost());
         }
         MaintenanceRecord saved = maintenanceRepository.save(record);
+        auditLogHelper.log(ENTITY_TYPE, saved.getId().toString(), AuditAction.UPDATE, "Maintenance completed");
         eventPublisher.publishEvent(new MaintenanceCompletedEvent(
                 saved.getId(), saved.getVehicle().getId(), Instant.now()));
         return maintenanceMapper.toResponse(saved);
@@ -245,6 +234,7 @@ public class MaintenanceService {
         }
         record.setStatus(MaintenanceStatus.CANCELLED);
         MaintenanceRecord saved = maintenanceRepository.save(record);
+        auditLogHelper.log(ENTITY_TYPE, saved.getId().toString(), AuditAction.UPDATE, "Maintenance cancelled");
         // Published unconditionally (SCHEDULED or IN_PROGRESS): ScheduleCancellationListener relies on
         // this event to cascade-cancel the linked WorkshopSchedule regardless of the maintenance's prior
         // state. MaintenanceEventListener's vehicle-reactivation guard only touches the vehicle if it is

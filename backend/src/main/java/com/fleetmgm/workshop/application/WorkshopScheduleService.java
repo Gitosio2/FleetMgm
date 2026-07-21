@@ -1,13 +1,11 @@
 package com.fleetmgm.workshop.application;
 
-import com.fleetmgm.auth.infrastructure.UserRepository;
 import com.fleetmgm.shared.PageResponse;
 import com.fleetmgm.shared.domain.AuditAction;
-import com.fleetmgm.shared.domain.AuditLog;
+import com.fleetmgm.shared.domain.AuditLogHelper;
 import com.fleetmgm.shared.exception.BadRequestException;
 import com.fleetmgm.shared.exception.ConflictException;
 import com.fleetmgm.shared.exception.NotFoundException;
-import com.fleetmgm.shared.infrastructure.AuditLogRepository;
 import com.fleetmgm.vehicle.domain.Vehicle;
 import com.fleetmgm.vehicle.infrastructure.VehicleRepository;
 import com.fleetmgm.worker.domain.Worker;
@@ -28,7 +26,6 @@ import com.fleetmgm.workshop.infrastructure.WorkshopScheduleRepository;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,6 +40,7 @@ import java.util.UUID;
 public class WorkshopScheduleService {
 
     private static final String ROLES = "hasAnyRole('ADMIN', 'MANAGER', 'ADMINISTRATIVE', 'WORKSHOP_STAFF')";
+    private static final String ENTITY_TYPE = "WorkshopSchedule";
 
     private final WorkshopScheduleRepository workshopScheduleRepository;
     private final VehicleRepository vehicleRepository;
@@ -50,8 +48,7 @@ public class WorkshopScheduleService {
     private final MaintenanceRepository maintenanceRepository;
     private final MaintenanceService maintenanceService;
     private final ScheduleMapper scheduleMapper;
-    private final AuditLogRepository auditLogRepository;
-    private final UserRepository userRepository;
+    private final AuditLogHelper auditLogHelper;
     private final ApplicationEventPublisher eventPublisher;
 
     public WorkshopScheduleService(WorkshopScheduleRepository workshopScheduleRepository,
@@ -60,8 +57,7 @@ public class WorkshopScheduleService {
                                    MaintenanceRepository maintenanceRepository,
                                    MaintenanceService maintenanceService,
                                    ScheduleMapper scheduleMapper,
-                                   AuditLogRepository auditLogRepository,
-                                   UserRepository userRepository,
+                                   AuditLogHelper auditLogHelper,
                                    ApplicationEventPublisher eventPublisher) {
         this.workshopScheduleRepository = workshopScheduleRepository;
         this.vehicleRepository = vehicleRepository;
@@ -69,8 +65,7 @@ public class WorkshopScheduleService {
         this.maintenanceRepository = maintenanceRepository;
         this.maintenanceService = maintenanceService;
         this.scheduleMapper = scheduleMapper;
-        this.auditLogRepository = auditLogRepository;
-        this.userRepository = userRepository;
+        this.auditLogHelper = auditLogHelper;
         this.eventPublisher = eventPublisher;
     }
 
@@ -114,7 +109,9 @@ public class WorkshopScheduleService {
         schedule.setMaintenanceRecord(maintenanceRecord);
         schedule.setStatus(WorkshopStatus.PENDING);
         schedule.setPriority(request.priority() != null ? request.priority() : SchedulePriority.MEDIUM);
-        return scheduleMapper.toResponse(workshopScheduleRepository.save(schedule));
+        var saved = workshopScheduleRepository.save(schedule);
+        auditLogHelper.log(ENTITY_TYPE, saved.getId().toString(), AuditAction.CREATE);
+        return scheduleMapper.toResponse(saved);
     }
 
     private Worker resolveTechnician(UUID technicianId) {
@@ -170,7 +167,9 @@ public class WorkshopScheduleService {
         schedule.setVehicle(vehicle);
         schedule.setTechnician(technician);
         schedule.setMaintenanceRecord(maintenanceRecord);
-        return scheduleMapper.toResponse(workshopScheduleRepository.save(schedule));
+        var saved = workshopScheduleRepository.save(schedule);
+        auditLogHelper.log(ENTITY_TYPE, saved.getId().toString(), AuditAction.UPDATE);
+        return scheduleMapper.toResponse(saved);
     }
 
     @Transactional
@@ -185,19 +184,7 @@ public class WorkshopScheduleService {
         }
         schedule.setDeletedAt(Instant.now());
         workshopScheduleRepository.save(schedule);
-        auditDeletion(schedule);
-    }
-
-    private void auditDeletion(WorkshopSchedule schedule) {
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        AuditLog log = new AuditLog();
-        log.setEntityType("WorkshopSchedule");
-        log.setEntityId(schedule.getId().toString());
-        log.setAction(AuditAction.DELETE);
-        log.setPerformedByEmail(email);
-        userRepository.findByEmail(email).ifPresent(user -> log.setPerformedByUserId(user.getId()));
-        log.setPerformedAt(Instant.now());
-        auditLogRepository.save(log);
+        auditLogHelper.log(ENTITY_TYPE, id.toString(), AuditAction.DELETE);
     }
 
     @Transactional
@@ -212,7 +199,9 @@ public class WorkshopScheduleService {
         }
         ensureLinkedMaintenanceStarted(schedule);
         schedule.setStatus(WorkshopStatus.IN_PROGRESS);
-        return scheduleMapper.toResponse(workshopScheduleRepository.save(schedule));
+        var saved = workshopScheduleRepository.save(schedule);
+        auditLogHelper.log(ENTITY_TYPE, saved.getId().toString(), AuditAction.UPDATE, "Schedule started");
+        return scheduleMapper.toResponse(saved);
     }
 
     // Since create() now always links a MaintenanceRecord, the null branch here is a safety net for
@@ -269,6 +258,7 @@ public class WorkshopScheduleService {
         }
         schedule.setStatus(WorkshopStatus.CANCELLED);
         WorkshopSchedule saved = workshopScheduleRepository.save(schedule);
+        auditLogHelper.log(ENTITY_TYPE, saved.getId().toString(), AuditAction.UPDATE, "Schedule cancelled");
         // Published unconditionally, even when maintenanceRecordId is null (unplanned-breakdown flow with
         // no linked MaintenanceRecord yet) — ScheduleCancellationListener no-ops on a null id, matching
         // ScheduleCompletionListener's existing no-op pattern for the symmetric completion event.

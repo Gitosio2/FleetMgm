@@ -1,5 +1,6 @@
 package com.fleetmgm.supplier.application;
 
+import com.fleetmgm.shared.domain.AuditLogHelper;
 import com.fleetmgm.shared.exception.ConflictException;
 import com.fleetmgm.shared.exception.NotFoundException;
 import com.fleetmgm.supplier.domain.Supplier;
@@ -35,6 +36,7 @@ class SupplierServiceTest {
 
     @Mock SupplierRepository supplierRepository;
     @Mock SupplierMapper supplierMapper;
+    @Mock AuditLogHelper auditLogHelper;
     @InjectMocks SupplierService supplierService;
 
     // --- list ---
