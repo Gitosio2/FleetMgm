@@ -244,10 +244,11 @@ describe('Billing', () => {
 
     const issued = SEED_INVOICES[1]!
     const issuedRow = screen.getByText(issued.invoiceNumber).closest('tr')!
-    await user.click(within(issuedRow).getByRole('button', { name: /editar/i }))
+    await user.click(within(issuedRow).getByRole('button', { name: /ver factura/i }))
     const dialog = await screen.findByRole('dialog')
     // ISSUED invoices are read-only (InvoiceService.update() rejects non-DRAFT edits) — the modal
-    // shows this with the generic "Factura" heading instead of "Editar factura".
+    // shows this with the generic "Factura" heading instead of "Editar factura", and the row
+    // action shows the "view" icon/label instead of "edit" to match.
     expect(await within(dialog).findByRole('heading', { name: 'Factura' })).toBeInTheDocument()
     expect(within(dialog).getByText(/fecha de emisión/i)).toBeInTheDocument()
     expect(within(dialog).getByText(issued.issueDate!)).toBeInTheDocument()
@@ -259,7 +260,7 @@ describe('Billing', () => {
 
     const issued = SEED_INVOICES[1]!
     const row = (await screen.findByText(issued.invoiceNumber)).closest('tr')!
-    await user.click(within(row).getByRole('button', { name: /editar/i }))
+    await user.click(within(row).getByRole('button', { name: /ver factura/i }))
 
     const dialog = await screen.findByRole('dialog')
     expect(await within(dialog).findByRole('heading', { name: 'Factura' })).toBeInTheDocument()
