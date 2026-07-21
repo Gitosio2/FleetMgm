@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Check, Play, X } from 'lucide-react'
 import type { Job } from '@fleetmgm/api'
 import { useCancelJob, useCompleteJob, useStartJob } from '@fleetmgm/hooks'
 import { Button } from '@/components/ui/button'
@@ -61,20 +62,24 @@ export function JobActionButtons({ job }: JobActionButtonsProps) {
       <div className="flex flex-col items-start gap-1">
         <div className="flex gap-1">
           <Button
-            variant="default"
+            variant="success"
             size="sm"
+            aria-label="Iniciar trabajo"
+            title="Iniciar trabajo"
             disabled={isPending}
             onClick={() => setUsageModalMode('start')}
           >
-            Iniciar
+            <Play className="size-4" />
           </Button>
           <Button
-            variant="outline"
+            variant="destructive"
             size="sm"
+            aria-label="Cancelar trabajo"
+            title="Cancelar trabajo"
             disabled={isPending}
             onClick={() => cancelJob.mutate(job.id)}
           >
-            Cancelar
+            <X className="size-4" />
           </Button>
         </div>
         {isError && (
@@ -92,20 +97,24 @@ export function JobActionButtons({ job }: JobActionButtonsProps) {
       <div className="flex flex-col items-start gap-1">
         <div className="flex gap-1">
           <Button
-            variant="default"
+            variant="secondary"
             size="sm"
+            aria-label="Completar trabajo"
+            title="Completar trabajo"
             disabled={isPending}
             onClick={() => setUsageModalMode('complete')}
           >
-            Completar
+            <Check className="size-4" />
           </Button>
           <Button
-            variant="outline"
+            variant="destructive"
             size="sm"
+            aria-label="Cancelar trabajo"
+            title="Cancelar trabajo"
             disabled={isPending}
             onClick={() => cancelJob.mutate(job.id)}
           >
-            Cancelar
+            <X className="size-4" />
           </Button>
         </div>
         {isError && (

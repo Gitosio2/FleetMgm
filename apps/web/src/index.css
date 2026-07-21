@@ -56,11 +56,13 @@
   --color-error-container: #ffdad6;
   --color-on-error-container: #410002;
 
-  /* Financial delta text only (e.g. total margin) — not a full status/container pair like
-     error above, since it's used the same lightweight way --color-tertiary already is: a
-     single text-ink token. Contrast-validated per the dataviz skill against this app's own
-     surfaces (not the skill's generic ones): 7.54:1 on light card bg #ffffff. */
+  /* Originally a financial delta text-ink token only (e.g. total margin), now doubling as a
+     button fill (Iniciar) — reusing the same dark green as background keeps a single source of
+     truth for "success green" instead of a second literal color. --color-on-success pairs white
+     text on top: same computed ratio as the documented 7.54:1 (contrast is symmetric regardless
+     of which side is foreground/background), well above the 4.5:1 AA text minimum. */
   --color-success: #006300;
+  --color-on-success: #ffffff;
 
   --color-background: #f1f5f9;
   --color-on-background: #0f172a;
@@ -116,8 +118,11 @@
   --color-error-container: #93000a;
   --color-on-error-container: #ffdad6;
 
-  /* 6.61:1 on dark card bg #31394d (see the light-mode declaration above for the full note). */
+  /* 6.61:1 on dark card bg #31394d (see the light-mode declaration above for the full note).
+     --color-on-success is dark text on top of this light green fill (button role, not text-ink
+     role) — same near-black-same-hue scheme as --color-on-tertiary above, ~8.5:1 contrast. */
   --color-success: #4ade80;
+  --color-on-success: #052e16;
 
   --color-background: #0b1326;
   --color-on-background: #dae2fd;
