@@ -74,6 +74,18 @@ jobs:
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
 
+  semgrep-sast:
+    name: Semgrep SAST
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: semgrep/semgrep-action@v1
+        with:
+          config: >-
+            p/default
+            p/security-audit
+            p/owasp-top-ten
+
   # TODO(Hito 13+): no package.json defines a `test` script yet, so `test` is a no-op
   # per workspace until real tests land. `build`/`lint` are the real gate for now —
   # they already catch broken TypeScript/Vite changes.

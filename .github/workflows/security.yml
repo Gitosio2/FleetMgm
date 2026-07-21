@@ -22,3 +22,16 @@ jobs:
       - run: ./mvnw -B dependency-check:check
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+
+  semgrep-sast:
+    name: Semgrep SAST
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: semgrep/semgrep-action@v1
+        with:
+          config: >-
+            p/default
+            p/security-audit
+            p/owasp-top-ten
+

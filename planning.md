@@ -280,7 +280,7 @@ FleetMgm/
 │
 ├── .github/workflows/
 │   ├── ci.yml                                  ← Tests + OWASP + SAST en PRs
-│   └── security.yml                            ← OWASP semanal programado
+│   └── security.yml                            ← OWASP + SAST semanal programado
 └── docker-compose.yml                          ← postgres:16 + backend + apps/web (nginx)
 ```
 
