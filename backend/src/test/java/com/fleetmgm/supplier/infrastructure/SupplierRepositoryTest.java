@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -22,6 +23,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase.Replace.NONE;
 
 @Tag("integration")
@@ -72,6 +74,19 @@ class SupplierRepositoryTest {
 
         // same entity → should not conflict with itself
         assertThat(supplierRepository.existsByTaxIdAndIdNot("B44444444", supplier.getId())).isFalse();
+    }
+
+    // Documents the DB-level backstop (uq_suppliers_tax_id_active, V19) that GlobalExceptionHandler's
+    // DataIntegrityViolationException handler exists to catch: two concurrent create() calls can both
+    // pass SupplierService's existsByTaxId() pre-check before either commits, so the unique index —
+    // not the app-level check — is what actually rejects the second insert.
+    @Test
+    void saveAndFlush_throwsDataIntegrityViolation_whenTaxIdConflictsConcurrently() {
+        supplierRepository.saveAndFlush(buildSupplier("Acme Parts", "B12345678"));
+        Supplier concurrentDuplicate = buildSupplier("Different Name", "B12345678");
+
+        assertThatThrownBy(() -> supplierRepository.saveAndFlush(concurrentDuplicate))
+                .isInstanceOf(DataIntegrityViolationException.class);
     }
 
     @Test
