@@ -61,7 +61,7 @@ export function ScheduleTable({ schedules, onEdit }: ScheduleTableProps) {
                   </Button>
                   {schedule.status === 'PENDING' && (
                     <Button
-                      variant="ghost"
+                      variant="success"
                       size="sm"
                       aria-label="Iniciar entrada"
                       title="Iniciar entrada"
@@ -73,7 +73,7 @@ export function ScheduleTable({ schedules, onEdit }: ScheduleTableProps) {
                   )}
                   {schedule.status === 'IN_PROGRESS' && (
                     <Button
-                      variant="ghost"
+                      variant="secondary"
                       size="sm"
                       aria-label="Completar entrada"
                       title="Completar entrada"

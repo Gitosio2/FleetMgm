@@ -62,7 +62,7 @@ export function JobActionButtons({ job }: JobActionButtonsProps) {
       <div className="flex flex-col items-start gap-1">
         <div className="flex gap-1">
           <Button
-            variant="ghost"
+            variant="success"
             size="sm"
             aria-label="Iniciar trabajo"
             title="Iniciar trabajo"
@@ -97,7 +97,7 @@ export function JobActionButtons({ job }: JobActionButtonsProps) {
       <div className="flex flex-col items-start gap-1">
         <div className="flex gap-1">
           <Button
-            variant="ghost"
+            variant="secondary"
             size="sm"
             aria-label="Completar trabajo"
             title="Completar trabajo"
