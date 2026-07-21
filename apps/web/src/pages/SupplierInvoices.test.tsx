@@ -256,6 +256,8 @@ describe('SupplierInvoices', () => {
       `Asignado: ${formatCurrency(0)} / ${formatCurrency(withoutVehicle.subtotal)}`,
     )
 
+    await user.click(screen.getByRole('button', { name: /añadir línea/i }))
+
     await user.selectOptions(screen.getByLabelText(/vehículo de la línea/i), 'vehicle-1')
     await user.type(screen.getByLabelText(/^descripción$/i), 'Gasoil - Toyota Hilux')
     await user.clear(screen.getByLabelText(/^cantidad$/i))
@@ -314,8 +316,8 @@ describe('SupplierInvoices', () => {
     const lineItemRow = screen.getByText(alreadySplit.lineItems[0]!.description).closest('tr')!
     await user.click(within(lineItemRow).getByRole('button', { name: /editar línea/i }))
 
-    await user.clear(screen.getByLabelText(/coste total a editar/i))
-    await user.type(screen.getByLabelText(/coste total a editar/i), '45.00')
+    await user.clear(screen.getByLabelText(/^coste total$/i))
+    await user.type(screen.getByLabelText(/^coste total$/i), '45.00')
     await user.click(screen.getByRole('button', { name: /^guardar$/i }))
 
     await waitFor(() => {
