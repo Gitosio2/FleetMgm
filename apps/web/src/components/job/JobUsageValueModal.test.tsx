@@ -214,7 +214,34 @@ describe('JobUsageValueModal', () => {
     expect(onConfirm).toHaveBeenCalledWith(15300)
   })
 
-  it('does not apply the below-current check in start mode', async () => {
+  it('blocks submission and shows an error when starting with a value below the vehicle\'s current usage', async () => {
+    const user = userEvent.setup()
+    const onConfirm = vi.fn()
+    const onOpenChange = vi.fn()
+
+    // KM_JOB (job-1) uses vehicle-1, currentKm 15000 — floor is 15000.
+    renderWithClient(
+      <JobUsageValueModal
+        open
+        onOpenChange={onOpenChange}
+        job={KM_JOB}
+        mode="start"
+        onConfirm={onConfirm}
+        isPending={false}
+      />,
+    )
+
+    await user.type(await screen.findByLabelText('Kilómetros actuales'), '1')
+    await user.click(screen.getByRole('button', { name: /^iniciar$/i }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /el valor ingresado es menor al que ya tiene registrado el vehículo/i,
+    )
+    expect(onConfirm).not.toHaveBeenCalled()
+    expect(onOpenChange).not.toHaveBeenCalled()
+  })
+
+  it('allows submission in start mode when the value equals or exceeds the current usage', async () => {
     const user = userEvent.setup()
     const onConfirm = vi.fn()
 
@@ -229,13 +256,13 @@ describe('JobUsageValueModal', () => {
       />,
     )
 
-    await user.type(await screen.findByLabelText('Kilómetros actuales'), '1')
+    await user.type(await screen.findByLabelText('Kilómetros actuales'), '15000')
     await user.click(screen.getByRole('button', { name: /^iniciar$/i }))
 
-    expect(onConfirm).toHaveBeenCalledWith(1)
+    expect(onConfirm).toHaveBeenCalledWith(15000)
   })
 
-  it('blocks a negative value in start mode, where there is no floor to catch it', async () => {
+  it('blocks a negative value in start mode with the negative-specific message, ahead of the floor check', async () => {
     const user = userEvent.setup()
     const onConfirm = vi.fn()
 

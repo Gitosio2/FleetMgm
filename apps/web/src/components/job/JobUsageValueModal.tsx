@@ -4,7 +4,14 @@ import { useVehicle } from '@fleetmgm/hooks'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogBody,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { JOB_ERROR_MESSAGES, resolveJobErrorMessage } from './job-shared'
 
 const USAGE_MEASURE_LABEL: Record<UsageMeasure, string> = {
@@ -55,10 +62,13 @@ export function JobUsageValueModal({
       : vehicle.currentHours
     : null
 
-  // Only `complete` has a backend-enforced floor (JobService.assertUsageValueNotRegressing) —
-  // `start` never validates startUsageValue against anything, so no client-side check applies there.
+  // Mirrors JobService.assertUsageValueNotRegressing on the backend: start()'s floor is just the
+  // vehicle's current recorded value (the job has no startUsageValue yet — this call sets it);
+  // complete() additionally floors against the job's own startUsageValue.
   const floor =
-    mode === 'complete' ? Math.max(currentValue ?? -Infinity, job.startUsageValue ?? -Infinity) : -Infinity
+    mode === 'complete'
+      ? Math.max(currentValue ?? -Infinity, job.startUsageValue ?? -Infinity)
+      : (currentValue ?? -Infinity)
 
   const { title, confirmLabel } = MODE_COPY[mode]
   const errorMessage = validationError ?? (error ? resolveJobErrorMessage(error) : null)
@@ -93,41 +103,43 @@ export function JobUsageValueModal({
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
 
-        <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="job-usage-value">{fieldLabel}</Label>
-            <Input
-              id="job-usage-value"
-              type="number"
-              value={value}
-              onChange={(e) => {
-                setValue(e.target.value)
-                setValidationError(null)
-              }}
-              placeholder={currentValue != null ? `Actual: ${currentValue}` : undefined}
-            />
-          </div>
+        <DialogBody>
+          <form id="job-usage-value-form" className="flex flex-col gap-4" onSubmit={handleSubmit}>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="job-usage-value">{fieldLabel}</Label>
+              <Input
+                id="job-usage-value"
+                type="number"
+                value={value}
+                onChange={(e) => {
+                  setValue(e.target.value)
+                  setValidationError(null)
+                }}
+                placeholder={currentValue != null ? `Actual: ${currentValue}` : undefined}
+              />
+            </div>
 
-          {errorMessage && (
-            <p role="alert" className="text-sm text-error">
-              {errorMessage}
-            </p>
-          )}
+            {errorMessage && (
+              <p role="alert" className="text-sm text-error">
+                {errorMessage}
+              </p>
+            )}
+          </form>
+        </DialogBody>
 
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={isPending}
-              onClick={() => onOpenChange(false)}
-            >
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={isPending}>
-              {confirmLabel}
-            </Button>
-          </DialogFooter>
-        </form>
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={isPending}
+            onClick={() => onOpenChange(false)}
+          >
+            Cancelar
+          </Button>
+          <Button type="submit" form="job-usage-value-form" disabled={isPending}>
+            {confirmLabel}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )

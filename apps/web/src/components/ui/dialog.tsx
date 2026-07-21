@@ -61,10 +61,10 @@ function DialogDescription({
 }
 
 function DialogBody({ className, ...props }: React.ComponentProps<'div'>) {
-  // pb-2 keeps the last field's border/focus ring inside the scrollport — overflow-y-auto
-  // otherwise clips the bottom edge flush against DialogFooter.
+  // pt-2/pb-2 keep the first/last field's border or focus ring inside the scrollport —
+  // overflow-y-auto otherwise clips them flush against DialogHeader above and DialogFooter below.
   return (
-    <div className={cn('min-h-0 flex-1 overflow-y-auto px-6 pb-2', className)} {...props} />
+    <div className={cn('min-h-0 flex-1 overflow-y-auto px-6 pt-2 pb-2', className)} {...props} />
   )
 }
 
