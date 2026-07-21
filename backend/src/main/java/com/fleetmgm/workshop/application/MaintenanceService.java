@@ -115,7 +115,9 @@ public class MaintenanceService {
         record.setType(type);
         record.setStatus(MaintenanceStatus.SCHEDULED);
         record.setCategory(category != null ? category : MaintenanceCategory.PREVENTIVE);
-        return maintenanceRepository.save(record);
+        MaintenanceRecord saved = maintenanceRepository.save(record);
+        auditLogHelper.log(ENTITY_TYPE, saved.getId().toString(), AuditAction.CREATE);
+        return saved;
     }
 
     private Worker resolveTechnician(UUID technicianId) {

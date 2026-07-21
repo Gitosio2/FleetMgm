@@ -290,7 +290,11 @@ class MaintenanceServiceTest {
         Vehicle vehicle = new Vehicle();
         Worker technician = new Worker();
         when(maintenanceRepository.save(any(MaintenanceRecord.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                .thenAnswer(invocation -> {
+                    MaintenanceRecord entity = invocation.getArgument(0);
+                    setId(entity, UUID.randomUUID());
+                    return entity;
+                });
 
         MaintenanceRecord result = maintenanceService.createFromSchedule(
                 vehicle, technician, "Rotura de transmisión", MaintenanceCategory.CORRECTIVE);
@@ -301,16 +305,22 @@ class MaintenanceServiceTest {
         assertThat(result.getStatus()).isEqualTo(MaintenanceStatus.SCHEDULED);
         assertThat(result.getCategory()).isEqualTo(MaintenanceCategory.CORRECTIVE);
         verify(eventPublisher, never()).publishEvent(any());
+        verify(auditLogHelper).log(any(), any(), any());
     }
 
     @Test
     void createFromSchedule_defaultsToPreventive_whenCategoryNull() {
         when(maintenanceRepository.save(any(MaintenanceRecord.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                .thenAnswer(invocation -> {
+                    MaintenanceRecord entity = invocation.getArgument(0);
+                    setId(entity, UUID.randomUUID());
+                    return entity;
+                });
 
         MaintenanceRecord result = maintenanceService.createFromSchedule(new Vehicle(), null, "Oil change", null);
 
         assertThat(result.getCategory()).isEqualTo(MaintenanceCategory.PREVENTIVE);
+        verify(auditLogHelper).log(any(), any(), any());
     }
 
     // --- start ---
