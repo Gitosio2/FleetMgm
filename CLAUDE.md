@@ -616,7 +616,7 @@ Migration sequence: V1 users → V2 clients → V3 vehicles → V4 workers (+ dr
 ## CI/CD (`.github/workflows/`)
 
 `ci.yml` — triggered on PRs: tests + OWASP Dependency-Check + Semgrep SAST.  
-`security.yml` — weekly scheduled OWASP scan.
+`security.yml` — weekly scheduled OWASP & Semgrep scan.
 
 OWASP check fails the build if any dependency has CVSS ≥ 7.
 
