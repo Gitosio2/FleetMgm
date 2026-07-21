@@ -17,7 +17,10 @@ export function InvoiceActionButtons({ invoice, onEdit }: InvoiceActionButtonsPr
 
   const isPending = issueInvoice.isPending || payInvoice.isPending
   const error = issueInvoice.isError ? issueInvoice.error : payInvoice.isError ? payInvoice.error : null
-  const editLabel = invoice.status === 'PAID' ? 'Ver factura' : 'Editar factura'
+  // Mirrors InvoiceFormModal's own isReadOnly rule (isEditing && !isDraft) — any non-DRAFT status
+  // opens the modal read-only, so the icon/label must say "view", not "edit", for all of them.
+  const isViewOnly = invoice.status !== 'DRAFT'
+  const editLabel = isViewOnly ? 'Ver factura' : 'Editar factura'
 
   return (
     <div className="flex flex-col items-start gap-1">
@@ -29,7 +32,7 @@ export function InvoiceActionButtons({ invoice, onEdit }: InvoiceActionButtonsPr
           title={editLabel}
           onClick={() => onEdit(invoice)}
         >
-          {invoice.status === 'PAID' ? <Eye className="size-4" /> : <Pencil className="size-4" />}
+          {isViewOnly ? <Eye className="size-4" /> : <Pencil className="size-4" />}
         </Button>
         {invoice.status === 'DRAFT' && (
           <Button
