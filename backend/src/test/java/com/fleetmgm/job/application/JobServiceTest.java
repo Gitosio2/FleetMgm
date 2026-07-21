@@ -12,6 +12,7 @@ import com.fleetmgm.job.dto.JobMapper;
 import com.fleetmgm.job.dto.JobResponse;
 import com.fleetmgm.job.dto.UpdateJobRequest;
 import com.fleetmgm.job.infrastructure.JobRepository;
+import com.fleetmgm.shared.domain.AuditLogHelper;
 import com.fleetmgm.shared.exception.BadRequestException;
 import com.fleetmgm.shared.exception.ConflictException;
 import com.fleetmgm.shared.exception.NotFoundException;
@@ -58,6 +59,7 @@ class JobServiceTest {
     @Mock UserRepository userRepository;
     @Mock JobMapper jobMapper;
     @Mock ApplicationEventPublisher eventPublisher;
+    @Mock AuditLogHelper auditLogHelper;
     @InjectMocks JobService jobService;
 
     @AfterEach
@@ -131,6 +133,7 @@ class JobServiceTest {
         Worker driver = new Worker();
         Client client = new Client();
         Job entity = new Job();
+        setId(entity, UUID.randomUUID());
         JobResponse expected = buildJobResponse(UUID.randomUUID());
 
         when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(vehicle));
@@ -266,6 +269,7 @@ class JobServiceTest {
         Job entity = new Job();
         entity.setActualStart(start);
         entity.setActualEnd(end);
+        setId(entity, UUID.randomUUID());
         JobResponse expected = buildJobResponse(UUID.randomUUID());
 
         when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(new Vehicle()));
@@ -288,6 +292,7 @@ class JobServiceTest {
 
         Job entity = new Job();
         entity.setActualStart(start);
+        setId(entity, UUID.randomUUID());
         JobResponse expected = buildJobResponse(UUID.randomUUID());
 
         when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(new Vehicle()));
@@ -395,6 +400,7 @@ class JobServiceTest {
         UUID id = UUID.randomUUID();
         UUID vehicleId = UUID.randomUUID();
         Job job = new Job();
+        setId(job, UUID.randomUUID());
         UpdateJobRequest request = new UpdateJobRequest(vehicleId, null, null, "Delivery", null,
                 "Origin", "Destination", null, null, null, null, null, null);
         JobResponse expected = buildJobResponse(id);
@@ -501,6 +507,7 @@ class JobServiceTest {
         Client client = mock(Client.class);
         when(client.getId()).thenReturn(clientId);
         Job job = new Job();
+        setId(job, id);
         job.setStatus(JobStatus.IN_PROGRESS);
         job.setVehicle(vehicle);
         job.setClient(client);
@@ -537,6 +544,7 @@ class JobServiceTest {
         Vehicle vehicle = mock(Vehicle.class);
         when(vehicle.getId()).thenReturn(vehicleId);
         Job job = new Job();
+        setId(job, id);
         job.setStatus(JobStatus.IN_PROGRESS);
         job.setVehicle(vehicle);
         JobResponse expected = buildJobResponse(id);
@@ -560,6 +568,7 @@ class JobServiceTest {
         Instant manualEnd = Instant.parse("2026-01-02T10:00:00Z");
         Vehicle vehicle = mock(Vehicle.class);
         Job job = new Job();
+        setId(job, id);
         job.setStatus(JobStatus.IN_PROGRESS);
         job.setVehicle(vehicle);
         job.setActualEnd(manualEnd);
@@ -640,6 +649,7 @@ class JobServiceTest {
         vehicle.setUsageMeasure(UsageMeasure.HOURS);
         vehicle.setCurrentHours(2_000L);
         Job job = new Job();
+        setId(job, id);
         job.setStatus(JobStatus.IN_PROGRESS);
         job.setVehicle(vehicle);
         JobResponse expected = buildJobResponse(id);
@@ -808,6 +818,16 @@ class JobServiceTest {
         var auth = new UsernamePasswordAuthenticationToken(
                 email, null, List.of(new SimpleGrantedAuthority("ROLE_DRIVER")));
         SecurityContextHolder.getContext().setAuthentication(auth);
+    }
+
+    private static void setId(Object entity, UUID id) {
+        try {
+            var field = entity.getClass().getDeclaredField("id");
+            field.setAccessible(true);
+            field.set(entity, id);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("Could not set id on " + entity.getClass().getSimpleName(), e);
+        }
     }
 
     private JobResponse buildJobResponse(UUID id) {

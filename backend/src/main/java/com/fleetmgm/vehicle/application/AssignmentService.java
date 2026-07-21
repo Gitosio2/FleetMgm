@@ -2,6 +2,8 @@ package com.fleetmgm.vehicle.application;
 
 import com.fleetmgm.auth.infrastructure.UserRepository;
 import com.fleetmgm.shared.PageResponse;
+import com.fleetmgm.shared.domain.AuditAction;
+import com.fleetmgm.shared.domain.AuditLogHelper;
 import com.fleetmgm.shared.exception.ConflictException;
 import com.fleetmgm.shared.exception.NotFoundException;
 import com.fleetmgm.vehicle.domain.DriverVehicleAssignment;
@@ -27,22 +29,27 @@ import java.util.UUID;
 @Service
 public class AssignmentService {
 
+    private static final String ENTITY_TYPE = "DriverVehicleAssignment";
+
     private final AssignmentRepository assignmentRepository;
     private final WorkerRepository workerRepository;
     private final VehicleRepository vehicleRepository;
     private final UserRepository userRepository;
     private final AssignmentMapper assignmentMapper;
+    private final AuditLogHelper auditLogHelper;
 
     public AssignmentService(AssignmentRepository assignmentRepository,
                              WorkerRepository workerRepository,
                              VehicleRepository vehicleRepository,
                              UserRepository userRepository,
-                             AssignmentMapper assignmentMapper) {
+                             AssignmentMapper assignmentMapper,
+                             AuditLogHelper auditLogHelper) {
         this.assignmentRepository = assignmentRepository;
         this.workerRepository = workerRepository;
         this.vehicleRepository = vehicleRepository;
         this.userRepository = userRepository;
         this.assignmentMapper = assignmentMapper;
+        this.auditLogHelper = auditLogHelper;
     }
 
     @Transactional
@@ -71,7 +78,9 @@ public class AssignmentService {
         assignment.setDriver(driver);
         assignment.setVehicle(vehicle);
         assignment.setAssignedByUser(assignedByUser);
-        return assignmentMapper.toResponse(assignmentRepository.save(assignment));
+        var saved = assignmentMapper.toResponse(assignmentRepository.save(assignment));
+        auditLogHelper.log(ENTITY_TYPE, saved.id().toString(), AuditAction.CREATE);
+        return saved;
     }
 
     @Transactional
@@ -80,7 +89,9 @@ public class AssignmentService {
         DriverVehicleAssignment assignment = assignmentRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("ASSIGNMENT_NOT_FOUND", "Assignment " + id + " not found"));
         assignment.setEndDate(LocalDate.now());
-        return assignmentMapper.toResponse(assignmentRepository.save(assignment));
+        var saved = assignmentMapper.toResponse(assignmentRepository.save(assignment));
+        auditLogHelper.log(ENTITY_TYPE, saved.id().toString(), AuditAction.UPDATE, "Assignment ended");
+        return saved;
     }
 
     @Transactional(readOnly = true)

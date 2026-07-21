@@ -1,7 +1,5 @@
 package com.fleetmgm.billing.application;
 
-import com.fleetmgm.auth.domain.User;
-import com.fleetmgm.auth.infrastructure.UserRepository;
 import com.fleetmgm.billing.domain.Invoice;
 import com.fleetmgm.billing.domain.InvoiceLineItem;
 import com.fleetmgm.billing.domain.InvoiceStatus;
@@ -19,11 +17,9 @@ import com.fleetmgm.client.infrastructure.ClientRepository;
 import com.fleetmgm.job.domain.Job;
 import com.fleetmgm.job.infrastructure.JobRepository;
 import com.fleetmgm.shared.PageResponse;
-import com.fleetmgm.shared.domain.AuditAction;
-import com.fleetmgm.shared.domain.AuditLog;
+import com.fleetmgm.shared.domain.AuditLogHelper;
 import com.fleetmgm.shared.exception.ConflictException;
 import com.fleetmgm.shared.exception.NotFoundException;
-import com.fleetmgm.shared.infrastructure.AuditLogRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -62,8 +58,7 @@ class InvoiceServiceTest {
     @Mock JobRepository jobRepository;
     @Mock InvoiceMapper invoiceMapper;
     @Mock InvoiceNumberGenerator invoiceNumberGenerator;
-    @Mock AuditLogRepository auditLogRepository;
-    @Mock UserRepository userRepository;
+    @Mock AuditLogHelper auditLogHelper;
     InvoiceService invoiceService;
 
     // Configured default tax rate mirrors billing.default-tax-rate in application.yml (21%).
@@ -76,7 +71,7 @@ class InvoiceServiceTest {
         // manually once, matching the pattern already used in MaintenanceServiceTest for its @Value param.
         invoiceService = new InvoiceService(invoiceRepository, lineItemRepository, clientRepository,
                 jobRepository, invoiceMapper, invoiceNumberGenerator,
-                auditLogRepository, userRepository, DEFAULT_TAX_RATE);
+                auditLogHelper, DEFAULT_TAX_RATE);
     }
 
     @AfterEach
@@ -92,6 +87,7 @@ class InvoiceServiceTest {
         CreateInvoiceRequest request = new CreateInvoiceRequest(clientId, null, null, null);
         Client client = new Client();
         Invoice entity = new Invoice();
+        setId(entity, UUID.randomUUID());
         InvoiceResponse expected = buildResponse(UUID.randomUUID());
 
         when(clientRepository.findById(clientId)).thenReturn(Optional.of(client));
@@ -129,6 +125,7 @@ class InvoiceServiceTest {
         CreateInvoiceRequest request = new CreateInvoiceRequest(clientId, null, null, null);
         Client client = new Client();
         Invoice entity = new Invoice();
+        setId(entity, UUID.randomUUID());
 
         when(clientRepository.findById(clientId)).thenReturn(Optional.of(client));
         when(invoiceMapper.toEntity(request)).thenReturn(entity);
@@ -150,6 +147,7 @@ class InvoiceServiceTest {
         CreateInvoiceRequest request = new CreateInvoiceRequest(clientId, null, null, reducedRate);
         Client client = new Client();
         Invoice entity = new Invoice();
+        setId(entity, UUID.randomUUID());
 
         when(clientRepository.findById(clientId)).thenReturn(Optional.of(client));
         when(invoiceMapper.toEntity(request)).thenReturn(entity);
@@ -236,6 +234,7 @@ class InvoiceServiceTest {
         UpdateInvoiceRequest request = new UpdateInvoiceRequest(clientId, null, "updated notes", null);
         Invoice invoice = new Invoice();
         invoice.setStatus(InvoiceStatus.DRAFT);
+        setId(invoice, UUID.randomUUID());
         Client client = new Client();
         InvoiceResponse expected = buildResponse(id);
 
@@ -276,6 +275,7 @@ class InvoiceServiceTest {
         UpdateInvoiceRequest request = new UpdateInvoiceRequest(clientId, null, null, newRate);
         Invoice invoice = new Invoice();
         invoice.setStatus(InvoiceStatus.DRAFT);
+        setId(invoice, UUID.randomUUID());
         Client client = new Client();
 
         when(invoiceRepository.findById(id)).thenReturn(Optional.of(invoice));
@@ -296,6 +296,7 @@ class InvoiceServiceTest {
         UpdateInvoiceRequest request = new UpdateInvoiceRequest(clientId, null, null, null);
         Invoice invoice = new Invoice();
         invoice.setStatus(InvoiceStatus.DRAFT);
+        setId(invoice, UUID.randomUUID());
         invoice.setTaxRate(existingRate);
         Client client = new Client();
 
@@ -314,62 +315,36 @@ class InvoiceServiceTest {
     @Test
     void delete_softDeletesDraftInvoice_andWritesAuditLog() {
         UUID id = UUID.randomUUID();
-        UUID userId = UUID.randomUUID();
         Invoice invoice = new Invoice();
         setId(invoice, id);
         invoice.setStatus(InvoiceStatus.DRAFT);
 
-        User user = new User();
-        setId(user, userId);
-        user.setEmail("manager@fleetmgm.com");
-
         setAuthentication("manager@fleetmgm.com");
         when(invoiceRepository.findById(id)).thenReturn(Optional.of(invoice));
-        when(userRepository.findByEmail("manager@fleetmgm.com")).thenReturn(Optional.of(user));
 
         invoiceService.delete(id);
 
         assertThat(invoice.getDeletedAt()).isNotNull();
         verify(invoiceRepository).save(invoice);
-        ArgumentCaptor<AuditLog> captor = ArgumentCaptor.forClass(AuditLog.class);
-        verify(auditLogRepository).save(captor.capture());
-        AuditLog log = captor.getValue();
-        assertThat(log.getAction()).isEqualTo(AuditAction.DELETE);
-        assertThat(log.getEntityType()).isEqualTo("Invoice");
-        assertThat(log.getEntityId()).isEqualTo(id.toString());
-        assertThat(log.getPerformedByEmail()).isEqualTo("manager@fleetmgm.com");
-        assertThat(log.getPerformedByUserId()).isEqualTo(userId);
+        verify(auditLogHelper).log(any(), any(), any());
     }
 
     @Test
     void delete_cancelsIssuedInvoice_andWritesAuditLog() {
         UUID id = UUID.randomUUID();
-        UUID userId = UUID.randomUUID();
         Invoice invoice = new Invoice();
         setId(invoice, id);
         invoice.setStatus(InvoiceStatus.ISSUED);
 
-        User user = new User();
-        setId(user, userId);
-        user.setEmail("manager@fleetmgm.com");
-
         setAuthentication("manager@fleetmgm.com");
         when(invoiceRepository.findById(id)).thenReturn(Optional.of(invoice));
-        when(userRepository.findByEmail("manager@fleetmgm.com")).thenReturn(Optional.of(user));
 
         invoiceService.delete(id);
 
         assertThat(invoice.getStatus()).isEqualTo(InvoiceStatus.CANCELLED);
         assertThat(invoice.getDeletedAt()).isNull();
         verify(invoiceRepository).save(invoice);
-        ArgumentCaptor<AuditLog> captor = ArgumentCaptor.forClass(AuditLog.class);
-        verify(auditLogRepository).save(captor.capture());
-        AuditLog log = captor.getValue();
-        assertThat(log.getAction()).isEqualTo(AuditAction.DELETE);
-        assertThat(log.getEntityType()).isEqualTo("Invoice");
-        assertThat(log.getEntityId()).isEqualTo(id.toString());
-        assertThat(log.getPerformedByEmail()).isEqualTo("manager@fleetmgm.com");
-        assertThat(log.getPerformedByUserId()).isEqualTo(userId);
+        verify(auditLogHelper).log(any(), any(), any());
     }
 
     @Test
@@ -381,7 +356,6 @@ class InvoiceServiceTest {
 
         setAuthentication("manager@fleetmgm.com");
         when(invoiceRepository.findById(id)).thenReturn(Optional.of(invoice));
-        when(userRepository.findByEmail("manager@fleetmgm.com")).thenReturn(Optional.empty());
 
         invoiceService.delete(id);
 
@@ -404,7 +378,7 @@ class InvoiceServiceTest {
                         .isEqualTo("INVOICE_DELETE_NOT_ALLOWED"));
 
         verify(invoiceRepository, never()).save(any());
-        verify(auditLogRepository, never()).save(any());
+        verify(auditLogHelper, never()).log(any(), any(), any());
     }
 
     @Test
@@ -421,7 +395,7 @@ class InvoiceServiceTest {
                         .isEqualTo("INVOICE_DELETE_NOT_ALLOWED"));
 
         verify(invoiceRepository, never()).save(any());
-        verify(auditLogRepository, never()).save(any());
+        verify(auditLogHelper, never()).log(any(), any(), any());
     }
 
     // --- addLineItem ---
@@ -663,6 +637,7 @@ class InvoiceServiceTest {
         UUID id = UUID.randomUUID();
         Invoice invoice = new Invoice();
         invoice.setStatus(InvoiceStatus.DRAFT);
+        setId(invoice, UUID.randomUUID());
         // taxRate defaults to 0.2100 on the entity
 
         InvoiceLineItem line1 = new InvoiceLineItem();
@@ -698,6 +673,7 @@ class InvoiceServiceTest {
         UUID id = UUID.randomUUID();
         Invoice invoice = new Invoice();
         invoice.setStatus(InvoiceStatus.DRAFT);
+        setId(invoice, UUID.randomUUID());
         invoice.setTaxRate(new BigDecimal("0.10"));
 
         InvoiceLineItem line1 = new InvoiceLineItem();
@@ -755,6 +731,7 @@ class InvoiceServiceTest {
     void pay_transitionsToPaid_usingCurrentDate_whenRequestIsNull() {
         UUID id = UUID.randomUUID();
         Invoice invoice = new Invoice();
+        setId(invoice, id);
         invoice.setStatus(InvoiceStatus.ISSUED);
         InvoiceResponse expected = buildResponse(id);
 
@@ -773,6 +750,7 @@ class InvoiceServiceTest {
     void pay_transitionsToPaid_usingCurrentDate_whenRequestPaymentDateIsNull() {
         UUID id = UUID.randomUUID();
         Invoice invoice = new Invoice();
+        setId(invoice, id);
         invoice.setStatus(InvoiceStatus.ISSUED);
         InvoiceResponse expected = buildResponse(id);
 
@@ -789,6 +767,7 @@ class InvoiceServiceTest {
     void pay_usesProvidedPaymentDate_whenPresentInRequest() {
         UUID id = UUID.randomUUID();
         Invoice invoice = new Invoice();
+        setId(invoice, id);
         invoice.setStatus(InvoiceStatus.ISSUED);
         InvoiceResponse expected = buildResponse(id);
         java.time.LocalDate pastDate = java.time.LocalDate.now().minusDays(10);

@@ -7,6 +7,8 @@ import com.fleetmgm.client.dto.CreateClientRequest;
 import com.fleetmgm.client.dto.UpdateClientRequest;
 import com.fleetmgm.client.infrastructure.ClientRepository;
 import com.fleetmgm.shared.PageResponse;
+import com.fleetmgm.shared.domain.AuditAction;
+import com.fleetmgm.shared.domain.AuditLogHelper;
 import com.fleetmgm.shared.exception.ConflictException;
 import com.fleetmgm.shared.exception.NotFoundException;
 import org.springframework.data.domain.Pageable;
@@ -20,12 +22,16 @@ import java.util.UUID;
 @Service
 public class ClientService {
 
+    private static final String ENTITY_TYPE = "Client";
+
     private final ClientRepository clientRepository;
     private final ClientMapper clientMapper;
+    private final AuditLogHelper auditLogHelper;
 
-    public ClientService(ClientRepository clientRepository, ClientMapper clientMapper) {
+    public ClientService(ClientRepository clientRepository, ClientMapper clientMapper, AuditLogHelper auditLogHelper) {
         this.clientRepository = clientRepository;
         this.clientMapper = clientMapper;
+        this.auditLogHelper = auditLogHelper;
     }
 
     @Transactional(readOnly = true)
@@ -42,7 +48,9 @@ public class ClientService {
                     "A client with taxId " + request.taxId() + " already exists");
         }
         Client client = clientMapper.toEntity(request);
-        return clientMapper.toResponse(clientRepository.save(client));
+        var saved = clientMapper.toResponse(clientRepository.save(client));
+        auditLogHelper.log(ENTITY_TYPE, saved.id().toString(), AuditAction.CREATE);
+        return saved;
     }
 
     @Transactional(readOnly = true)
@@ -63,7 +71,9 @@ public class ClientService {
                     "A client with taxId " + request.taxId() + " already exists");
         }
         clientMapper.updateEntity(request, client);
-        return clientMapper.toResponse(clientRepository.save(client));
+        var saved = clientMapper.toResponse(clientRepository.save(client));
+        auditLogHelper.log(ENTITY_TYPE, saved.id().toString(), AuditAction.UPDATE);
+        return saved;
     }
 
     @Transactional
@@ -73,5 +83,6 @@ public class ClientService {
                 .orElseThrow(() -> new NotFoundException("CLIENT_NOT_FOUND", "Client " + id + " not found"));
         client.setDeletedAt(Instant.now());
         clientRepository.save(client);
+        auditLogHelper.log(ENTITY_TYPE, id.toString(), AuditAction.DELETE);
     }
 }

@@ -2,6 +2,8 @@ package com.fleetmgm.worker.application;
 
 import com.fleetmgm.auth.infrastructure.UserRepository;
 import com.fleetmgm.shared.PageResponse;
+import com.fleetmgm.shared.domain.AuditAction;
+import com.fleetmgm.shared.domain.AuditLogHelper;
 import org.springframework.dao.DataIntegrityViolationException;
 import com.fleetmgm.shared.exception.ConflictException;
 import com.fleetmgm.shared.exception.NotFoundException;
@@ -28,16 +30,21 @@ import java.util.UUID;
 @Service
 public class WorkerService {
 
+    private static final String ENTITY_TYPE = "Worker";
+
     private final WorkerRepository workerRepository;
     private final UserRepository userRepository;
     private final WorkerMapper workerMapper;
+    private final AuditLogHelper auditLogHelper;
 
     public WorkerService(WorkerRepository workerRepository,
                          UserRepository userRepository,
-                         WorkerMapper workerMapper) {
+                         WorkerMapper workerMapper,
+                         AuditLogHelper auditLogHelper) {
         this.workerRepository = workerRepository;
         this.userRepository = userRepository;
         this.workerMapper = workerMapper;
+        this.auditLogHelper = auditLogHelper;
     }
 
     @Transactional(readOnly = true)
@@ -64,7 +71,9 @@ public class WorkerService {
             userRepository.findById(request.userId()).ifPresent(worker::setUser);
         }
         try {
-            return workerMapper.toResponse(workerRepository.save(worker));
+            var saved = workerMapper.toResponse(workerRepository.save(worker));
+            auditLogHelper.log(ENTITY_TYPE, saved.id().toString(), AuditAction.CREATE);
+            return saved;
         } catch (DataIntegrityViolationException ex) {
             throw new ConflictException("WORKER_NATIONAL_ID_CONFLICT",
                     "National ID " + request.nationalId() + " already in use");
@@ -92,7 +101,9 @@ public class WorkerService {
                     "National ID " + worker.getNationalId() + " already in use");
         }
         workerMapper.updateEntity(request, worker);
-        return workerMapper.toResponse(workerRepository.save(worker));
+        var saved = workerMapper.toResponse(workerRepository.save(worker));
+        auditLogHelper.log(ENTITY_TYPE, saved.id().toString(), AuditAction.UPDATE);
+        return saved;
     }
 
     @Transactional
@@ -102,6 +113,7 @@ public class WorkerService {
                 .orElseThrow(() -> new NotFoundException("WORKER_NOT_FOUND", "Worker " + id + " not found"));
         worker.setDeletedAt(Instant.now());
         workerRepository.save(worker);
+        auditLogHelper.log(ENTITY_TYPE, id.toString(), AuditAction.DELETE);
     }
 
     // --- driver helpers ---

@@ -1,6 +1,8 @@
 package com.fleetmgm.supplier.application;
 
 import com.fleetmgm.shared.PageResponse;
+import com.fleetmgm.shared.domain.AuditAction;
+import com.fleetmgm.shared.domain.AuditLogHelper;
 import com.fleetmgm.shared.exception.ConflictException;
 import com.fleetmgm.shared.exception.NotFoundException;
 import com.fleetmgm.supplier.domain.Supplier;
@@ -20,12 +22,16 @@ import java.util.UUID;
 @Service
 public class SupplierService {
 
+    private static final String ENTITY_TYPE = "Supplier";
+
     private final SupplierRepository supplierRepository;
     private final SupplierMapper supplierMapper;
+    private final AuditLogHelper auditLogHelper;
 
-    public SupplierService(SupplierRepository supplierRepository, SupplierMapper supplierMapper) {
+    public SupplierService(SupplierRepository supplierRepository, SupplierMapper supplierMapper, AuditLogHelper auditLogHelper) {
         this.supplierRepository = supplierRepository;
         this.supplierMapper = supplierMapper;
+        this.auditLogHelper = auditLogHelper;
     }
 
     @Transactional(readOnly = true)
@@ -39,7 +45,9 @@ public class SupplierService {
     public SupplierResponse create(CreateSupplierRequest request) {
         assertTaxIdAvailable(request.taxId());
         Supplier supplier = supplierMapper.toEntity(request);
-        return supplierMapper.toResponse(supplierRepository.save(supplier));
+        var saved = supplierMapper.toResponse(supplierRepository.save(supplier));
+        auditLogHelper.log(ENTITY_TYPE, saved.id().toString(), AuditAction.CREATE);
+        return saved;
     }
 
     @Transactional(readOnly = true)
@@ -61,7 +69,9 @@ public class SupplierService {
                     "A supplier with taxId " + request.taxId() + " already exists");
         }
         supplierMapper.updateEntity(request, supplier);
-        return supplierMapper.toResponse(supplierRepository.save(supplier));
+        var saved = supplierMapper.toResponse(supplierRepository.save(supplier));
+        auditLogHelper.log(ENTITY_TYPE, saved.id().toString(), AuditAction.UPDATE);
+        return saved;
     }
 
     @Transactional
@@ -71,6 +81,7 @@ public class SupplierService {
                 .orElseThrow(() -> new NotFoundException("SUPPLIER_NOT_FOUND", "Supplier " + id + " not found"));
         supplier.setDeletedAt(Instant.now());
         supplierRepository.save(supplier);
+        auditLogHelper.log(ENTITY_TYPE, id.toString(), AuditAction.DELETE);
     }
 
     private void assertTaxIdAvailable(String taxId) {

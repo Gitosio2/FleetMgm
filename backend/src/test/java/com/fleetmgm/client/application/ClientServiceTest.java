@@ -7,6 +7,7 @@ import com.fleetmgm.client.dto.CreateClientRequest;
 import com.fleetmgm.client.dto.UpdateClientRequest;
 import com.fleetmgm.client.infrastructure.ClientRepository;
 import com.fleetmgm.shared.exception.ConflictException;
+import com.fleetmgm.shared.domain.AuditLogHelper;
 import com.fleetmgm.shared.exception.NotFoundException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -35,6 +36,7 @@ class ClientServiceTest {
 
     @Mock ClientRepository clientRepository;
     @Mock ClientMapper clientMapper;
+    @Mock AuditLogHelper auditLogHelper;
     @InjectMocks ClientService clientService;
 
     // --- list ---

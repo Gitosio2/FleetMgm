@@ -1,6 +1,5 @@
 package com.fleetmgm.billing.application;
 
-import com.fleetmgm.auth.infrastructure.UserRepository;
 import com.fleetmgm.billing.domain.ExpenseCategory;
 import com.fleetmgm.billing.domain.SupplierInvoice;
 import com.fleetmgm.billing.domain.SupplierInvoiceLineItem;
@@ -16,10 +15,9 @@ import com.fleetmgm.billing.infrastructure.SupplierInvoiceLineItemRepository;
 import com.fleetmgm.billing.infrastructure.SupplierInvoiceRepository;
 import com.fleetmgm.shared.PageResponse;
 import com.fleetmgm.shared.domain.AuditAction;
-import com.fleetmgm.shared.domain.AuditLog;
+import com.fleetmgm.shared.domain.AuditLogHelper;
 import com.fleetmgm.shared.exception.ConflictException;
 import com.fleetmgm.shared.exception.NotFoundException;
-import com.fleetmgm.shared.infrastructure.AuditLogRepository;
 import com.fleetmgm.supplier.domain.Supplier;
 import com.fleetmgm.supplier.infrastructure.SupplierRepository;
 import com.fleetmgm.vehicle.domain.Vehicle;
@@ -30,7 +28,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -47,6 +44,7 @@ import java.util.stream.Collectors;
 public class SupplierInvoiceService {
 
     private static final String ROLES = "hasAnyRole('ADMIN', 'MANAGER', 'ADMINISTRATIVE')";
+    private static final String ENTITY_TYPE = "SupplierInvoice";
 
     // Same 2-decimal HALF_UP currency rounding convention already established in InvoiceService —
     // applied here from the start so addLineItem() doesn't repeat the raw-scale bug that had to be
@@ -59,8 +57,7 @@ public class SupplierInvoiceService {
     private final MaintenanceRepository maintenanceRepository;
     private final SupplierRepository supplierRepository;
     private final SupplierInvoiceMapper supplierInvoiceMapper;
-    private final AuditLogRepository auditLogRepository;
-    private final UserRepository userRepository;
+    private final AuditLogHelper auditLogHelper;
 
     public SupplierInvoiceService(SupplierInvoiceRepository supplierInvoiceRepository,
                                    SupplierInvoiceLineItemRepository supplierInvoiceLineItemRepository,
@@ -68,16 +65,14 @@ public class SupplierInvoiceService {
                                    MaintenanceRepository maintenanceRepository,
                                    SupplierRepository supplierRepository,
                                    SupplierInvoiceMapper supplierInvoiceMapper,
-                                   AuditLogRepository auditLogRepository,
-                                   UserRepository userRepository) {
+                                   AuditLogHelper auditLogHelper) {
         this.supplierInvoiceRepository = supplierInvoiceRepository;
         this.supplierInvoiceLineItemRepository = supplierInvoiceLineItemRepository;
         this.vehicleRepository = vehicleRepository;
         this.maintenanceRepository = maintenanceRepository;
         this.supplierRepository = supplierRepository;
         this.supplierInvoiceMapper = supplierInvoiceMapper;
-        this.auditLogRepository = auditLogRepository;
-        this.userRepository = userRepository;
+        this.auditLogHelper = auditLogHelper;
     }
 
     @Transactional(readOnly = true)
@@ -115,7 +110,9 @@ public class SupplierInvoiceService {
         invoice.setVehicle(vehicle);
         // A brand-new invoice can't have pre-existing line items (they're only added afterward via
         // addLineItem()), so there's nothing to fetch here - skip the query entirely.
-        return toResponseWithLineItems(supplierInvoiceRepository.save(invoice), List.of());
+        var saved = supplierInvoiceRepository.save(invoice);
+        auditLogHelper.log(ENTITY_TYPE, saved.getId().toString(), AuditAction.CREATE);
+        return toResponseWithLineItems(saved, List.of());
     }
 
     @Transactional(readOnly = true)
@@ -150,6 +147,7 @@ public class SupplierInvoiceService {
         invoice.setSupplier(supplier);
         invoice.setVehicle(vehicle);
         SupplierInvoice saved = supplierInvoiceRepository.save(invoice);
+        auditLogHelper.log(ENTITY_TYPE, saved.getId().toString(), AuditAction.UPDATE);
         return toResponseWithLineItems(saved, existingLineItems);
     }
 
@@ -163,19 +161,7 @@ public class SupplierInvoiceService {
         }
         invoice.setDeletedAt(Instant.now());
         supplierInvoiceRepository.save(invoice);
-        auditDeletion(invoice);
-    }
-
-    private void auditDeletion(SupplierInvoice invoice) {
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        AuditLog log = new AuditLog();
-        log.setEntityType("SupplierInvoice");
-        log.setEntityId(invoice.getId().toString());
-        log.setAction(AuditAction.DELETE);
-        log.setPerformedByEmail(email);
-        userRepository.findByEmail(email).ifPresent(user -> log.setPerformedByUserId(user.getId()));
-        log.setPerformedAt(Instant.now());
-        auditLogRepository.save(log);
+        auditLogHelper.log(ENTITY_TYPE, id.toString(), AuditAction.DELETE);
     }
 
     @Transactional
@@ -210,6 +196,7 @@ public class SupplierInvoiceService {
         invoice.setPaymentDate(request != null && request.paymentDate() != null
                 ? request.paymentDate() : LocalDate.now());
         SupplierInvoice saved = supplierInvoiceRepository.save(invoice);
+        auditLogHelper.log(ENTITY_TYPE, saved.getId().toString(), AuditAction.UPDATE, "Supplier invoice paid");
         // Reuse the lineItems already fetched above - no extra query needed.
         return toResponseWithLineItems(saved, lineItems);
     }

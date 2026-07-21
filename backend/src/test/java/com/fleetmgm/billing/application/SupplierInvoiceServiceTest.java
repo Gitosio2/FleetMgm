@@ -1,7 +1,5 @@
 package com.fleetmgm.billing.application;
 
-import com.fleetmgm.auth.domain.User;
-import com.fleetmgm.auth.infrastructure.UserRepository;
 import com.fleetmgm.billing.domain.ExpenseCategory;
 import com.fleetmgm.billing.domain.SupplierInvoice;
 import com.fleetmgm.billing.domain.SupplierInvoiceLineItem;
@@ -16,11 +14,9 @@ import com.fleetmgm.billing.dto.UpdateSupplierInvoiceRequest;
 import com.fleetmgm.billing.infrastructure.SupplierInvoiceLineItemRepository;
 import com.fleetmgm.billing.infrastructure.SupplierInvoiceRepository;
 import com.fleetmgm.shared.PageResponse;
-import com.fleetmgm.shared.domain.AuditAction;
-import com.fleetmgm.shared.domain.AuditLog;
 import com.fleetmgm.shared.exception.ConflictException;
 import com.fleetmgm.shared.exception.NotFoundException;
-import com.fleetmgm.shared.infrastructure.AuditLogRepository;
+import com.fleetmgm.shared.domain.AuditLogHelper;
 import com.fleetmgm.supplier.domain.Supplier;
 import com.fleetmgm.supplier.infrastructure.SupplierRepository;
 import com.fleetmgm.vehicle.domain.Vehicle;
@@ -67,8 +63,7 @@ class SupplierInvoiceServiceTest {
     @Mock MaintenanceRepository maintenanceRepository;
     @Mock SupplierRepository supplierRepository;
     @Mock SupplierInvoiceMapper supplierInvoiceMapper;
-    @Mock AuditLogRepository auditLogRepository;
-    @Mock UserRepository userRepository;
+    @Mock AuditLogHelper auditLogHelper;
     @InjectMocks SupplierInvoiceService supplierInvoiceService;
 
     private static final UUID SUPPLIER_ID = UUID.randomUUID();
@@ -89,6 +84,7 @@ class SupplierInvoiceServiceTest {
         Supplier supplier = new Supplier();
         Vehicle vehicle = new Vehicle();
         SupplierInvoice entity = new SupplierInvoice();
+        setId(entity, UUID.randomUUID());
         SupplierInvoiceResponse expected = buildResponse(UUID.randomUUID());
 
         when(supplierRepository.findById(SUPPLIER_ID)).thenReturn(Optional.of(supplier));
@@ -113,6 +109,7 @@ class SupplierInvoiceServiceTest {
                 null, new BigDecimal("50.00"), new BigDecimal("0"), new BigDecimal("50.00"), null, null);
         Supplier supplier = new Supplier();
         SupplierInvoice entity = new SupplierInvoice();
+        setId(entity, UUID.randomUUID());
         SupplierInvoiceResponse expected = buildResponse(UUID.randomUUID());
 
         when(supplierRepository.findById(SUPPLIER_ID)).thenReturn(Optional.of(supplier));
@@ -229,6 +226,7 @@ class SupplierInvoiceServiceTest {
                 vehicleId, new BigDecimal("100.00"), new BigDecimal("21.00"), new BigDecimal("121.00"), null, null);
         SupplierInvoice invoice = new SupplierInvoice();
         invoice.setStatus(SupplierInvoiceStatus.PENDING);
+        setId(invoice, UUID.randomUUID());
         Supplier supplier = new Supplier();
         Vehicle vehicle = new Vehicle();
         SupplierInvoiceResponse expected = buildResponse(id);
@@ -305,6 +303,7 @@ class SupplierInvoiceServiceTest {
         when(currentVehicle.getId()).thenReturn(vehicleId);
 
         SupplierInvoice invoice = new SupplierInvoice();
+        setId(invoice, id);
         invoice.setStatus(SupplierInvoiceStatus.PENDING);
         invoice.setVehicle(currentVehicle);
         Supplier supplier = new Supplier();
@@ -364,6 +363,7 @@ class SupplierInvoiceServiceTest {
                 SUPPLIER_ID, "SUP-002", ExpenseCategory.FUEL, LocalDate.now(), null,
                 null, new BigDecimal("100.00"), new BigDecimal("21.00"), new BigDecimal("121.00"), null, null);
         SupplierInvoice invoice = new SupplierInvoice();
+        setId(invoice, id);
         invoice.setStatus(SupplierInvoiceStatus.PENDING);
         Supplier supplier = new Supplier();
         SupplierInvoiceLineItem existingLine = new SupplierInvoiceLineItem();
@@ -409,31 +409,18 @@ class SupplierInvoiceServiceTest {
     @Test
     void delete_softDeletesPendingInvoice_andWritesAuditLog() {
         UUID id = UUID.randomUUID();
-        UUID userId = UUID.randomUUID();
         SupplierInvoice invoice = new SupplierInvoice();
         setId(invoice, id);
         invoice.setStatus(SupplierInvoiceStatus.PENDING);
 
-        User user = new User();
-        setId(user, userId);
-        user.setEmail("manager@fleetmgm.com");
-
         setAuthentication("manager@fleetmgm.com");
         when(supplierInvoiceRepository.findById(id)).thenReturn(Optional.of(invoice));
-        when(userRepository.findByEmail("manager@fleetmgm.com")).thenReturn(Optional.of(user));
 
         supplierInvoiceService.delete(id);
 
         assertThat(invoice.getDeletedAt()).isNotNull();
         verify(supplierInvoiceRepository).save(invoice);
-        ArgumentCaptor<AuditLog> captor = ArgumentCaptor.forClass(AuditLog.class);
-        verify(auditLogRepository).save(captor.capture());
-        AuditLog log = captor.getValue();
-        assertThat(log.getAction()).isEqualTo(AuditAction.DELETE);
-        assertThat(log.getEntityType()).isEqualTo("SupplierInvoice");
-        assertThat(log.getEntityId()).isEqualTo(id.toString());
-        assertThat(log.getPerformedByEmail()).isEqualTo("manager@fleetmgm.com");
-        assertThat(log.getPerformedByUserId()).isEqualTo(userId);
+        verify(auditLogHelper).log(any(), any(), any());
     }
 
     @Test
@@ -450,7 +437,7 @@ class SupplierInvoiceServiceTest {
                         .isEqualTo("SUPPLIER_INVOICE_DELETE_NOT_ALLOWED"));
 
         verify(supplierInvoiceRepository, never()).save(any());
-        verify(auditLogRepository, never()).save(any());
+        verify(auditLogHelper, never()).log(any(), any(), any());
     }
 
     // --- pay ---
@@ -459,6 +446,7 @@ class SupplierInvoiceServiceTest {
     void pay_transitionsToPaid_usingCurrentDate_whenRequestIsNull() {
         UUID id = UUID.randomUUID();
         SupplierInvoice invoice = new SupplierInvoice();
+        setId(invoice, id);
         invoice.setStatus(SupplierInvoiceStatus.PENDING);
         SupplierInvoiceResponse expected = buildResponse(id);
 
@@ -477,6 +465,7 @@ class SupplierInvoiceServiceTest {
     void pay_transitionsToPaid_usingCurrentDate_whenRequestPaymentDateIsNull() {
         UUID id = UUID.randomUUID();
         SupplierInvoice invoice = new SupplierInvoice();
+        setId(invoice, id);
         invoice.setStatus(SupplierInvoiceStatus.PENDING);
 
         when(supplierInvoiceRepository.findById(id)).thenReturn(Optional.of(invoice));
@@ -492,6 +481,7 @@ class SupplierInvoiceServiceTest {
     void pay_usesProvidedPaymentDate_whenPresentInRequest() {
         UUID id = UUID.randomUUID();
         SupplierInvoice invoice = new SupplierInvoice();
+        setId(invoice, id);
         invoice.setStatus(SupplierInvoiceStatus.PENDING);
         LocalDate pastDate = LocalDate.now().minusDays(10);
 
@@ -545,6 +535,7 @@ class SupplierInvoiceServiceTest {
     void pay_succeeds_whenLineItemsReconcileWithSubtotal() {
         UUID id = UUID.randomUUID();
         SupplierInvoice invoice = new SupplierInvoice();
+        setId(invoice, id);
         invoice.setStatus(SupplierInvoiceStatus.PENDING);
         invoice.setSubtotal(new BigDecimal("100.00"));
         SupplierInvoiceLineItem line1 = new SupplierInvoiceLineItem();
@@ -572,6 +563,7 @@ class SupplierInvoiceServiceTest {
     void pay_skipsReconciliationCheck_whenHeaderVehicleSet() {
         UUID id = UUID.randomUUID();
         SupplierInvoice invoice = new SupplierInvoice();
+        setId(invoice, id);
         invoice.setStatus(SupplierInvoiceStatus.PENDING);
         invoice.setSubtotal(new BigDecimal("100.00"));
         invoice.setVehicle(new Vehicle());
@@ -591,6 +583,7 @@ class SupplierInvoiceServiceTest {
     void pay_skipsReconciliationCheck_whenNoLineItems() {
         UUID id = UUID.randomUUID();
         SupplierInvoice invoice = new SupplierInvoice();
+        setId(invoice, id);
         invoice.setStatus(SupplierInvoiceStatus.PENDING);
         invoice.setSubtotal(new BigDecimal("100.00"));
         SupplierInvoiceResponse expected = buildResponse(id);

@@ -20,4 +20,10 @@ export const AUDIT_ENTITY_TYPE_LABEL: Record<string, string> = {
   MaintenanceRecord: 'Mantenimiento',
   WorkshopSchedule: 'Cita de taller',
   User: 'Usuario',
+  Client: 'Cliente',
+  Job: 'Trabajo',
+  Supplier: 'Proveedor',
+  Vehicle: 'Vehículo',
+  Worker: 'Trabajador',
+  DriverVehicleAssignment: 'Asignación de conductor',
 }
