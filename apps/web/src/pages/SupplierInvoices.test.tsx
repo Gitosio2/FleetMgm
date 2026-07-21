@@ -98,6 +98,13 @@ describe('SupplierInvoices', () => {
     expect(screen.getByLabelText(/^total$/i)).toHaveValue(48.4)
     await user.click(screen.getByRole('button', { name: /crear factura/i }))
 
+    // The modal stays open and switches to edit mode so the user can immediately add
+    // per-vehicle line items — mirrors InvoiceFormModal's onCreated pattern.
+    expect(await screen.findByRole('heading', { name: 'Editar factura de proveedor' })).toBeInTheDocument()
+    expect(screen.getByLabelText(/^proveedor$/i)).toHaveValue(newSupplier.id)
+
+    // Close the modal, then verify the new row appears in the table.
+    await user.click(screen.getAllByRole('button', { name: /^cerrar$/i })[0]!)
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Ferretería Central' })).toBeInTheDocument()
     })
@@ -127,11 +134,47 @@ describe('SupplierInvoices', () => {
     expect(screen.getByLabelText(/^total$/i)).toHaveValue(121)
     await user.click(screen.getByRole('button', { name: /crear factura/i }))
 
+    // Modal switches to edit mode after creation.
+    expect(await screen.findByRole('heading', { name: 'Editar factura de proveedor' })).toBeInTheDocument()
+
+    // Close the modal, then verify the vehicle licence plate appears in the table row.
+    await user.click(screen.getAllByRole('button', { name: /^cerrar$/i })[0]!)
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Taller Rápido' })).toBeInTheDocument()
     })
     const row = screen.getByRole('button', { name: 'Taller Rápido' }).closest('tr')!
     expect(within(row).getByText('1234ABC')).toBeInTheDocument()
+  })
+
+  it('switches to edit mode after creating a supplier invoice even when active filters exclude it from the list', async () => {
+    const user = userEvent.setup()
+    renderSupplierInvoices()
+
+    await screen.findByRole('button', { name: SEED_SUPPLIER_INVOICES[0]!.supplierName })
+
+    // Filter to PAID so the brand-new PENDING invoice won't appear in the paginated list —
+    // this is the exact scenario that broke the old data.content.find(editingInvoiceId) lookup.
+    await user.selectOptions(screen.getByLabelText(/filtrar por estado/i), 'PAID')
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('button', { name: SEED_SUPPLIER_INVOICES[0]!.supplierName }),
+      ).not.toBeInTheDocument(),
+    )
+
+    const newSupplier = SEED_SUPPLIERS.find((supplier) => supplier.name === 'Ferretería Central')!
+    await user.click(screen.getByRole('button', { name: /nueva factura de proveedor/i }))
+    await user.selectOptions(screen.getByLabelText(/^proveedor$/i), newSupplier.id)
+    await user.selectOptions(screen.getByLabelText(/^categoría$/i), 'OTHER')
+    await user.type(screen.getByLabelText(/fecha de factura/i), '2026-07-10')
+    await user.type(screen.getByLabelText(/^subtotal$/i), '40')
+    await user.type(screen.getByLabelText(/^iva$/i), '8.4')
+    await user.click(screen.getByRole('button', { name: /crear factura/i }))
+
+    // The modal must switch to edit mode (not revert to "Nueva factura de proveedor") even
+    // though the new invoice is PENDING and the current filter is PAID — the per-id fetch
+    // bypasses the filtered list query entirely.
+    expect(await screen.findByRole('heading', { name: 'Editar factura de proveedor' })).toBeInTheDocument()
+    expect(screen.getByLabelText(/^proveedor$/i)).toHaveValue(newSupplier.id)
   })
 
   it('edits a PENDING supplier invoice', async () => {
@@ -213,6 +256,8 @@ describe('SupplierInvoices', () => {
       `Asignado: ${formatCurrency(0)} / ${formatCurrency(withoutVehicle.subtotal)}`,
     )
 
+    await user.click(screen.getByRole('button', { name: /añadir línea/i }))
+
     await user.selectOptions(screen.getByLabelText(/vehículo de la línea/i), 'vehicle-1')
     await user.type(screen.getByLabelText(/^descripción$/i), 'Gasoil - Toyota Hilux')
     await user.clear(screen.getByLabelText(/^cantidad$/i))
@@ -271,8 +316,8 @@ describe('SupplierInvoices', () => {
     const lineItemRow = screen.getByText(alreadySplit.lineItems[0]!.description).closest('tr')!
     await user.click(within(lineItemRow).getByRole('button', { name: /editar línea/i }))
 
-    await user.clear(screen.getByLabelText(/coste total a editar/i))
-    await user.type(screen.getByLabelText(/coste total a editar/i), '45.00')
+    await user.clear(screen.getByLabelText(/^coste total$/i))
+    await user.type(screen.getByLabelText(/^coste total$/i), '45.00')
     await user.click(screen.getByRole('button', { name: /^guardar$/i }))
 
     await waitFor(() => {

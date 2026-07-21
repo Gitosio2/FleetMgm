@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { ExpenseCategory, SupplierInvoice, SupplierInvoiceStatus } from '@fleetmgm/api'
-import { useAllSuppliers, useAllVehicles, useSupplierInvoices } from '@fleetmgm/hooks'
+import { useAllSuppliers, useAllVehicles, useSupplierInvoice, useSupplierInvoices } from '@fleetmgm/hooks'
 import { Button } from '@/components/ui/button'
 import { SupplierInvoiceTable } from '@/components/billing/SupplierInvoiceTable'
 import { SupplierInvoiceFormModal } from '@/components/billing/SupplierInvoiceFormModal'
@@ -52,9 +52,14 @@ export function SupplierInvoices() {
     }
   }
 
-  // Derived from the live query data (not a captured snapshot) so that mutations made while the
-  // modal is open are reflected immediately instead of showing stale data.
-  const editingInvoice = data?.content.find((invoice) => invoice.id === editingInvoiceId)
+  // Fetched by id directly (not derived from the filtered/paginated list query) so the modal keeps
+  // working regardless of active filters, page, or refetch timing. Deriving this from data.content
+  // (as an earlier version did) silently failed whenever the invoice being edited — most critically
+  // one *just created* via onCreated below — didn't happen to be present in the current filtered
+  // page: the modal would revert to "Nueva factura de proveedor" and a second submit created a
+  // duplicate invoice. useSupplierInvoice still reacts live to line-item mutations, since those
+  // invalidate the whole [SUPPLIER_INVOICE_KEY] prefix, which covers this per-id query too.
+  const { data: editingInvoice } = useSupplierInvoice(editingInvoiceId ?? '')
 
   function openCreateForm() {
     setEditingInvoiceId(undefined)
@@ -139,6 +144,7 @@ export function SupplierInvoices() {
           }
         }}
         supplierInvoice={editingInvoice}
+        onCreated={(created) => setEditingInvoiceId(created.id)}
       />
     </div>
   )

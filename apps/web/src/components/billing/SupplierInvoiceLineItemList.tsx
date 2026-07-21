@@ -1,7 +1,12 @@
 import { useState, type FormEvent } from 'react'
-import { Pencil, Trash2 } from 'lucide-react'
-import type { SupplierInvoice, SupplierLineItemResponse } from '@fleetmgm/api'
-import { useAddSupplierLineItem, useAllVehicles, useDeleteSupplierLineItem, useUpdateSupplierLineItem } from '@fleetmgm/hooks'
+import { Pencil, Plus, Trash2 } from 'lucide-react'
+import type { SupplierInvoice, SupplierLineItemRequest, SupplierLineItemResponse } from '@fleetmgm/api'
+import {
+  useAddSupplierLineItem,
+  useAllVehicles,
+  useDeleteSupplierLineItem,
+  useUpdateSupplierLineItem,
+} from '@fleetmgm/hooks'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,125 +27,24 @@ import { formatCurrency } from '@/lib/currency'
 const selectClassName =
   'flex h-11 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary-container disabled:cursor-not-allowed disabled:opacity-50'
 
-const inlineSelectClassName =
-  'flex h-9 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-2 py-1 text-sm text-on-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary-container'
-
 type SupplierInvoiceLineItemListProps = {
   supplierInvoice: SupplierInvoice
   readOnly?: boolean
 }
 
-type EditLineItemFormProps = {
-  invoiceId: string
-  lineItem: SupplierLineItemResponse
-  vehicles: { id: string; make: string; model: string; licensePlate: string | null }[]
-  onDone: () => void
-}
+type VehicleOption = { id: string; make: string; model: string; licensePlate: string | null }
 
-function EditLineItemRow({ invoiceId, lineItem, vehicles, onDone }: EditLineItemFormProps) {
-  const updateLineItem = useUpdateSupplierLineItem()
-
-  const [vehicleId, setVehicleId] = useState(lineItem.vehicleId ?? '')
-  const [description, setDescription] = useState(lineItem.description)
-  const [quantity, setQuantity] = useState(String(lineItem.quantity))
-  const [subtotal, setSubtotal] = useState(String(lineItem.subtotal))
-
-  function handleSave() {
-    updateLineItem.mutate(
-      {
-        id: invoiceId,
-        lineItemId: lineItem.id,
-        request: {
-          description,
-          quantity: Number(quantity),
-          subtotal: Number(subtotal),
-          vehicleId,
-        },
-      },
-      { onSuccess: onDone },
-    )
-  }
-
-  // Preview of the derived average unit price while editing — subtotal is now the direct user
-  // input, so there's no subtotal to preview; the previously-computed value (unit price) is
-  // shown here instead. Guarded against quantity being 0/empty to avoid NaN/Infinity while typing.
-  const previewUnitPrice = Number(quantity) > 0 ? formatCurrency(Number(subtotal) / Number(quantity)) : '—'
-
-  return (
-    <TableRow>
-      <TableCell>
-        <select
-          aria-label="Vehículo a editar"
-          className={inlineSelectClassName}
-          value={vehicleId}
-          onChange={(e) => setVehicleId(e.target.value)}
-        >
-          <option value="" disabled>
-            Selecciona un vehículo
-          </option>
-          {vehicles.map((vehicle) => (
-            <option key={vehicle.id} value={vehicle.id}>
-              {vehicle.make} {vehicle.model}
-              {vehicle.licensePlate ? ` - ${vehicle.licensePlate}` : ''}
-            </option>
-          ))}
-        </select>
-      </TableCell>
-      <TableCell>
-        <Input
-          aria-label="Descripción a editar"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-        />
-      </TableCell>
-      <TableCell>
-        <Input
-          aria-label="Cantidad a editar"
-          type="number"
-          min="0"
-          step="any"
-          value={quantity}
-          onChange={(e) => setQuantity(e.target.value)}
-        />
-      </TableCell>
-      <TableCell>{previewUnitPrice}</TableCell>
-      <TableCell>
-        <Input
-          aria-label="Coste total a editar"
-          type="number"
-          min="0"
-          step="any"
-          value={subtotal}
-          onChange={(e) => setSubtotal(e.target.value)}
-        />
-      </TableCell>
-      <TableCell>
-        <div className="flex gap-1">
-          <Button variant="outline" size="sm" onClick={handleSave} disabled={updateLineItem.isPending}>
-            Guardar
-          </Button>
-          <Button variant="ghost" size="sm" onClick={onDone} disabled={updateLineItem.isPending}>
-            Cancelar
-          </Button>
-        </div>
-      </TableCell>
-    </TableRow>
-  )
-}
-
-export function SupplierInvoiceLineItemList({ supplierInvoice, readOnly = false }: SupplierInvoiceLineItemListProps) {
-  const addLineItem = useAddSupplierLineItem()
+export function SupplierInvoiceLineItemList({
+  supplierInvoice,
+  readOnly = false,
+}: SupplierInvoiceLineItemListProps) {
   const deleteLineItem = useDeleteSupplierLineItem()
   const { data: vehicles = [] } = useAllVehicles()
 
-  const [vehicleId, setVehicleId] = useState('')
-  const [description, setDescription] = useState('')
-  const [quantity, setQuantity] = useState('1')
-  const [subtotal, setSubtotal] = useState('')
-  const [editingLineItemId, setEditingLineItemId] = useState<string | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [isAdding, setIsAdding] = useState(false)
 
-  const canAddLineItem = !readOnly && supplierInvoice.status === 'PENDING'
-
+  const canEditLineItems = !readOnly && supplierInvoice.status === 'PENDING'
   const allocatedTotal = supplierInvoice.lineItems.reduce((sum, lineItem) => sum + lineItem.subtotal, 0)
   const remaining = supplierInvoice.subtotal - allocatedTotal
 
@@ -153,30 +57,6 @@ export function SupplierInvoiceLineItemList({ supplierInvoice, readOnly = false 
       return '—'
     }
     return `${vehicle.make} ${vehicle.model}${vehicle.licensePlate ? ` - ${vehicle.licensePlate}` : ''}`
-  }
-
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-
-    addLineItem.mutate(
-      {
-        id: supplierInvoice.id,
-        request: {
-          description,
-          quantity: Number(quantity),
-          subtotal: Number(subtotal),
-          vehicleId,
-        },
-      },
-      {
-        onSuccess: () => {
-          setVehicleId('')
-          setDescription('')
-          setQuantity('1')
-          setSubtotal('')
-        },
-      },
-    )
   }
 
   return (
@@ -192,126 +72,197 @@ export function SupplierInvoiceLineItemList({ supplierInvoice, readOnly = false 
             <TableHead>Vehículo</TableHead>
             <TableHead>Descripción</TableHead>
             <TableHead>Cantidad</TableHead>
-            <TableHead>Precio medio</TableHead>
             <TableHead>Subtotal</TableHead>
-            {canAddLineItem && <TableHead>Acciones</TableHead>}
+            <TableHead>Acciones</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {supplierInvoice.lineItems.length === 0 ? (
+          {supplierInvoice.lineItems.length === 0 && !isAdding && (
             <TableRow>
-              <TableCell colSpan={canAddLineItem ? 6 : 5} className="text-center text-on-surface-variant">
+              <TableCell colSpan={5} className="text-center text-on-surface-variant">
                 Sin líneas todavía.
               </TableCell>
             </TableRow>
-          ) : (
-            supplierInvoice.lineItems.map((lineItem) =>
-              editingLineItemId === lineItem.id ? (
-                <EditLineItemRow
-                  key={lineItem.id}
-                  invoiceId={supplierInvoice.id}
-                  lineItem={lineItem}
-                  vehicles={vehicles}
-                  onDone={() => setEditingLineItemId(null)}
-                />
-              ) : (
-                <TableRow key={lineItem.id}>
-                  <TableCell>{vehicleLabel(lineItem.vehicleId)}</TableCell>
-                  <TableCell>{lineItem.description}</TableCell>
-                  <TableCell>{lineItem.quantity}</TableCell>
-                  <TableCell>{formatCurrency(lineItem.unitPrice)}</TableCell>
-                  <TableCell>{formatCurrency(lineItem.subtotal)}</TableCell>
-                  {canAddLineItem && (
-                    <TableCell>
-                      <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          aria-label="Editar línea"
-                          title="Editar línea"
-                          onClick={() => setEditingLineItemId(lineItem.id)}
-                        >
-                          <Pencil className="size-4" />
-                        </Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              aria-label="Eliminar línea"
-                              title="Eliminar línea"
-                              disabled={deleteLineItem.isPending}
-                            >
-                              <Trash2 className="size-4" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>¿Eliminar esta línea?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Esto elimina la línea "{lineItem.description}" de la factura. Esta acción no se
-                                puede deshacer desde aquí.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() =>
-                                  deleteLineItem.mutate({ id: supplierInvoice.id, lineItemId: lineItem.id })
-                                }
-                              >
-                                Eliminar
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                    </TableCell>
-                  )}
-                </TableRow>
-              ),
-            )
           )}
+
+          {supplierInvoice.lineItems.map((lineItem) =>
+            editingId === lineItem.id ? (
+              <SupplierLineItemFormRow
+                key={lineItem.id}
+                invoiceId={supplierInvoice.id}
+                lineItem={lineItem}
+                vehicles={vehicles}
+                onCancel={() => setEditingId(null)}
+                onSaved={() => setEditingId(null)}
+              />
+            ) : (
+              <TableRow key={lineItem.id}>
+                <TableCell>{vehicleLabel(lineItem.vehicleId)}</TableCell>
+                <TableCell>{lineItem.description}</TableCell>
+                <TableCell>{lineItem.quantity}</TableCell>
+                <TableCell>{formatCurrency(lineItem.subtotal)}</TableCell>
+                <TableCell>
+                  {canEditLineItems && (
+                    <div className="flex gap-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        aria-label="Editar línea"
+                        title="Editar línea"
+                        onClick={() => setEditingId(lineItem.id)}
+                      >
+                        <Pencil className="size-4" />
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            aria-label="Eliminar línea"
+                            title="Eliminar línea"
+                            disabled={deleteLineItem.isPending}
+                          >
+                            <Trash2 className="size-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>¿Eliminar esta línea?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Esto elimina la línea "{lineItem.description}" de la factura. Esta acción no se
+                              puede deshacer desde aquí.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() =>
+                                deleteLineItem.mutate({
+                                  id: supplierInvoice.id,
+                                  lineItemId: lineItem.id,
+                                })
+                              }
+                            >
+                              Eliminar
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  )}
+                </TableCell>
+              </TableRow>
+            ),
+          )}
+
+          {canEditLineItems &&
+            (isAdding ? (
+              <SupplierLineItemFormRow
+                invoiceId={supplierInvoice.id}
+                vehicles={vehicles}
+                onCancel={() => setIsAdding(false)}
+                onSaved={() => setIsAdding(false)}
+              />
+            ) : (
+              <TableRow>
+                <TableCell colSpan={5}>
+                  <Button type="button" variant="ghost" size="sm" onClick={() => setIsAdding(true)}>
+                    <Plus className="size-4" />
+                    Añadir línea
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
         </TableBody>
       </Table>
+    </div>
+  )
+}
 
-      {canAddLineItem && (
+type SupplierLineItemFormRowProps = {
+  invoiceId: string
+  lineItem?: SupplierLineItemResponse
+  vehicles: VehicleOption[]
+  onCancel: () => void
+  onSaved: () => void
+}
+
+function SupplierLineItemFormRow({
+  invoiceId,
+  lineItem,
+  vehicles,
+  onCancel,
+  onSaved,
+}: SupplierLineItemFormRowProps) {
+  const isEditing = lineItem != null
+  const addLineItem = useAddSupplierLineItem()
+  const updateLineItem = useUpdateSupplierLineItem()
+  const mutation = isEditing ? updateLineItem : addLineItem
+
+  const [vehicleId, setVehicleId] = useState(lineItem?.vehicleId ?? '')
+  const [description, setDescription] = useState(lineItem?.description ?? '')
+  const [quantity, setQuantity] = useState(String(lineItem?.quantity ?? '1'))
+  const [subtotal, setSubtotal] = useState(lineItem != null ? String(lineItem.subtotal) : '')
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    const request: SupplierLineItemRequest = {
+      description,
+      quantity: Number(quantity),
+      subtotal: Number(subtotal),
+      vehicleId,
+    }
+
+    if (isEditing) {
+      updateLineItem.mutate({ id: invoiceId, lineItemId: lineItem.id, request }, { onSuccess: onSaved })
+    } else {
+      addLineItem.mutate({ id: invoiceId, request }, { onSuccess: onSaved })
+    }
+  }
+
+  const idPrefix = isEditing ? `edit-supplier-line-item-${lineItem.id}` : 'new-supplier-line-item'
+
+  return (
+    <TableRow>
+      <TableCell colSpan={5}>
         <form className="flex flex-col gap-3" onSubmit={handleSubmit}>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="supplier-line-item-vehicle">Vehículo de la línea</Label>
-            <select
-              id="supplier-line-item-vehicle"
-              className={selectClassName}
-              value={vehicleId}
-              onChange={(e) => setVehicleId(e.target.value)}
-              required
-            >
-              <option value="" disabled>
-                Selecciona un vehículo
-              </option>
-              {vehicles.map((vehicle) => (
-                <option key={vehicle.id} value={vehicle.id}>
-                  {vehicle.make} {vehicle.model}
-                  {vehicle.licensePlate ? ` - ${vehicle.licensePlate}` : ''}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="supplier-line-item-description">Descripción</Label>
+              <Label htmlFor={`${idPrefix}-vehicle`}>Vehículo de la línea</Label>
+              <select
+                id={`${idPrefix}-vehicle`}
+                className={selectClassName}
+                value={vehicleId}
+                onChange={(e) => setVehicleId(e.target.value)}
+                required
+              >
+                <option value="" disabled>
+                  Selecciona un vehículo
+                </option>
+                {vehicles.map((vehicle) => (
+                  <option key={vehicle.id} value={vehicle.id}>
+                    {vehicle.make} {vehicle.model}
+                    {vehicle.licensePlate ? ` - ${vehicle.licensePlate}` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor={`${idPrefix}-description`}>Descripción</Label>
               <Input
-                id="supplier-line-item-description"
+                id={`${idPrefix}-description`}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 required
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="supplier-line-item-quantity">Cantidad</Label>
+              <Label htmlFor={`${idPrefix}-quantity`}>Cantidad</Label>
               <Input
-                id="supplier-line-item-quantity"
+                id={`${idPrefix}-quantity`}
                 type="number"
                 min="0"
                 step="any"
@@ -321,9 +272,9 @@ export function SupplierInvoiceLineItemList({ supplierInvoice, readOnly = false 
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="supplier-line-item-subtotal">Coste total</Label>
+              <Label htmlFor={`${idPrefix}-subtotal`}>Coste total</Label>
               <Input
-                id="supplier-line-item-subtotal"
+                id={`${idPrefix}-subtotal`}
                 type="number"
                 min="0"
                 step="any"
@@ -334,17 +285,22 @@ export function SupplierInvoiceLineItemList({ supplierInvoice, readOnly = false 
             </div>
           </div>
 
-          {addLineItem.isError && (
+          {mutation.isError && (
             <p role="alert" className="text-sm text-error">
-              No se pudo agregar la línea.
+              {isEditing ? 'No se pudo actualizar la línea.' : 'No se pudo agregar la línea.'}
             </p>
           )}
 
-          <Button type="submit" size="sm" variant="outline" disabled={addLineItem.isPending}>
-            Agregar línea
-          </Button>
+          <div className="flex gap-2">
+            <Button type="submit" size="sm" variant="outline" disabled={mutation.isPending}>
+              {isEditing ? 'Guardar' : 'Agregar línea'}
+            </Button>
+            <Button type="button" size="sm" variant="ghost" onClick={onCancel}>
+              Cancelar
+            </Button>
+          </div>
         </form>
-      )}
-    </div>
+      </TableCell>
+    </TableRow>
   )
 }
