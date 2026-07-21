@@ -87,6 +87,9 @@ springdoc:
 server:
   forward-headers-strategy: framework
 
+jwt:
+  secret: ${JWT_SECRET}
+
 ---
 spring:
   config:
