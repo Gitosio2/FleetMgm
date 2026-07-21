@@ -139,7 +139,7 @@ com.fleetmgm
 | Vehículos — ver lista/detalle | ✅ | ✅ | ✅ | ✅ estado + ficha | Solo el suyo |
 | Vehículos — crear/editar/eliminar | ✅ | ✅ | ✅ | ❌ | ❌ |
 | Asignación conductor↔vehículo | ✅ | ✅ | ✅ | ❌ | ❌ |
-| Mantenimiento — ver | ✅ | ✅ | ✅ | ✅ vehículos del día | ❌ |
+| Mantenimiento — ver | ✅ | ✅ | ✅ | ✅ | ❌ |
 | Mantenimiento — crear/editar | ✅ | ✅ | ✅ | ✅ | ❌ |
 | Órdenes taller — ver hoy/semana/mes | ✅ | ✅ | ✅ | ✅ | ❌ |
 | Órdenes taller — crear/editar | ✅ | ✅ | ✅ | ✅ | ❌ |
@@ -157,6 +157,13 @@ com.fleetmgm
 | Informes de rentabilidad | ✅ | ✅ | ✅ | ❌ | ❌ |
 | Registro de auditoría | ✅ | ✅ | ❌ | ❌ | ❌ |
 | Gestión de usuarios y roles | ✅ | ❌ | ❌ | ❌ | ❌ |
+
+> **Nota (WORKSHOP_STAFF / mantenimiento):** `WORKSHOP_STAFF` puede ver y crear/editar
+> mantenimientos de **toda la flota**, no solo los vehículos programados para hoy. Es una
+> decisión de producto deliberada (el personal de taller necesita historial, preventivos y
+> registros fuera de la agenda del día); `MaintenanceService` no aplica scoping por
+> "vehículos del día". El filtrado orientado al día sigue en **Órdenes taller** vía
+> `range=today|week|month`.
 
 ---
 
