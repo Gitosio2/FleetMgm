@@ -89,6 +89,12 @@ public class Job {
     @Column(name = "deleted_at")
     private Instant deletedAt;
 
+    // Optimistic lock: rejects a concurrent status transition (start/complete/cancel) against a
+    // stale copy instead of silently letting the second writer win and double-fire JobCompletedEvent.
+    @Version
+    @Column(nullable = false)
+    private Long version;
+
     public UUID getId() { return id; }
 
     public String getTitle() { return title; }
@@ -144,4 +150,6 @@ public class Job {
 
     public Instant getDeletedAt() { return deletedAt; }
     public void setDeletedAt(Instant deletedAt) { this.deletedAt = deletedAt; }
+
+    public Long getVersion() { return version; }
 }

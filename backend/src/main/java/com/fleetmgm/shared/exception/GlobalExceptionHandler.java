@@ -7,6 +7,7 @@ import org.slf4j.MDC;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -63,6 +64,16 @@ public class GlobalExceptionHandler {
         String message = "Invalid value '" + ex.getValue() + "' for parameter '" + ex.getName() + "'";
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(new ErrorResponse(400, "VALIDATION_ERROR", message, correlationId()));
+    }
+
+    // A stale-write conflict (two concurrent requests both loaded the same @Version'd entity before
+    // either committed) is a business-logic condition, not a server fault — must map to a structured
+    // 409, never fall through to handleGeneral()'s unhandled 500 (CLAUDE.md rule N).
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<ErrorResponse> handleOptimisticLock(ObjectOptimisticLockingFailureException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ErrorResponse(409, "CONCURRENT_MODIFICATION",
+                        "The resource was modified by another request. Reload and try again.", correlationId()));
     }
 
     @ExceptionHandler(AccessDeniedException.class)
