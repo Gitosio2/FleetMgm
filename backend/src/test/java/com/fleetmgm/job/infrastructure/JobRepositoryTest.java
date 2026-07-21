@@ -19,6 +19,7 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -29,6 +30,7 @@ import java.time.Instant;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase.Replace.NONE;
 
 @Tag("integration")
@@ -294,6 +296,35 @@ class JobRepositoryTest {
 
         assertThat(result.getContent()).extracting(Job::getId).containsExactly(
                 notStarted.getId(), newestStart.getId(), oldestStart.getId());
+    }
+
+    // --- optimistic locking ---
+
+    // Simulates two concurrent requests (e.g. a double-click on "complete") that both load the job
+    // before either commits: each gets its own copy at version 0, and the second save must be
+    // rejected instead of silently overwriting the first transaction's outcome (which would double-fire
+    // JobCompletedEvent — see JobService.complete()).
+    @Test
+    void save_throwsOptimisticLockingFailure_whenTwoConcurrentlyLoadedCopiesAreBothSaved() {
+        Worker driver = persistDriver("81111111A");
+        Vehicle vehicle = persistVehicle("8111AAA");
+        Job job = persistJob("Delivery", vehicle, driver, JobStatus.PENDING);
+        entityManager.getEntityManager().clear();
+
+        // Each findById + detach mimics a separate request loading its own snapshot before either
+        // commits (a single persistence context would return the same identity-mapped instance for
+        // both calls, masking the staleness this test exists to catch).
+        Job firstCopy = jobRepository.findById(job.getId()).orElseThrow();
+        entityManager.getEntityManager().detach(firstCopy);
+        Job secondCopy = jobRepository.findById(job.getId()).orElseThrow();
+        entityManager.getEntityManager().detach(secondCopy);
+
+        firstCopy.setStatus(JobStatus.IN_PROGRESS);
+        jobRepository.saveAndFlush(firstCopy);
+
+        secondCopy.setStatus(JobStatus.CANCELLED);
+        assertThatThrownBy(() -> jobRepository.saveAndFlush(secondCopy))
+                .isInstanceOf(ObjectOptimisticLockingFailureException.class);
     }
 
     private Worker persistDriver(String nationalId) {
