@@ -1,4 +1,4 @@
-import { Pencil } from 'lucide-react'
+import { Check, Pencil, Play, X } from 'lucide-react'
 import type { WorkshopSchedule } from '@fleetmgm/api'
 import { useCancelWorkshopSchedule, useCompleteWorkshopSchedule, useStartWorkshopSchedule } from '@fleetmgm/hooks'
 import { Button } from '@/components/ui/button'
@@ -61,32 +61,38 @@ export function ScheduleTable({ schedules, onEdit }: ScheduleTableProps) {
                   </Button>
                   {schedule.status === 'PENDING' && (
                     <Button
-                      variant="default"
+                      variant="ghost"
                       size="sm"
+                      aria-label="Iniciar entrada"
+                      title="Iniciar entrada"
                       disabled={isPending}
                       onClick={() => startSchedule.mutate(schedule.id)}
                     >
-                      Iniciar
+                      <Play className="size-4" />
                     </Button>
                   )}
                   {schedule.status === 'IN_PROGRESS' && (
                     <Button
-                      variant="default"
+                      variant="ghost"
                       size="sm"
+                      aria-label="Completar entrada"
+                      title="Completar entrada"
                       disabled={isPending}
                       onClick={() => completeSchedule.mutate(schedule.id)}
                     >
-                      Completar
+                      <Check className="size-4" />
                     </Button>
                   )}
                   {(schedule.status === 'PENDING' || schedule.status === 'IN_PROGRESS') && (
                     <Button
-                      variant="outline"
+                      variant="destructive"
                       size="sm"
+                      aria-label="Cancelar entrada"
+                      title="Cancelar entrada"
                       disabled={isPending}
                       onClick={() => cancelSchedule.mutate(schedule.id)}
                     >
-                      Cancelar
+                      <X className="size-4" />
                     </Button>
                   )}
                 </div>
