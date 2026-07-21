@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label'
 import {
   Dialog,
   DialogContent,
+  DialogBody,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -61,7 +62,7 @@ export function SupplierFormModal({ open, onOpenChange, supplier, readOnly = fal
           <DialogTitle>{readOnly ? 'Datos del proveedor' : isEditing ? 'Editar proveedor' : 'Nuevo proveedor'}</DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto px-6">
+        <DialogBody>
           <form id="supplier-form" className="flex flex-col gap-4" onSubmit={handleSubmit}>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="supplier-name">Nombre</Label>
@@ -94,7 +95,7 @@ export function SupplierFormModal({ open, onOpenChange, supplier, readOnly = fal
               <Input id="supplier-address" value={address} onChange={(e) => setAddress(e.target.value)} disabled={readOnly} />
             </div>
           </form>
-        </div>
+        </DialogBody>
 
         <DialogFooter>
           {readOnly ? (

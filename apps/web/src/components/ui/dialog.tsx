@@ -60,8 +60,30 @@ function DialogDescription({
   )
 }
 
-function DialogFooter({ className, ...props }: React.ComponentProps<'div'>) {
-  return <div className={cn('flex shrink-0 justify-end gap-2 px-6 pb-6 pt-6', className)} {...props} />
+function DialogBody({ className, ...props }: React.ComponentProps<'div'>) {
+  // pb-2 keeps the last field's border/focus ring inside the scrollport — overflow-y-auto
+  // otherwise clips the bottom edge flush against DialogFooter.
+  return (
+    <div className={cn('min-h-0 flex-1 overflow-y-auto px-6 pb-2', className)} {...props} />
+  )
 }
 
-export { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter }
+function DialogFooter({ className, ...props }: React.ComponentProps<'div'>) {
+  return (
+    <div
+      className={cn('flex shrink-0 justify-end gap-2 bg-surface-container px-6 pb-6 pt-4', className)}
+      {...props}
+    />
+  )
+}
+
+export {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogBody,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+}

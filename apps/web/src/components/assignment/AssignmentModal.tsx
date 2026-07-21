@@ -5,7 +5,7 @@ import { useCreateAssignment } from '@fleetmgm/hooks'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogBody, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 const selectClassName =
   'flex h-11 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary-container disabled:cursor-not-allowed disabled:opacity-50'
@@ -83,7 +83,7 @@ export function AssignmentModal({
           <DialogTitle>Asignar conductor — {vehicleLabel}</DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto px-6">
+        <DialogBody>
           <form id="assignment-form" className="flex flex-col gap-4" onSubmit={handleSubmit}>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="assignment-driver">Conductor</Label>
@@ -124,7 +124,7 @@ export function AssignmentModal({
               </p>
             )}
           </form>
-        </div>
+        </DialogBody>
 
         <DialogFooter>
           <Button type="submit" form="assignment-form" disabled={createAssignment.isPending || driverId === ''}>

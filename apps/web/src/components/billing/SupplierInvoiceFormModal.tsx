@@ -4,7 +4,7 @@ import { useAllSuppliers, useAllVehicles, useCreateSupplierInvoice, useUpdateSup
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogBody, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { EXPENSE_CATEGORY_LABEL } from './supplier-invoice-shared'
 import { SupplierInvoiceLineItemList } from './SupplierInvoiceLineItemList'
 
@@ -148,7 +148,7 @@ export function SupplierInvoiceFormModal({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto px-6">
+        <DialogBody>
           <form id="supplier-invoice-form" className="flex flex-col gap-4" onSubmit={handleSubmit}>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="flex flex-col gap-1.5">
@@ -320,7 +320,7 @@ export function SupplierInvoiceFormModal({
               <SupplierInvoiceLineItemList supplierInvoice={supplierInvoice} readOnly={isReadOnly} />
             </div>
           )}
-        </div>
+        </DialogBody>
 
         <DialogFooter>
           {isReadOnly ? (

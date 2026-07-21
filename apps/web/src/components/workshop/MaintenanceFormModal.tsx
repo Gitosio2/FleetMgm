@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label'
 import {
   Dialog,
   DialogContent,
+  DialogBody,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -71,7 +72,7 @@ export function MaintenanceFormModal({ open, onOpenChange, record }: Maintenance
           <DialogTitle>Editar orden</DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto px-6">
+        <DialogBody>
           <form id="maintenance-form" className="flex flex-col gap-4" onSubmit={handleSubmit}>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="flex flex-col gap-1.5">
@@ -171,7 +172,7 @@ export function MaintenanceFormModal({ open, onOpenChange, record }: Maintenance
             )}
 
           </form>
-        </div>
+        </DialogBody>
 
         <DialogFooter>
           <Button type="submit" form="maintenance-form" disabled={updateMaintenance.isPending}>

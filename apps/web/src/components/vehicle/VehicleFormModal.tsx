@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label'
 import {
   Dialog,
   DialogContent,
+  DialogBody,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -135,7 +136,7 @@ export function VehicleFormModal({ open, onOpenChange, vehicle }: VehicleFormMod
           <DialogTitle>{isEditing ? 'Editar vehículo' : 'Nuevo vehículo'}</DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto px-6">
+        <DialogBody>
           <form id="vehicle-form" className="flex flex-col gap-4" onSubmit={handleSubmit}>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="flex flex-col gap-1.5">
@@ -315,7 +316,7 @@ export function VehicleFormModal({ open, onOpenChange, vehicle }: VehicleFormMod
             </div>
 
           </form>
-        </div>
+        </DialogBody>
 
         <DialogFooter>
           <Button type="submit" form="vehicle-form" disabled={isPending}>

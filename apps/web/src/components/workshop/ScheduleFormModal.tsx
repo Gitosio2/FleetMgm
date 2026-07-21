@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label'
 import {
   Dialog,
   DialogContent,
+  DialogBody,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -115,7 +116,7 @@ export function ScheduleFormModal({ open, onOpenChange, schedule }: ScheduleForm
           <DialogTitle>{isEditing ? 'Editar entrada' : 'Nueva entrada'}</DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto px-6">
+        <DialogBody>
           <form id="schedule-form" className="flex flex-col gap-4" onSubmit={handleSubmit}>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="flex flex-col gap-1.5">
@@ -248,7 +249,7 @@ export function ScheduleFormModal({ open, onOpenChange, schedule }: ScheduleForm
             )}
 
           </form>
-        </div>
+        </DialogBody>
 
         <DialogFooter>
           <Button type="submit" form="schedule-form" disabled={isPending}>

@@ -8,6 +8,7 @@ import { formatVehicleSelectLabel } from '@/lib/vehicle-label'
 import {
   Dialog,
   DialogContent,
+  DialogBody,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -122,7 +123,7 @@ export function JobFormModal({ open, onOpenChange, job }: JobFormModalProps) {
           <DialogTitle>{isEditing ? 'Editar trabajo' : 'Nuevo trabajo'}</DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto px-6">
+        <DialogBody>
           <form id="job-form" className="flex flex-col gap-4" onSubmit={handleSubmit}>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="job-title">Título</Label>
@@ -263,7 +264,7 @@ export function JobFormModal({ open, onOpenChange, job }: JobFormModalProps) {
               </p>
             )}
           </form>
-        </div>
+        </DialogBody>
 
         <DialogFooter>
           <Button type="submit" form="job-form" disabled={isPending}>

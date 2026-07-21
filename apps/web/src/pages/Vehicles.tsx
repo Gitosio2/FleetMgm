@@ -3,7 +3,7 @@ import type { Vehicle, VehicleCategory, VehicleStatus } from '@fleetmgm/api'
 import { useVehicles } from '@fleetmgm/hooks'
 import { useAuthStore } from '@fleetmgm/store'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogBody, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { VehicleTable } from '@/components/vehicle/VehicleTable'
 import { VehicleFormModal } from '@/components/vehicle/VehicleFormModal'
 import { VehicleFilters } from '@/components/vehicle/VehicleFilters'
@@ -128,7 +128,7 @@ export function Vehicles() {
               Asignación — {assignmentVehicle && `${assignmentVehicle.make} ${assignmentVehicle.model}`}
             </DialogTitle>
           </DialogHeader>
-          <div className="flex-1 overflow-y-auto px-6">
+          <DialogBody>
             {assignmentVehicle && (
               <VehicleAssignmentPanel
                 vehicleId={assignmentVehicle.id}
@@ -136,7 +136,7 @@ export function Vehicles() {
                 canManage={canManage}
               />
             )}
-          </div>
+          </DialogBody>
         </DialogContent>
       </Dialog>
 
@@ -150,14 +150,14 @@ export function Vehicles() {
               Rentabilidad — {profitabilityVehicle && `${profitabilityVehicle.make} ${profitabilityVehicle.model}`}
             </DialogTitle>
           </DialogHeader>
-          <div className="flex-1 overflow-y-auto px-6">
+          <DialogBody>
             {profitabilityVehicle && (
               <VehicleProfitabilityPanel
                 vehicleId={profitabilityVehicle.id}
                 vehicleLabel={`${profitabilityVehicle.make} ${profitabilityVehicle.model}`}
               />
             )}
-          </div>
+          </DialogBody>
         </DialogContent>
       </Dialog>
     </div>
