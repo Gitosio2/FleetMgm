@@ -19,7 +19,7 @@ import { MANAGEMENT_ROLES, NAV_ITEMS } from './nav-items'
 describe('NAV_ITEMS', () => {
   it('follows the operational navigation flow', () => {
     expect(NAV_ITEMS).toEqual([
-      { label: 'Panel', to: '/dashboard', icon: LayoutDashboard },
+      { label: 'Panel', to: '/dashboard', icon: LayoutDashboard, allowedRoles: MANAGEMENT_ROLES },
       {
         label: 'Trabajos',
         to: '/jobs',
