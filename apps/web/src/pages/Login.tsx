@@ -18,7 +18,7 @@ export function Login() {
     event.preventDefault()
     login.mutate(
       { email, password },
-      { onSuccess: () => navigate('/', { replace: true }) },
+      { onSuccess: () => navigate('/dashboard', { replace: true }) },
     )
   }
 
