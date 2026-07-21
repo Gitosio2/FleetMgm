@@ -445,8 +445,12 @@ class JobServiceTest {
     @Test
     void start_transitionsToInProgress_whenPending() {
         UUID id = UUID.randomUUID();
+        Vehicle vehicle = new Vehicle();
+        vehicle.setUsageMeasure(UsageMeasure.KILOMETERS);
+        vehicle.setCurrentKm(500L);
         Job job = new Job();
         job.setStatus(JobStatus.PENDING);
+        job.setVehicle(vehicle);
         JobResponse expected = buildJobResponse(id);
 
         when(jobRepository.findById(id)).thenReturn(Optional.of(job));
@@ -477,6 +481,27 @@ class JobServiceTest {
         jobService.start(id, null);
 
         assertThat(job.getActualStart()).isEqualTo(manualStart);
+    }
+
+    @Test
+    void start_throwsConflict_whenStartUsageValueBelowVehicleCurrent() {
+        UUID id = UUID.randomUUID();
+        Vehicle vehicle = new Vehicle();
+        vehicle.setUsageMeasure(UsageMeasure.KILOMETERS);
+        vehicle.setCurrentKm(10_000L);
+        Job job = new Job();
+        job.setStatus(JobStatus.PENDING);
+        job.setVehicle(vehicle);
+
+        when(jobRepository.findById(id)).thenReturn(Optional.of(job));
+
+        assertThatThrownBy(() -> jobService.start(id, 9_000L))
+                .isInstanceOf(ConflictException.class)
+                .satisfies(ex -> assertThat(((ConflictException) ex).getCode())
+                        .isEqualTo("JOB_USAGE_VALUE_BELOW_CURRENT"));
+
+        assertThat(job.getStatus()).isEqualTo(JobStatus.PENDING);
+        verify(jobRepository, never()).save(any());
     }
 
     @Test

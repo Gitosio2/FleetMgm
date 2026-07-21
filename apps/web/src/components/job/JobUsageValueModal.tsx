@@ -62,10 +62,13 @@ export function JobUsageValueModal({
       : vehicle.currentHours
     : null
 
-  // Only `complete` has a backend-enforced floor (JobService.assertUsageValueNotRegressing) —
-  // `start` never validates startUsageValue against anything, so no client-side check applies there.
+  // Mirrors JobService.assertUsageValueNotRegressing on the backend: start()'s floor is just the
+  // vehicle's current recorded value (the job has no startUsageValue yet — this call sets it);
+  // complete() additionally floors against the job's own startUsageValue.
   const floor =
-    mode === 'complete' ? Math.max(currentValue ?? -Infinity, job.startUsageValue ?? -Infinity) : -Infinity
+    mode === 'complete'
+      ? Math.max(currentValue ?? -Infinity, job.startUsageValue ?? -Infinity)
+      : (currentValue ?? -Infinity)
 
   const { title, confirmLabel } = MODE_COPY[mode]
   const errorMessage = validationError ?? (error ? resolveJobErrorMessage(error) : null)

@@ -162,6 +162,9 @@ public class JobService {
             throw new ConflictException("JOB_INVALID_STATE_TRANSITION",
                     "Job " + id + " cannot be started from state " + job.getStatus());
         }
+        if (startUsageValue != null) {
+            assertUsageValueNotRegressing(job, null, startUsageValue);
+        }
         job.setStatus(JobStatus.IN_PROGRESS);
         // A manually-set actualStart (from the create/edit form) must survive a subsequent
         // start() call — only stamp "now" when nobody has recorded one yet.
@@ -189,7 +192,7 @@ public class JobService {
                     "Job " + id + " cannot be completed from state " + job.getStatus());
         }
         if (endUsageValue != null) {
-            assertUsageValueNotRegressing(job, endUsageValue);
+            assertUsageValueNotRegressing(job, job.getStartUsageValue(), endUsageValue);
             job.setEndUsageValue(endUsageValue);
         }
         job.setStatus(JobStatus.COMPLETED);
@@ -267,18 +270,19 @@ public class JobService {
                 .orElseThrow(() -> new NotFoundException("CLIENT_NOT_FOUND", "Client " + clientId + " not found"));
     }
 
-    // Usage counters (km/hours) must be monotonic — reject an endUsageValue lower than either the
-    // vehicle's currently recorded value or this job's own startUsageValue (typo, stale/duplicate
-    // completion, or a job that never actually advanced the odometer).
-    private void assertUsageValueNotRegressing(Job job, long endUsageValue) {
+    // Usage counters (km/hours) must be monotonic — reject a usage value lower than either the
+    // vehicle's currently recorded value or (when set) the job's own startUsageValue (typo,
+    // stale/duplicate submission, or a job that never actually advanced the odometer). Shared by
+    // start() (startValue is null — nothing recorded on the job yet to compare against) and
+    // complete() (startValue is job.getStartUsageValue()).
+    private void assertUsageValueNotRegressing(Job job, Long startValue, long newValue) {
         Long currentValue = job.getVehicle().getCurrentUsageValue();
-        Long startValue = job.getStartUsageValue();
         long floor = Math.max(
                 currentValue != null ? currentValue : Long.MIN_VALUE,
                 startValue != null ? startValue : Long.MIN_VALUE);
-        if (floor != Long.MIN_VALUE && endUsageValue < floor) {
+        if (floor != Long.MIN_VALUE && newValue < floor) {
             throw new ConflictException("JOB_USAGE_VALUE_BELOW_CURRENT",
-                    "endUsageValue " + endUsageValue + " for job " + job.getId()
+                    "usage value " + newValue + " for job " + job.getId()
                             + " is lower than the current recorded usage (" + floor + ")");
         }
     }
