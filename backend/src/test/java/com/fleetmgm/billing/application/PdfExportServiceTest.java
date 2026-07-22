@@ -108,6 +108,30 @@ class PdfExportServiceTest {
     }
 
     @Test
+    void generateInvoicePdf_computesTotalsFromLineItems_forDraftInvoiceWithZeroCachedTotals() throws Exception {
+        // A DRAFT invoice never went through InvoiceService.issue(), so subtotal/taxAmount/total
+        // are still at their BigDecimal.ZERO entity default. The PDF must compute real totals from
+        // the line items instead of printing those stale zeros.
+        UUID invoiceId = UUID.randomUUID();
+        Invoice invoice = new Invoice();
+        invoice.setInvoiceNumber("INV-2026-00007");
+        Client client = new Client();
+        client.setName("Acme Corp");
+        invoice.setClient(client);
+        invoice.setTaxRate(new BigDecimal("0.2100"));
+        when(invoiceRepository.findById(invoiceId)).thenReturn(Optional.of(invoice));
+        when(lineItemRepository.findAllByInvoiceId(invoiceId)).thenReturn(
+                List.of(buildLineItem("Oil change", new BigDecimal("2"), new BigDecimal("50.00"))));
+
+        byte[] pdf = pdfExportService.generateInvoicePdf(invoiceId);
+        String text = extractText(pdf);
+
+        assertThat(text).contains("Subtotal: 100.00");
+        assertThat(text).contains("Importe IVA: 21.00");
+        assertThat(text).contains("Total: 121.00");
+    }
+
+    @Test
     void generateInvoicePdf_throwsNotFound_whenInvoiceMissing() {
         UUID invoiceId = UUID.randomUUID();
         when(invoiceRepository.findById(invoiceId)).thenReturn(Optional.empty());
