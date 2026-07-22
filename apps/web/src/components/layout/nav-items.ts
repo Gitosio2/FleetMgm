@@ -48,7 +48,12 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Gastos de proveedor', to: '/supplier-invoices', icon: Store, allowedRoles: MANAGEMENT_ROLES },
   { label: 'Proveedores', to: '/suppliers', icon: Contact2, allowedRoles: MANAGEMENT_ROLES },
   { label: 'Vehículos', to: '/vehicles', icon: Truck },
-  { label: 'Trabajadores', to: '/workers', icon: Users },
+  {
+    label: 'Trabajadores',
+    to: '/workers',
+    icon: Users,
+    allowedRoles: [...MANAGEMENT_ROLES, 'DRIVER'],
+  },
   { label: 'Clientes', to: '/clients', icon: Building2, allowedRoles: MANAGEMENT_ROLES },
   { label: 'Mapa GPS', to: '/gps', icon: MapPin, allowedRoles: MANAGEMENT_ROLES },
   { label: 'Registro de auditoría', to: '/audit', icon: ShieldCheck, allowedRoles: ['ADMIN', 'MANAGER'] },

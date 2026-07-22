@@ -47,7 +47,12 @@ describe('NAV_ITEMS', () => {
       },
       { label: 'Proveedores', to: '/suppliers', icon: Contact2, allowedRoles: MANAGEMENT_ROLES },
       { label: 'Vehículos', to: '/vehicles', icon: Truck },
-      { label: 'Trabajadores', to: '/workers', icon: Users },
+      {
+        label: 'Trabajadores',
+        to: '/workers',
+        icon: Users,
+        allowedRoles: [...MANAGEMENT_ROLES, 'DRIVER'],
+      },
       { label: 'Clientes', to: '/clients', icon: Building2, allowedRoles: MANAGEMENT_ROLES },
       { label: 'Mapa GPS', to: '/gps', icon: MapPin, allowedRoles: MANAGEMENT_ROLES },
       {
