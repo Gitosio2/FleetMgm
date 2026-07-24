@@ -19,7 +19,11 @@ export function FleetMap({ category, vehicleId }: FleetMapProps) {
   const { data: positions } = useGps(category, vehicleId)
 
   return (
-    <MapContainer center={SPAIN_CENTER} zoom={SPAIN_ZOOM} className="h-full min-h-[32rem] w-full rounded-lg">
+    <MapContainer
+      center={SPAIN_CENTER}
+      zoom={SPAIN_ZOOM}
+      className="isolate h-full min-h-[32rem] w-full rounded-lg"
+    >
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
