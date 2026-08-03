@@ -106,6 +106,33 @@ class GpsRepositoryTest {
                 .containsExactlyInAnyOrder(latestA.getId(), latestB.getId());
     }
 
+    // GpsMockScheduler's own comment on its old previous-position lookup acknowledged that "two rows
+    // can share the same MAX(recordedAt) for one vehicle" and de-duplicated downstream in Java. The
+    // rewritten query (ORDER BY recorded_at DESC LIMIT 1 per vehicle) makes that duplication
+    // structurally impossible instead of papering over it after the fact.
+    @Test
+    void findLatestForAllActiveVehicles_returnsExactlyOneRow_whenTwoPositionsShareTheExactSameTimestamp() {
+        Vehicle vehicle = persistVehicle("7777GGG", VehicleStatus.ACTIVE);
+        Instant tie = Instant.now();
+        persistPosition(vehicle, tie);
+        persistPosition(vehicle, tie);
+        entityManager.getEntityManager().clear();
+
+        List<GpsPosition> result = gpsRepository.findLatestForAllActiveVehicles();
+
+        assertThat(result).hasSize(1);
+        assertThat(result.getFirst().getVehicle().getId()).isEqualTo(vehicle.getId());
+    }
+
+    @Test
+    void findLatestForAllActiveVehicles_returnsEmpty_whenNoActiveVehicleHasAPosition() {
+        persistVehicle("8888HHH", VehicleStatus.INACTIVE);
+
+        List<GpsPosition> result = gpsRepository.findLatestForAllActiveVehicles();
+
+        assertThat(result).isEmpty();
+    }
+
     private Vehicle persistVehicle(String licensePlate, VehicleStatus status) {
         Vehicle vehicle = new Vehicle();
         vehicle.setVehicleCategory(VehicleCategory.LIGHT_VEHICLE);

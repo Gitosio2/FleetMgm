@@ -7,9 +7,14 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Entity
+// idx_gps_recorded_at backs GpsRetentionScheduler's global "recordedAt < cutoff" sweep (no
+// vehicle_id predicate). idx_gps_vehicle_recorded backs GpsRepository's per-vehicle "latest
+// position" LATERAL lookup; it also serves any plain vehicle_id-only filter via the leftmost-prefix
+// rule, which is why there is no separate vehicle_id-only index — one existed here previously and
+// was redundant write overhead once this composite index covers the same prefix.
 @Table(name = "gps_positions", indexes = {
-        @Index(name = "idx_gps_vehicle_id", columnList = "vehicle_id"),
-        @Index(name = "idx_gps_recorded_at", columnList = "recorded_at")
+        @Index(name = "idx_gps_recorded_at", columnList = "recorded_at"),
+        @Index(name = "idx_gps_vehicle_recorded", columnList = "vehicle_id, recorded_at DESC")
 })
 public class GpsPosition {
 
