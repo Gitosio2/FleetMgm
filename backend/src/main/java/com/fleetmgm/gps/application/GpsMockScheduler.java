@@ -11,7 +11,12 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Component
 public class GpsMockScheduler {
@@ -45,11 +50,25 @@ public class GpsMockScheduler {
     @Scheduled(fixedDelay = 30_000)
     @Transactional
     public void generatePositions() {
-        for (Vehicle vehicle : vehicleRepository.findAllByStatus(VehicleStatus.ACTIVE)) {
-            GpsPosition previous = gpsRepository.findFirstByVehicleIdOrderByRecordedAtDesc(vehicle.getId())
-                    .orElse(null);
-            gpsRepository.save(nextPosition(vehicle, previous));
+        List<Vehicle> activeVehicles = vehicleRepository.findAllByStatus(VehicleStatus.ACTIVE);
+        if (activeVehicles.isEmpty()) {
+            return;
         }
+
+        // One query for the whole fleet's last known position, not one per vehicle: this tick used to
+        // cost 1 + 2N queries and degraded as the fleet grew. Vehicles with no history simply miss the
+        // map and fall through to city-base seeding in nextPosition().
+        Map<UUID, GpsPosition> lastKnownByVehicleId = gpsRepository.findLatestForAllActiveVehicles().stream()
+                .collect(Collectors.toMap(
+                        position -> position.getVehicle().getId(),
+                        Function.identity(),
+                        // Two rows can share the same MAX(recordedAt) for one vehicle; either is a valid
+                        // drift anchor, so keep the first rather than letting toMap throw.
+                        (first, duplicate) -> first));
+
+        gpsRepository.saveAll(activeVehicles.stream()
+                .map(vehicle -> nextPosition(vehicle, lastKnownByVehicleId.get(vehicle.getId())))
+                .toList());
     }
 
     private GpsPosition nextPosition(Vehicle vehicle, GpsPosition previous) {

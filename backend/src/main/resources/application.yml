@@ -33,6 +33,12 @@ workshop:
 billing:
   default-tax-rate: ${BILLING_DEFAULT_TAX_RATE:0.2100}
 
+gps:
+  # Only the latest position per vehicle is ever read (the live map), so older rows are dead weight.
+  # At one row per active vehicle every 30s, a 7-day window holds ~20k rows per vehicle instead of
+  # growing without bound. Must be >= 1: see GpsRetentionScheduler.
+  retention-days: ${GPS_RETENTION_DAYS:7}
+
 management:
   endpoints:
     web:

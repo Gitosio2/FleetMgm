@@ -8,7 +8,6 @@ import com.fleetmgm.vehicle.domain.UsageMeasure;
 import com.fleetmgm.vehicle.domain.Vehicle;
 import com.fleetmgm.vehicle.domain.VehicleCategory;
 import com.fleetmgm.vehicle.domain.VehicleStatus;
-import org.hibernate.Hibernate;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,9 +22,8 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase.Replace.NONE;
@@ -54,26 +52,30 @@ class GpsRepositoryTest {
     TestEntityManager entityManager;
 
     @Test
-    void findLatestByVehicleId_returnsMostRecentPosition() {
+    void deleteRecordedBefore_removesOnlyPositionsOlderThanTheCutoff() {
         Vehicle vehicle = persistVehicle("1111AAA", VehicleStatus.ACTIVE);
-        persistPosition(vehicle, Instant.now().minusSeconds(60));
-        GpsPosition latest = persistPosition(vehicle, Instant.now());
+        persistPosition(vehicle, Instant.now().minus(10, ChronoUnit.DAYS));
+        persistPosition(vehicle, Instant.now().minus(8, ChronoUnit.DAYS));
+        GpsPosition kept = persistPosition(vehicle, Instant.now().minus(1, ChronoUnit.DAYS));
         entityManager.getEntityManager().clear();
 
-        Optional<GpsPosition> result = gpsRepository.findFirstByVehicleIdOrderByRecordedAtDesc(vehicle.getId());
+        int deleted = gpsRepository.deleteRecordedBefore(Instant.now().minus(7, ChronoUnit.DAYS));
 
-        assertThat(result).isPresent();
-        assertThat(result.get().getId()).isEqualTo(latest.getId());
-        assertThat(Hibernate.isInitialized(result.get().getVehicle())).isTrue();
+        assertThat(deleted).isEqualTo(2);
+        assertThat(gpsRepository.findAll()).extracting(GpsPosition::getId).containsExactly(kept.getId());
     }
 
     @Test
-    void findLatestByVehicleId_returnsEmpty_whenVehicleHasNoPositions() {
+    void deleteRecordedBefore_removesNothing_whenEveryPositionIsInsideTheWindow() {
         Vehicle vehicle = persistVehicle("2222BBB", VehicleStatus.ACTIVE);
+        persistPosition(vehicle, Instant.now().minus(1, ChronoUnit.DAYS));
+        persistPosition(vehicle, Instant.now());
+        entityManager.getEntityManager().clear();
 
-        Optional<GpsPosition> result = gpsRepository.findFirstByVehicleIdOrderByRecordedAtDesc(vehicle.getId());
+        int deleted = gpsRepository.deleteRecordedBefore(Instant.now().minus(7, ChronoUnit.DAYS));
 
-        assertThat(result).isEmpty();
+        assertThat(deleted).isZero();
+        assertThat(gpsRepository.findAll()).hasSize(2);
     }
 
     @Test
@@ -102,6 +104,33 @@ class GpsRepositoryTest {
 
         assertThat(result).extracting(GpsPosition::getId)
                 .containsExactlyInAnyOrder(latestA.getId(), latestB.getId());
+    }
+
+    // GpsMockScheduler's own comment on its old previous-position lookup acknowledged that "two rows
+    // can share the same MAX(recordedAt) for one vehicle" and de-duplicated downstream in Java. The
+    // rewritten query (ORDER BY recorded_at DESC LIMIT 1 per vehicle) makes that duplication
+    // structurally impossible instead of papering over it after the fact.
+    @Test
+    void findLatestForAllActiveVehicles_returnsExactlyOneRow_whenTwoPositionsShareTheExactSameTimestamp() {
+        Vehicle vehicle = persistVehicle("7777GGG", VehicleStatus.ACTIVE);
+        Instant tie = Instant.now();
+        persistPosition(vehicle, tie);
+        persistPosition(vehicle, tie);
+        entityManager.getEntityManager().clear();
+
+        List<GpsPosition> result = gpsRepository.findLatestForAllActiveVehicles();
+
+        assertThat(result).hasSize(1);
+        assertThat(result.getFirst().getVehicle().getId()).isEqualTo(vehicle.getId());
+    }
+
+    @Test
+    void findLatestForAllActiveVehicles_returnsEmpty_whenNoActiveVehicleHasAPosition() {
+        persistVehicle("8888HHH", VehicleStatus.INACTIVE);
+
+        List<GpsPosition> result = gpsRepository.findLatestForAllActiveVehicles();
+
+        assertThat(result).isEmpty();
     }
 
     private Vehicle persistVehicle(String licensePlate, VehicleStatus status) {

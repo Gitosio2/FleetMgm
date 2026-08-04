@@ -18,7 +18,6 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -27,7 +26,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -43,18 +41,36 @@ class GpsMockSchedulerTest {
         Vehicle vehicle1 = vehicleWithId(UUID.randomUUID());
         Vehicle vehicle2 = vehicleWithId(UUID.randomUUID());
         when(vehicleRepository.findAllByStatus(VehicleStatus.ACTIVE)).thenReturn(List.of(vehicle1, vehicle2));
-        when(gpsRepository.findFirstByVehicleIdOrderByRecordedAtDesc(any())).thenReturn(Optional.empty());
+        when(gpsRepository.findLatestForAllActiveVehicles()).thenReturn(List.of());
 
         gpsMockScheduler.generatePositions();
 
-        ArgumentCaptor<GpsPosition> captor = ArgumentCaptor.forClass(GpsPosition.class);
-        verify(gpsRepository, times(2)).save(captor.capture());
-        List<GpsPosition> saved = captor.getAllValues();
+        List<GpsPosition> saved = captureSavedPositions();
         assertThat(saved).extracting(GpsPosition::getVehicle).containsExactlyInAnyOrder(vehicle1, vehicle2);
         assertThat(saved).allSatisfy(position -> {
             assertThat(position.getSource()).isEqualTo(GpsSource.MOCK);
             assertThat(position.getRecordedAt()).isCloseTo(Instant.now(), within(5, ChronoUnit.SECONDS));
         });
+    }
+
+    // Regression guard for the N+1 this scheduler used to run: it looked up the previous position
+    // one vehicle at a time, so a tick cost 1 + 2N queries and got worse as the fleet grew. The
+    // whole fleet's last known position now comes back in a single query, whatever N is.
+    @Test
+    void generatePositions_readsPreviousPositions_inASingleQuery_regardlessOfFleetSize() {
+        List<Vehicle> vehicles = new ArrayList<>();
+        for (int i = 0; i < 40; i++) {
+            vehicles.add(vehicleWithId(UUID.randomUUID()));
+        }
+        when(vehicleRepository.findAllByStatus(VehicleStatus.ACTIVE)).thenReturn(vehicles);
+        when(gpsRepository.findLatestForAllActiveVehicles()).thenReturn(List.of());
+
+        gpsMockScheduler.generatePositions();
+
+        verify(gpsRepository).findLatestForAllActiveVehicles();
+        verify(gpsRepository).saveAll(any());
+        verify(gpsRepository, never()).save(any());
+        assertThat(captureSavedPositions()).hasSize(40);
     }
 
     @Test
@@ -63,20 +79,19 @@ class GpsMockSchedulerTest {
 
         gpsMockScheduler.generatePositions();
 
-        verify(gpsRepository, never()).save(any());
+        verify(gpsRepository, never()).saveAll(any());
+        verify(gpsRepository, never()).findLatestForAllActiveVehicles();
     }
 
     @Test
     void generatePositions_coordinatesWithinInitialSpread_ofSomeCityBase_whenVehicleHasNoPriorPosition() {
         Vehicle vehicle = vehicleWithId(UUID.randomUUID());
         when(vehicleRepository.findAllByStatus(VehicleStatus.ACTIVE)).thenReturn(List.of(vehicle));
-        when(gpsRepository.findFirstByVehicleIdOrderByRecordedAtDesc(vehicle.getId())).thenReturn(Optional.empty());
+        when(gpsRepository.findLatestForAllActiveVehicles()).thenReturn(List.of());
 
         gpsMockScheduler.generatePositions();
 
-        ArgumentCaptor<GpsPosition> captor = ArgumentCaptor.forClass(GpsPosition.class);
-        verify(gpsRepository).save(captor.capture());
-        GpsPosition saved = captor.getValue();
+        GpsPosition saved = captureSavedPositions().getFirst();
 
         boolean withinSomeCityBase = Arrays.stream(GpsMockScheduler.SPANISH_CITY_BASES).anyMatch(city ->
                 Math.abs(saved.getLatitude() - city[0]) <= GpsMockScheduler.INITIAL_SPREAD_DEGREES
@@ -91,18 +106,66 @@ class GpsMockSchedulerTest {
             vehicles.add(vehicleWithId(UUID.randomUUID()));
         }
         when(vehicleRepository.findAllByStatus(VehicleStatus.ACTIVE)).thenReturn(vehicles);
-        when(gpsRepository.findFirstByVehicleIdOrderByRecordedAtDesc(any())).thenReturn(Optional.empty());
+        when(gpsRepository.findLatestForAllActiveVehicles()).thenReturn(List.of());
 
         gpsMockScheduler.generatePositions();
 
-        ArgumentCaptor<GpsPosition> captor = ArgumentCaptor.forClass(GpsPosition.class);
-        verify(gpsRepository, times(50)).save(captor.capture());
-
-        Set<Integer> citiesUsed = captor.getAllValues().stream()
+        Set<Integer> citiesUsed = captureSavedPositions().stream()
                 .map(position -> closestCityIndex(position.getLatitude(), position.getLongitude()))
                 .collect(Collectors.toSet());
 
         assertThat(citiesUsed.size()).isGreaterThan(1);
+    }
+
+    @Test
+    void generatePositions_coordinatesWithinDriftRange_ofPreviousPosition() {
+        Vehicle vehicle = vehicleWithId(UUID.randomUUID());
+        GpsPosition previous = positionFor(vehicle, 41.0, -4.0);
+        when(vehicleRepository.findAllByStatus(VehicleStatus.ACTIVE)).thenReturn(List.of(vehicle));
+        when(gpsRepository.findLatestForAllActiveVehicles()).thenReturn(List.of(previous));
+
+        gpsMockScheduler.generatePositions();
+
+        GpsPosition saved = captureSavedPositions().getFirst();
+        assertThat(saved.getLatitude()).isBetween(
+                previous.getLatitude() - GpsMockScheduler.DRIFT_DEGREES,
+                previous.getLatitude() + GpsMockScheduler.DRIFT_DEGREES);
+        assertThat(saved.getLongitude()).isBetween(
+                previous.getLongitude() - GpsMockScheduler.DRIFT_DEGREES,
+                previous.getLongitude() + GpsMockScheduler.DRIFT_DEGREES);
+    }
+
+    // A vehicle that already has a position and one that does not are served by the same batch
+    // lookup, so the map miss for the newcomer must still fall back to the city-base seeding.
+    @Test
+    void generatePositions_seedsFromCityBase_forVehiclesMissingFromTheBatchLookup() {
+        Vehicle known = vehicleWithId(UUID.randomUUID());
+        Vehicle newcomer = vehicleWithId(UUID.randomUUID());
+        GpsPosition previous = positionFor(known, 41.0, -4.0);
+        when(vehicleRepository.findAllByStatus(VehicleStatus.ACTIVE)).thenReturn(List.of(known, newcomer));
+        when(gpsRepository.findLatestForAllActiveVehicles()).thenReturn(List.of(previous));
+
+        gpsMockScheduler.generatePositions();
+
+        List<GpsPosition> saved = captureSavedPositions();
+        assertThat(saved).hasSize(2);
+
+        GpsPosition drifted = saved.stream().filter(p -> p.getVehicle() == known).findFirst().orElseThrow();
+        assertThat(drifted.getLatitude()).isBetween(
+                41.0 - GpsMockScheduler.DRIFT_DEGREES, 41.0 + GpsMockScheduler.DRIFT_DEGREES);
+
+        GpsPosition seeded = saved.stream().filter(p -> p.getVehicle() == newcomer).findFirst().orElseThrow();
+        boolean withinSomeCityBase = Arrays.stream(GpsMockScheduler.SPANISH_CITY_BASES).anyMatch(city ->
+                Math.abs(seeded.getLatitude() - city[0]) <= GpsMockScheduler.INITIAL_SPREAD_DEGREES
+                        && Math.abs(seeded.getLongitude() - city[1]) <= GpsMockScheduler.INITIAL_SPREAD_DEGREES);
+        assertThat(withinSomeCityBase).isTrue();
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<GpsPosition> captureSavedPositions() {
+        ArgumentCaptor<List<GpsPosition>> captor = ArgumentCaptor.forClass(List.class);
+        verify(gpsRepository).saveAll(captor.capture());
+        return captor.getValue();
     }
 
     private static int closestCityIndex(double latitude, double longitude) {
@@ -119,26 +182,12 @@ class GpsMockSchedulerTest {
         return closest;
     }
 
-    @Test
-    void generatePositions_coordinatesWithinDriftRange_ofPreviousPosition() {
-        Vehicle vehicle = vehicleWithId(UUID.randomUUID());
-        GpsPosition previous = new GpsPosition();
-        previous.setLatitude(41.0);
-        previous.setLongitude(-4.0);
-        when(vehicleRepository.findAllByStatus(VehicleStatus.ACTIVE)).thenReturn(List.of(vehicle));
-        when(gpsRepository.findFirstByVehicleIdOrderByRecordedAtDesc(vehicle.getId())).thenReturn(Optional.of(previous));
-
-        gpsMockScheduler.generatePositions();
-
-        ArgumentCaptor<GpsPosition> captor = ArgumentCaptor.forClass(GpsPosition.class);
-        verify(gpsRepository).save(captor.capture());
-        GpsPosition saved = captor.getValue();
-        assertThat(saved.getLatitude()).isBetween(
-                previous.getLatitude() - GpsMockScheduler.DRIFT_DEGREES,
-                previous.getLatitude() + GpsMockScheduler.DRIFT_DEGREES);
-        assertThat(saved.getLongitude()).isBetween(
-                previous.getLongitude() - GpsMockScheduler.DRIFT_DEGREES,
-                previous.getLongitude() + GpsMockScheduler.DRIFT_DEGREES);
+    private static GpsPosition positionFor(Vehicle vehicle, double latitude, double longitude) {
+        GpsPosition position = new GpsPosition();
+        position.setVehicle(vehicle);
+        position.setLatitude(latitude);
+        position.setLongitude(longitude);
+        return position;
     }
 
     private static Vehicle vehicleWithId(UUID id) {
