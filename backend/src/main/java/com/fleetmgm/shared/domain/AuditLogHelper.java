@@ -34,4 +34,19 @@ public class AuditLogHelper {
         auditLog.setDetails(details);
         auditLogRepository.save(auditLog);
     }
+
+    // For state-changing operations with no authenticated caller (scheduled sweeps, batch jobs):
+    // there is no SecurityContext to read a principal from, so performedByUserId/Email can't be
+    // resolved the way log() does. performedByEmail is set to a fixed "system" marker instead of
+    // being left null, so these rows stay distinguishable from a future bug that drops the email.
+    public void logSystem(String entityType, String entityId, AuditAction action, String details) {
+        AuditLog auditLog = new AuditLog();
+        auditLog.setEntityType(entityType);
+        auditLog.setEntityId(entityId);
+        auditLog.setAction(action);
+        auditLog.setPerformedByEmail("system");
+        auditLog.setPerformedAt(Instant.now());
+        auditLog.setDetails(details);
+        auditLogRepository.save(auditLog);
+    }
 }
