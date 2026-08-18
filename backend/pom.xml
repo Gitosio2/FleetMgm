@@ -225,6 +225,9 @@
                          relying on the Maven dependency cache, which does not cover this ~500MB+ NVD
                          database and was silently forcing a multi-hour full re-download on every run. -->
                     <dataDirectory>${project.basedir}/.owasp-dc-data</dataDirectory>
+                    <suppressionFiles>
+                        <suppressionFile>${project.basedir}/owasp-suppressions.xml</suppressionFile>
+                    </suppressionFiles>
                 </configuration>
             </plugin>
         </plugins>

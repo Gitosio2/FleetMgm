@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
+    <!--
+        CVE-2026-66299 (CVSS 7.5) is an uncontrolled resource consumption DoS in the
+        WebSocket chat "examples" web application bundled with the Apache Tomcat
+        distribution (affects 10.1.24-10.1.57). No 10.1.x release fixing it has been
+        published to Maven Central yet (latest available is still 10.1.57, verified
+        against tomcat-embed-core's maven-metadata.xml).
+
+        Suppressed because it is not exploitable here: Spring Boot's embedded Tomcat
+        (spring-boot-starter-tomcat -> tomcat-embed-core/-el/-websocket) never deploys
+        the "examples" web application that contains the vulnerable chat servlet — only
+        a full Tomcat distribution does. Revisit and remove this suppression once a
+        patched 10.1.x tomcat-embed-core artifact is available; bump `tomcat.version`
+        in pom.xml instead at that point.
+    -->
+    <suppress>
+        <notes>CVE-2026-66299 affects the Tomcat "examples" webapp only, which the embedded Tomcat used by Spring Boot never deploys. No patched 10.1.x release exists on Maven Central yet.</notes>
+        <packageUrl regex="true">^pkg:maven/org\.apache\.tomcat\.embed/tomcat\-embed.*@.*$</packageUrl>
+        <cve>CVE-2026-66299</cve>
+    </suppress>
+</suppressions>
