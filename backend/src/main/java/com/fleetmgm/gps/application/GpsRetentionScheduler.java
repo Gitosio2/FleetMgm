@@ -1,6 +1,8 @@
 package com.fleetmgm.gps.application;
 
 import com.fleetmgm.gps.infrastructure.GpsRepository;
+import com.fleetmgm.shared.domain.AuditAction;
+import com.fleetmgm.shared.domain.AuditLogHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -25,11 +27,13 @@ import java.util.concurrent.TimeUnit;
 public class GpsRetentionScheduler {
 
     private static final Logger log = LoggerFactory.getLogger(GpsRetentionScheduler.class);
+    private static final String ENTITY_TYPE = "GpsPosition";
 
     private final GpsRepository gpsRepository;
+    private final AuditLogHelper auditLogHelper;
     private final int retentionDays;
 
-    public GpsRetentionScheduler(GpsRepository gpsRepository,
+    public GpsRetentionScheduler(GpsRepository gpsRepository, AuditLogHelper auditLogHelper,
                                  @Value("${gps.retention-days:7}") int retentionDays) {
         if (retentionDays < 1) {
             throw new IllegalArgumentException(
@@ -38,6 +42,7 @@ public class GpsRetentionScheduler {
                             + "and blank the live map");
         }
         this.gpsRepository = gpsRepository;
+        this.auditLogHelper = auditLogHelper;
         this.retentionDays = retentionDays;
     }
 
@@ -53,6 +58,8 @@ public class GpsRetentionScheduler {
         int deleted = gpsRepository.deleteRecordedBefore(cutoff);
         if (deleted > 0) {
             log.info("GPS retention sweep removed {} position(s) recorded before {}", deleted, cutoff);
+            auditLogHelper.logSystem(ENTITY_TYPE, "retention-sweep", AuditAction.DELETE,
+                    deleted + " position(s) recorded before " + cutoff + " purged by the retention sweep");
         }
         return deleted;
     }
