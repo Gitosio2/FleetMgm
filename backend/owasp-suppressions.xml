@@ -3,19 +3,22 @@
     <!--
         CVE-2026-66299 (CVSS 7.5) is an uncontrolled resource consumption DoS in the
         WebSocket chat "examples" web application bundled with the Apache Tomcat
-        distribution (affects 10.1.24-10.1.57). No 10.1.x release fixing it has been
-        published to Maven Central yet (latest available is still 10.1.57, verified
-        against tomcat-embed-core's maven-metadata.xml).
+        distribution.
 
-        Suppressed because it is not exploitable here: Spring Boot's embedded Tomcat
-        (spring-boot-starter-tomcat -> tomcat-embed-core/-el/-websocket) never deploys
-        the "examples" web application that contains the vulnerable chat servlet — only
-        a full Tomcat distribution does. Revisit and remove this suppression once a
-        patched 10.1.x tomcat-embed-core artifact is available; bump `tomcat.version`
-        in pom.xml instead at that point.
+        Suppressed because it is not exploitable here, and that reasoning does not depend
+        on a version: Spring Boot's embedded Tomcat (spring-boot-starter-tomcat ->
+        tomcat-embed-core/-el/-websocket) never deploys the "examples" web application
+        that contains the vulnerable chat servlet — only a full Tomcat distribution does.
+
+        Originally added while the project was on tomcat-embed-core 10.1.57, where no
+        patched 10.1.x artifact existed on Maven Central. The Spring Boot 4.1 upgrade moved
+        the embedded container to the 11.0.x line, so the rule may now match nothing and
+        be reported as unused (a warning, not a failure). It is kept rather than deleted
+        because the "examples webapp is never deployed" argument holds for every line, so
+        it stays correct if this CVE is later scored against 11.0.x too.
     -->
     <suppress>
-        <notes>CVE-2026-66299 affects the Tomcat "examples" webapp only, which the embedded Tomcat used by Spring Boot never deploys. No patched 10.1.x release exists on Maven Central yet.</notes>
+        <notes>CVE-2026-66299 affects the Tomcat "examples" webapp only, which the embedded Tomcat used by Spring Boot never deploys.</notes>
         <packageUrl regex="true">^pkg:maven/org\.apache\.tomcat\.embed/tomcat\-embed.*@.*$</packageUrl>
         <cve>CVE-2026-66299</cve>
     </suppress>

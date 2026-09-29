@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-FleetMgm is a Master's thesis fleet management application. Backend: Java 21 + Spring Boot 3.5 (started on 3.3, upgraded in Hito 11 once the OWASP Dependency-Check gate exposed unpatched CVSS >= 7 CVEs at the end of the 3.3.x line). Frontend: React + Vite + TypeScript. The project is greenfield — source code is scaffolded incrementally per `planning.md`, which is the source of truth for all architectural decisions.
+FleetMgm is a Master's thesis fleet management application. Backend: Java 21 + Spring Boot 4.1 (started on 3.3, upgraded to 3.5 in Hito 11 and to 4.1 later, both times because the OWASP Dependency-Check gate exposed unpatched CVSS >= 7 CVEs at the end of a line — Spring Framework 6.2.x went end-of-life for public updates while the fixes shipped in 7.0.9+). Frontend: React + Vite + TypeScript. The project is greenfield — source code is scaffolded incrementally per `planning.md`, which is the source of truth for all architectural decisions.
 
 **Timeline:** ~6 weeks (Jun–mid Jul 2026). See `planning.md` for week-by-week checklist.
 
@@ -76,7 +76,7 @@ Enable SQL logging in the `dev` profile (`spring.jpa.show-sql=true`, `spring.jpa
 
 All entities with logical deletion share the same implementation — never use `deleteById()` on them.
 
-**Entity:** annotate with `@SQLRestriction("deleted_at IS NULL")` (Hibernate 6 / Spring Boot 3+). Hibernate appends this filter to every query automatically — no manual `WHERE` clause needed in repositories.
+**Entity:** annotate with `@SQLRestriction("deleted_at IS NULL")` (Hibernate 6+ / Spring Boot 3+). Hibernate appends this filter to every query automatically — no manual `WHERE` clause needed in repositories.
 
 ```java
 @Entity

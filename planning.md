@@ -14,7 +14,7 @@ El objetivo es una app funcional y bien estructurada arquitectónica y securamen
 
 | Capa | Tecnología | Justificación |
 |------|------------|---------------|
-| Backend | Java 21 + Spring Boot 3.5 | Ecosistema maduro; Spring Security, Data JPA, Actuator y Validation out-of-the-box. Stack estándar y ampliamente adoptada en producción. Subido desde 3.3 en el Hito 11 — la línea 3.3.x llegó a su último patch (3.3.13) con CVEs CVSS ≥ 7 sin resolver en Spring Core/Security/Tomcat. |
+| Backend | Java 21 + Spring Boot 4.1 | Ecosistema maduro; Spring Security, Data JPA, Actuator y Validation out-of-the-box. Stack estándar y ampliamente adoptada en producción. Subido desde 3.3 a 3.5 en el Hito 11 y de 3.5 a 4.1 después, las dos veces por el mismo motivo: la línea anterior agotó sus patches con CVEs CVSS ≥ 7 abiertos en Spring Core/Security/Tomcat. |
 | ORM | Spring Data JPA + Hibernate | El dominio es relacional (vehículos, trabajos, facturas con integridad referencial fuerte); JPA encaja de forma natural. |
 | Seguridad | Spring Security + JJWT (HS512 → RS256 en prod) | RBAC battle-tested. JWT con access token 15 min + refresh token 7 días almacenado hasheado en BD. |
 | BD | PostgreSQL 16 | JSONB para AuditLog, integridad referencial, transacciones ACID. |

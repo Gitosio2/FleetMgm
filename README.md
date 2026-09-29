@@ -1,6 +1,6 @@
 # FleetMgm
 
-Sistema de gestión de flotas. Backend: Java 21 + Spring Boot 3.5. Frontend: React + Vite + TypeScript (monorepo, con lógica compartida preparada para una futura app móvil). Las decisiones de arquitectura y su justificación viven en [`planning.md`](planning.md).
+Sistema de gestión de flotas. Backend: Java 21 + Spring Boot 4.1. Frontend: React + Vite + TypeScript (monorepo, con lógica compartida preparada para una futura app móvil). Las decisiones de arquitectura y su justificación viven en [`planning.md`](planning.md).
 
 ## Por qué surge FleetMgm
 
@@ -30,7 +30,7 @@ Solo hacen falta para correr el proyecto en local — la demo en vivo de arriba 
 
 | Capa | Tecnología |
 |---|---|
-| Backend | Java 21, Spring Boot 3.5, Spring Security (JWT), Spring Data JPA, Flyway |
+| Backend | Java 21, Spring Boot 4.1, Spring Security (JWT), Spring Data JPA, Flyway |
 | Base de datos | PostgreSQL 16 |
 | Frontend | React 19, Vite, TypeScript, TanStack Query, Zustand, Tailwind CSS + shadcn/ui |
 | Monorepo | Turborepo + npm workspaces |
