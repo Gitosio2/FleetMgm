@@ -154,9 +154,16 @@ com.fleetmgm
 | Trabajadores — crear/editar | ✅ | ✅ | ✅ | ❌ | ❌ |
 | GPS — mapa de flota completo | ✅ | ✅ | ✅ | ❌ | ❌ |
 | GPS — posición propia | ✅ | ✅ | ✅ | ❌ | ❌ |
+| GPS — activar/detener la simulación | ✅ | ✅ | ❌ | ❌ | ❌ |
 | Informes de rentabilidad | ✅ | ✅ | ✅ | ❌ | ❌ |
 | Registro de auditoría | ✅ | ✅ | ❌ | ❌ | ❌ |
 | Gestión de usuarios y roles | ✅ | ❌ | ❌ | ❌ | ❌ |
+
+> **Nota (GPS / simulación):** ver el mapa y decidir que la flota se mueva son permisos
+> distintos. La simulación es la única tarea de fondo de la aplicación y su coste se paga por
+> minuto en el host desplegado, así que `ADMINISTRATIVE` conserva el mapa (fila anterior) pero
+> no el interruptor: encenderlo gasta, mirarlo no. `GpsMockService.status()` usa el trío de la
+> fila del mapa; `GpsMockService.setEnabled()` se limita a `ADMIN` y `MANAGER`.
 
 > **Nota (WORKSHOP_STAFF / mantenimiento):** `WORKSHOP_STAFF` puede ver y crear/editar
 > mantenimientos de **toda la flota**, no solo los vehículos programados para hoy. Es una

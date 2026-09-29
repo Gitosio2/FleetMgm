@@ -508,3 +508,10 @@ export type GpsPosition = {
   recordedAt: string
   source: GpsSource
 }
+
+export type GpsMockStatus = {
+  enabled: boolean
+  /** When the current activation lapses on its own. Null while off, or when auto-disable is off. */
+  enabledUntil: string | null
+  intervalSeconds: number
+}

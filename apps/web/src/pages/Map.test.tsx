@@ -50,6 +50,13 @@ describe('Map', () => {
     }
   })
 
+  it('offers the GPS simulation switch on the page', async () => {
+    loginAsAdmin()
+    renderMap()
+
+    expect(await screen.findByRole('switch', { name: /simulación gps/i })).toBeInTheDocument()
+  })
+
   it('shows license plate, make/model, and speed in the popover when a marker is clicked', async () => {
     loginAsAdmin()
     const user = userEvent.setup()

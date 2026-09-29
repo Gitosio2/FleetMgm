@@ -3,16 +3,19 @@ package com.fleetmgm.gps.application;
 import com.fleetmgm.gps.domain.GpsPosition;
 import com.fleetmgm.gps.domain.GpsSource;
 import com.fleetmgm.gps.infrastructure.GpsRepository;
+import com.fleetmgm.shared.domain.AuditAction;
+import com.fleetmgm.shared.domain.AuditLogHelper;
 import com.fleetmgm.vehicle.domain.Vehicle;
 import com.fleetmgm.vehicle.domain.VehicleStatus;
 import com.fleetmgm.vehicle.infrastructure.VehicleRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -25,16 +28,35 @@ import java.util.stream.Collectors;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class GpsMockSchedulerTest {
 
+    private static final Instant START = Instant.parse("2026-09-29T10:00:00Z");
+    private static final int WINDOW_MINUTES = 30;
+
     @Mock VehicleRepository vehicleRepository;
     @Mock GpsRepository gpsRepository;
-    @InjectMocks GpsMockScheduler gpsMockScheduler;
+    @Mock AuditLogHelper auditLogHelper;
+
+    // A real GpsMockState rather than a mock: whether a tick writes anything is this scheduler's
+    // most important behaviour now, and stubbing isActive() would test the stub, not the guard.
+    private AdvanceableClock clock;
+    private GpsMockState gpsMockState;
+    private GpsMockScheduler gpsMockScheduler;
+
+    @BeforeEach
+    void setUp() {
+        clock = new AdvanceableClock(START);
+        gpsMockState = new GpsMockState(true, WINDOW_MINUTES, clock);
+        gpsMockScheduler = new GpsMockScheduler(vehicleRepository, gpsRepository, gpsMockState, auditLogHelper);
+    }
 
     @Test
     void generatePositions_createsOnePositionPerActiveVehicle() {
@@ -159,6 +181,52 @@ class GpsMockSchedulerTest {
                 Math.abs(seeded.getLatitude() - city[0]) <= GpsMockScheduler.INITIAL_SPREAD_DEGREES
                         && Math.abs(seeded.getLongitude() - city[1]) <= GpsMockScheduler.INITIAL_SPREAD_DEGREES);
         assertThat(withinSomeCityBase).isTrue();
+    }
+
+    // The reason the switch exists: while the generator is off a tick must cost nothing at all —
+    // not a cheaper query, not an empty saveAll, no database round trip whatsoever.
+    @Test
+    void generatePositions_touchesNothing_whileTheGeneratorIsDisabled() {
+        gpsMockState.disable();
+
+        gpsMockScheduler.generatePositions();
+
+        verifyNoInteractions(vehicleRepository, gpsRepository);
+    }
+
+    @Test
+    void generatePositions_touchesNothing_onceTheActivationWindowHasLapsed() {
+        clock.advance(Duration.ofMinutes(WINDOW_MINUTES));
+
+        gpsMockScheduler.generatePositions();
+
+        verifyNoInteractions(vehicleRepository, gpsRepository);
+    }
+
+    @Test
+    void generatePositions_auditsTheAutoDisable_onceAndOnlyOnce() {
+        clock.advance(Duration.ofMinutes(WINDOW_MINUTES));
+
+        gpsMockScheduler.generatePositions();
+        gpsMockScheduler.generatePositions();
+
+        verify(auditLogHelper).logSystem(eq("GpsMockGenerator"), eq("gps-mock-generator"),
+                eq(AuditAction.UPDATE), contains("auto-disabled"));
+    }
+
+    @Test
+    void generatePositions_resumesWriting_whenTheGeneratorIsEnabledAgain() {
+        gpsMockState.disable();
+        gpsMockScheduler.generatePositions();
+
+        gpsMockState.enable();
+        Vehicle vehicle = vehicleWithId(UUID.randomUUID());
+        when(vehicleRepository.findAllByStatus(VehicleStatus.ACTIVE)).thenReturn(List.of(vehicle));
+        when(gpsRepository.findLatestForAllActiveVehicles()).thenReturn(List.of());
+
+        gpsMockScheduler.generatePositions();
+
+        assertThat(captureSavedPositions()).hasSize(1);
     }
 
     @SuppressWarnings("unchecked")

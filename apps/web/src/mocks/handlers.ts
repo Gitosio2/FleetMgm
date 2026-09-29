@@ -314,8 +314,15 @@ export const SEED_GPS_POSITIONS: GpsPositionMock[] = [
 
 let gpsPositions: GpsPositionMock[] = [...SEED_GPS_POSITIONS]
 
+export const GPS_MOCK_INTERVAL_SECONDS = 30
+export const GPS_MOCK_WINDOW_MINUTES = 30
+
+// Mirrors the backend default: the generator starts off, and an activation lapses on its own.
+let gpsMockGenerator = { enabled: false, enabledUntil: null as string | null }
+
 export function resetGpsMock() {
   gpsPositions = [...SEED_GPS_POSITIONS]
+  gpsMockGenerator = { enabled: false, enabledUntil: null }
 }
 
 type WorkerRole = 'DRIVER' | 'TECHNICIAN' | 'BOTH'
@@ -1622,6 +1629,33 @@ export const handlers = [
     )
 
     return HttpResponse.json(filtered)
+  }),
+
+  http.get('/api/v1/gps/mock', () =>
+    HttpResponse.json({ ...gpsMockGenerator, intervalSeconds: GPS_MOCK_INTERVAL_SECONDS }),
+  ),
+
+  http.patch('/api/v1/gps/mock', async ({ request }) => {
+    const body = (await request.json()) as { enabled?: unknown }
+    if (typeof body.enabled !== 'boolean') {
+      return HttpResponse.json(
+        {
+          status: 400,
+          code: 'VALIDATION_ERROR',
+          message: 'enabled is required',
+          correlationId: 'msw',
+        },
+        { status: 400 },
+      )
+    }
+
+    gpsMockGenerator = {
+      enabled: body.enabled,
+      enabledUntil: body.enabled
+        ? new Date(Date.now() + GPS_MOCK_WINDOW_MINUTES * 60_000).toISOString()
+        : null,
+    }
+    return HttpResponse.json({ ...gpsMockGenerator, intervalSeconds: GPS_MOCK_INTERVAL_SECONDS })
   }),
 
   http.get('/api/v1/clients', ({ request }) => {

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { VehicleCategory } from '@fleetmgm/api'
 import { useVehicles } from '@fleetmgm/hooks'
 import { FleetMap } from '@/components/map/FleetMap'
+import { GpsMockToggle } from '@/components/map/GpsMockToggle'
 import { formatVehicleLabel } from '@/lib/vehicle-label'
 import { VEHICLE_CATEGORIES, VEHICLE_CATEGORY_LABEL } from '@/lib/vehicle-category-label'
 
@@ -24,6 +25,8 @@ export function Map() {
           <p className="text-on-surface-variant">Ubicación en tiempo real de la flota.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
+          <GpsMockToggle />
+
           <select
             aria-label="Filtrar por tipo de vehículo"
             className={selectClassName}

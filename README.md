@@ -185,6 +185,24 @@ FRONTEND_URL                # ej. https://fleetmgm.vercel.app — usado para COR
 
 El perfil `prod` desactiva Swagger UI y el logging verboso de SQL, y activa `server.forward-headers-strategy=framework` para que el header HSTS se emita correctamente detrás del proxy TLS de Railway. Ver las notas del Hito 46 en `planning.md` para el razonamiento detrás de cada una de estas decisiones.
 
+### Consumo en un host medido
+
+Railway factura recursos por minuto, no por petición: un servicio encendido cuesta aunque nadie lo use. La simulación GPS era la única parte de la app que trabajaba sin usuarios — un `INSERT` por vehículo activo cada 30 s, las 24 horas —, así que **arranca apagada** en cualquier despliegue y se enciende desde el interruptor *Simulación GPS* de la página Mapa GPS (roles `ADMIN` y `MANAGER`). La activación caduca sola a los 30 minutos, de modo que cerrar la pestaña basta para dejar de escribir; el mapa sigue mostrando las últimas posiciones registradas. El demo local con `docker compose` la arranca encendida y sin caducidad, porque ahí no cuesta nada.
+
+Variables que controlan ese comportamiento (todas opcionales, con el valor por defecto entre paréntesis):
+
+```
+GPS_MOCK_ENABLED_ON_STARTUP  # (false) arrancar con la simulación ya encendida
+GPS_MOCK_INTERVAL_MS         # (30000) cada cuánto se escribe una posición por vehículo
+GPS_MOCK_AUTO_DISABLE_MINUTES# (30) duración de la activación; 0 = no caduca
+GPS_RETENTION_DAYS           # (7) ventana de posiciones que se conserva
+DB_POOL_MAX_SIZE             # (5) conexiones máximas de HikariCP
+DB_POOL_MIN_IDLE             # (1) conexiones que el pool mantiene abiertas en reposo
+SERVER_THREADS_MAX           # (20) hilos de request de Tomcat
+```
+
+Lo que queda encendido después de esto es el coste estructural de tener dos servicios (backend + Postgres) desplegados de forma permanente, que ningún cambio de código elimina: para bajarlo hay que activar *App Sleep* en el servicio backend desde el panel de Railway, o pausar el despliegue entre demos y usar el demo local con `ngrok`.
+
 Demo local expuesta con una URL pública temporal (no es un despliegue real):
 
 ```bash
