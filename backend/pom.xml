@@ -66,7 +66,14 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- Flyway -->
+        <!-- Flyway. spring-boot-flyway carries FlywayAutoConfiguration, which in Spring Boot 3 was
+             part of spring-boot-autoconfigure and so came along with any starter. Boot 4 moved it
+             into its own module: without this, flyway-core is on the classpath but nothing runs the
+             migrations, and Hibernate's ddl-auto=validate then fails against an empty schema. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-flyway</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-core</artifactId>
