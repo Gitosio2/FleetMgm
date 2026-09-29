@@ -176,6 +176,14 @@
             <artifactId>spring-boot-resttestclient</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- TestRestTemplate's auto-configuration builds on RestTemplateBuilder, which Boot 4 keeps
+             in a module of its own. Without it the class is missing at runtime and the whole
+             @SpringBootTest context fails while merely evaluating the conditions. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-restclient</artifactId>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-test</artifactId>
