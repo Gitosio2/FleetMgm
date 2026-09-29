@@ -26,6 +26,11 @@
              a profile's plugin <configuration> does not reliably override a literal value
              declared on the same plugin in the base build. -->
         <surefire.excludedGroups>integration</surefire.excludedGroups>
+        <!-- Override on top of the spring-boot-dependencies BOM: OWASP Dependency-Check flags the
+             BOM-pinned 11.0.24 for nine CVSS >= 7 CVEs (CVE-2026-65905 and CVE-2026-65637 at 9.8
+             among them). Same class of override this pom carried for tomcat 10.1.x before the
+             Spring Boot 4 upgrade; drop it once a Boot release pins 11.0.26 or later itself. -->
+        <tomcat.version>11.0.26</tomcat.version>
     </properties>
 
     <dependencies>
@@ -135,6 +140,15 @@
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
             <version>3.0.3</version>
+        </dependency>
+        <!-- springdoc 3.0.3 pulls swagger-ui 5.32.2, which bundles an older DOMPurify than the
+             5.32.11 springdoc 2.x used and so reintroduces a batch of CVEs the build had already
+             left behind. Pinned forward to the newest release rather than inheriting whichever
+             version springdoc happens to track. -->
+        <dependency>
+            <groupId>org.webjars</groupId>
+            <artifactId>swagger-ui</artifactId>
+            <version>5.32.15</version>
         </dependency>
 
         <!-- OpenPDF (factures) -->
