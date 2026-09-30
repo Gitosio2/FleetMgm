@@ -19,8 +19,9 @@ import com.fleetmgm.vehicle.infrastructure.VehicleRepository;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.boot.resttestclient.TestRestTemplate;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -45,6 +46,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 // would roll back before that commit and the listener would never run.
 @Tag("integration")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+// Spring Boot 4 no longer registers a TestRestTemplate bean just because the server runs on a
+// random port; the injection has to be asked for explicitly.
+@AutoConfigureTestRestTemplate
 @Testcontainers
 class JobLifecycleIT {
 

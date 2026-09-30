@@ -7,6 +7,14 @@ spring:
     username: ${SPRING_DATASOURCE_USERNAME:fleetmgm}
     password: ${SPRING_DATASOURCE_PASSWORD:fleetmgm}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      # HikariCP defaults to 10 connections and keeps all 10 open for as long as the app runs. Each
+      # one is a Postgres backend process holding its own memory, paid for around the clock on a
+      # metered host for a single-instance app that never sees concurrent load. 5 is still more than
+      # this workload uses; minimum-idle lets the pool shrink back to 1 between demos.
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:5}
+      minimum-idle: ${DB_POOL_MIN_IDLE:1}
+      idle-timeout: 60000
 
   jpa:
     open-in-view: false
@@ -38,6 +46,26 @@ gps:
   # At one row per active vehicle every 30s, a 7-day window holds ~20k rows per vehicle instead of
   # growing without bound. Must be >= 1: see GpsRetentionScheduler.
   retention-days: ${GPS_RETENTION_DAYS:7}
+
+  mock:
+    # Off by default, everywhere. The generator is the only part of this app that works when nobody
+    # is using it, and on a host that bills by the minute that is a bill for data no one is looking
+    # at. The Mapa GPS page carries a switch (ADMIN/MANAGER) that turns it on for a demo; the local
+    # docker-compose demo costs nothing, so it overrides this to true. See GpsMockState.
+    enabled-on-startup: ${GPS_MOCK_ENABLED_ON_STARTUP:false}
+    interval-ms: ${GPS_MOCK_INTERVAL_MS:30000}
+    # Activation is a lease: it lapses on its own, so a demo left open stops writing instead of
+    # running until someone remembers the switch. 0 turns the auto-disable off entirely.
+    auto-disable-after-minutes: ${GPS_MOCK_AUTO_DISABLE_MINUTES:30}
+
+server:
+  tomcat:
+    threads:
+      # Tomcat's default ceiling is 200 request threads, each with its own stack reserved on first
+      # use. A demo deployment serving a handful of concurrent users never needs them, and the
+      # headroom is memory that gets paid for rather than used.
+      max: ${SERVER_THREADS_MAX:20}
+      min-spare: 2
 
 management:
   endpoints:

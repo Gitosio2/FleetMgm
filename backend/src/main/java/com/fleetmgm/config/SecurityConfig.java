@@ -1,6 +1,6 @@
 package com.fleetmgm.config;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.fleetmgm.auth.infrastructure.JwtAuthenticationFilter;
 import com.fleetmgm.auth.infrastructure.RateLimitFilter;
 import com.fleetmgm.shared.infrastructure.CorrelationIdFilter;

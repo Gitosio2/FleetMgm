@@ -1,6 +1,6 @@
 package com.fleetmgm.auth.api;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.fleetmgm.auth.application.AuthService;
 import com.fleetmgm.auth.dto.AuthResponse;
 import com.fleetmgm.auth.dto.LoginRequest;
@@ -9,9 +9,9 @@ import com.fleetmgm.auth.infrastructure.JwtAuthenticationFilter;
 import com.fleetmgm.shared.exception.BadCredentialsException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -28,8 +28,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class AuthControllerTest {
 
     // SecurityConfig needs JwtAuthenticationFilter; mock it so the context loads without JwtService/UserRepository
-    @MockBean JwtAuthenticationFilter jwtAuthenticationFilter;
-    @MockBean AuthService authService;
+    @MockitoBean JwtAuthenticationFilter jwtAuthenticationFilter;
+    @MockitoBean AuthService authService;
     @Autowired MockMvc mockMvc;
     @Autowired ObjectMapper objectMapper;
 

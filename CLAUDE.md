@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-FleetMgm is a Master's thesis fleet management application. Backend: Java 21 + Spring Boot 3.5 (started on 3.3, upgraded in Hito 11 once the OWASP Dependency-Check gate exposed unpatched CVSS >= 7 CVEs at the end of the 3.3.x line). Frontend: React + Vite + TypeScript. The project is greenfield — source code is scaffolded incrementally per `planning.md`, which is the source of truth for all architectural decisions.
+FleetMgm is a Master's thesis fleet management application. Backend: Java 21 + Spring Boot 4.1 (started on 3.3, upgraded to 3.5 in Hito 11 and to 4.1 later, both times because the OWASP Dependency-Check gate exposed unpatched CVSS >= 7 CVEs at the end of a line — Spring Framework 6.2.x went end-of-life for public updates while the fixes shipped in 7.0.9+). Frontend: React + Vite + TypeScript. The project is greenfield — source code is scaffolded incrementally per `planning.md`, which is the source of truth for all architectural decisions.
 
 **Timeline:** ~6 weeks (Jun–mid Jul 2026). See `planning.md` for week-by-week checklist.
 
@@ -76,7 +76,7 @@ Enable SQL logging in the `dev` profile (`spring.jpa.show-sql=true`, `spring.jpa
 
 All entities with logical deletion share the same implementation — never use `deleteById()` on them.
 
-**Entity:** annotate with `@SQLRestriction("deleted_at IS NULL")` (Hibernate 6 / Spring Boot 3+). Hibernate appends this filter to every query automatically — no manual `WHERE` clause needed in repositories.
+**Entity:** annotate with `@SQLRestriction("deleted_at IS NULL")` (Hibernate 6+ / Spring Boot 3+). Hibernate appends this filter to every query automatically — no manual `WHERE` clause needed in repositories.
 
 ```java
 @Entity
@@ -624,14 +624,14 @@ OWASP check fails the build if any dependency has CVSS ≥ 7.
 
 ## GPS Mock
 
-Backend: `@Scheduled(fixedDelay = 30_000)` generates positions for all `ACTIVE` vehicles.  
-Frontend: polls `/api/v1/gps/latest` every 10 seconds via Leaflet + react-leaflet + OpenStreetMap (no API key required).
+Backend: `GpsMockScheduler` (`@Scheduled`, interval `gps.mock.interval-ms`, 30 s by default) generates positions for all `ACTIVE` vehicles **only while `GpsMockState` says it is enabled**. It is **off by default** in every deployment — the generator was the app's only background work, and on a host that bills by the minute it was a running cost for data nobody was looking at. `GET/PATCH /api/v1/gps/mock` reads/changes it (change: `ADMIN`/`MANAGER` only); the state is in memory on purpose (resets to off on every restart) and an activation lapses on its own after `gps.mock.auto-disable-after-minutes` (30). While off, a tick touches nothing — keep it that way: no query, no empty `saveAll`.  
+Frontend: Leaflet + react-leaflet + OpenStreetMap (no API key required). `useGps` polls `/api/v1/gps/latest` every 10 seconds **only while the simulation is enabled**; with it off it fetches once, because polling rows that cannot change would keep a scale-to-zero backend awake. The Mapa GPS page carries the on/off switch (`GpsMockToggle`).
 
 ---
 
 ## Deployment
 
-**Zero-cost recommended:** Frontend → Vercel; Backend + DB → Railway.
+**Zero-cost recommended:** Frontend → Vercel; Backend → Railway (Free or Hobby) with App Sleep; DB → an external free Postgres (e.g. Neon). A Railway-hosted Postgres running 24/7 does not fit the Free plan's $1 credit. Measured backend footprint with the `Dockerfile` JVM flags: 357 MB idle, 386 MB peak — see README § Despliegue gratuito before changing any `-X` flag, and never lower `-XX:MaxMetaspaceSize` below 128m (96m crashes startup).
 
 **Local demo:**
 ```bash

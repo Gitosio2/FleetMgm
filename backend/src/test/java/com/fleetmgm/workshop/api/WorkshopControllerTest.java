@@ -11,9 +11,9 @@ import com.fleetmgm.workshop.dto.ScheduleResponse;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.MediaType;
@@ -37,8 +37,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc(addFilters = false)
 class WorkshopControllerTest {
 
-    @MockBean JwtAuthenticationFilter jwtAuthenticationFilter;
-    @MockBean WorkshopScheduleService workshopScheduleService;
+    @MockitoBean JwtAuthenticationFilter jwtAuthenticationFilter;
+    @MockitoBean WorkshopScheduleService workshopScheduleService;
     @Autowired MockMvc mockMvc;
 
     private static final UUID SCHEDULE_ID = UUID.randomUUID();

@@ -14,7 +14,7 @@ El objetivo es una app funcional y bien estructurada arquitectónica y securamen
 
 | Capa | Tecnología | Justificación |
 |------|------------|---------------|
-| Backend | Java 21 + Spring Boot 3.5 | Ecosistema maduro; Spring Security, Data JPA, Actuator y Validation out-of-the-box. Stack estándar y ampliamente adoptada en producción. Subido desde 3.3 en el Hito 11 — la línea 3.3.x llegó a su último patch (3.3.13) con CVEs CVSS ≥ 7 sin resolver en Spring Core/Security/Tomcat. |
+| Backend | Java 21 + Spring Boot 4.1 | Ecosistema maduro; Spring Security, Data JPA, Actuator y Validation out-of-the-box. Stack estándar y ampliamente adoptada en producción. Subido desde 3.3 a 3.5 en el Hito 11 y de 3.5 a 4.1 después, las dos veces por el mismo motivo: la línea anterior agotó sus patches con CVEs CVSS ≥ 7 abiertos en Spring Core/Security/Tomcat. |
 | ORM | Spring Data JPA + Hibernate | El dominio es relacional (vehículos, trabajos, facturas con integridad referencial fuerte); JPA encaja de forma natural. |
 | Seguridad | Spring Security + JJWT (HS512 → RS256 en prod) | RBAC battle-tested. JWT con access token 15 min + refresh token 7 días almacenado hasheado en BD. |
 | BD | PostgreSQL 16 | JSONB para AuditLog, integridad referencial, transacciones ACID. |
@@ -154,9 +154,16 @@ com.fleetmgm
 | Trabajadores — crear/editar | ✅ | ✅ | ✅ | ❌ | ❌ |
 | GPS — mapa de flota completo | ✅ | ✅ | ✅ | ❌ | ❌ |
 | GPS — posición propia | ✅ | ✅ | ✅ | ❌ | ❌ |
+| GPS — activar/detener la simulación | ✅ | ✅ | ❌ | ❌ | ❌ |
 | Informes de rentabilidad | ✅ | ✅ | ✅ | ❌ | ❌ |
 | Registro de auditoría | ✅ | ✅ | ❌ | ❌ | ❌ |
 | Gestión de usuarios y roles | ✅ | ❌ | ❌ | ❌ | ❌ |
+
+> **Nota (GPS / simulación):** ver el mapa y decidir que la flota se mueva son permisos
+> distintos. La simulación es la única tarea de fondo de la aplicación y su coste se paga por
+> minuto en el host desplegado, así que `ADMINISTRATIVE` conserva el mapa (fila anterior) pero
+> no el interruptor: encenderlo gasta, mirarlo no. `GpsMockService.status()` usa el trío de la
+> fila del mapa; `GpsMockService.setEnabled()` se limita a `ADMIN` y `MANAGER`.
 
 > **Nota (WORKSHOP_STAFF / mantenimiento):** `WORKSHOP_STAFF` puede ver y crear/editar
 > mantenimientos de **toda la flota**, no solo los vehículos programados para hoy. Es una
@@ -2091,7 +2098,8 @@ FleetMgm/
 
 **Recomendado:**
 - Frontend → **Vercel** (gratis, deploy automático desde GitHub)
-- Backend + BD → **Railway** (crédito $5/mes cubre el proyecto; sin cold start)
+- Backend → **Railway** con App Sleep; BD → Postgres gratuito externo (p. ej. Neon). Un Postgres propio de Railway encendido 24/7 no cabe en el crédito gratuito: medido en septiembre de 2026, el backend con los flags actuales del `Dockerfile` ocupa 357 MB en reposo y 386 MB en pico (~3,9 $/mes solo de RAM a 10 $/GB-mes), y con los flags anteriores 527 MB, por encima del tope de 0,5 GB del plan Free. Coste del App Sleep: cold start de ~15 s en el primer acceso tras inactividad. Ver README § Despliegue gratuito.
+  > Este punto sustituye a la versión anterior ("crédito $5/mes cubre el proyecto; sin cold start"), que se escribió sin medir el consumo y dejó de cumplirse: el proyecto llegó a gastar 5 $ por encima del plan Hobby de 5 $.
 
 **Alternativa backup:**
 - BD → Neon.tech (PostgreSQL gratuito 0.5GB)

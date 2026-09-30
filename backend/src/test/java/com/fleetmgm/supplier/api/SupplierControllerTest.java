@@ -1,6 +1,6 @@
 package com.fleetmgm.supplier.api;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.fleetmgm.auth.infrastructure.JwtAuthenticationFilter;
 import com.fleetmgm.shared.PageResponse;
 import com.fleetmgm.shared.exception.ConflictException;
@@ -11,9 +11,9 @@ import com.fleetmgm.supplier.dto.SupplierResponse;
 import com.fleetmgm.supplier.dto.UpdateSupplierRequest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -38,8 +38,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc(addFilters = false)
 class SupplierControllerTest {
 
-    @MockBean JwtAuthenticationFilter jwtAuthenticationFilter;
-    @MockBean SupplierService supplierService;
+    @MockitoBean JwtAuthenticationFilter jwtAuthenticationFilter;
+    @MockitoBean SupplierService supplierService;
     @Autowired MockMvc mockMvc;
     @Autowired ObjectMapper objectMapper;
 
