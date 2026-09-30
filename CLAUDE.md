@@ -624,8 +624,8 @@ OWASP check fails the build if any dependency has CVSS ≥ 7.
 
 ## GPS Mock
 
-Backend: `@Scheduled(fixedDelay = 30_000)` generates positions for all `ACTIVE` vehicles.  
-Frontend: polls `/api/v1/gps/latest` every 10 seconds via Leaflet + react-leaflet + OpenStreetMap (no API key required).
+Backend: `GpsMockScheduler` (`@Scheduled`, interval `gps.mock.interval-ms`, 30 s by default) generates positions for all `ACTIVE` vehicles **only while `GpsMockState` says it is enabled**. It is **off by default** in every deployment — the generator was the app's only background work, and on a host that bills by the minute it was a running cost for data nobody was looking at. `GET/PATCH /api/v1/gps/mock` reads/changes it (change: `ADMIN`/`MANAGER` only); the state is in memory on purpose (resets to off on every restart) and an activation lapses on its own after `gps.mock.auto-disable-after-minutes` (30). While off, a tick touches nothing — keep it that way: no query, no empty `saveAll`.  
+Frontend: Leaflet + react-leaflet + OpenStreetMap (no API key required). `useGps` polls `/api/v1/gps/latest` every 10 seconds **only while the simulation is enabled**; with it off it fetches once, because polling rows that cannot change would keep a scale-to-zero backend awake. The Mapa GPS page carries the on/off switch (`GpsMockToggle`).
 
 ---
 
