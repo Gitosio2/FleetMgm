@@ -221,22 +221,51 @@ describe('Map', () => {
     })
   })
 
-  it('polls /api/v1/gps/latest every 10 seconds', async () => {
-    let requestCount = 0
+  // The backend may be scale-to-zero: polling an idle map would only keep it awake to fetch rows
+  // that cannot change, so with the simulation off the page fetches once and stops.
+  it('does not poll /api/v1/gps/latest while the simulation is off', async () => {
+    let positionRequests = 0
+    let statusRequests = 0
     server.events.on('request:start', ({ request }) => {
-      if (new URL(request.url).pathname === '/api/v1/gps/latest') {
-        requestCount++
-      }
+      const path = new URL(request.url).pathname
+      if (path === '/api/v1/gps/latest') positionRequests++
+      if (path === '/api/v1/gps/mock') statusRequests++
     })
     loginAsAdmin()
     vi.useFakeTimers({ shouldAdvanceTime: true })
 
     renderMap()
 
-    await vi.waitFor(() => expect(requestCount).toBe(1))
+    await vi.waitFor(() => expect(positionRequests).toBe(1))
+    await vi.waitFor(() => expect(statusRequests).toBeGreaterThanOrEqual(1))
+
+    await vi.advanceTimersByTimeAsync(60_000)
+
+    expect(positionRequests).toBe(1)
+  })
+
+  it('polls /api/v1/gps/latest every 10 seconds once the simulation is on', async () => {
+    let requestCount = 0
+    server.events.on('request:start', ({ request }) => {
+      if (new URL(request.url).pathname === '/api/v1/gps/latest') {
+        requestCount++
+      }
+    })
+    server.use(
+      http.get('/api/v1/gps/mock', () =>
+        HttpResponse.json({ enabled: true, enabledUntil: null, intervalSeconds: 30 }),
+      ),
+    )
+    loginAsAdmin()
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+
+    renderMap()
+
+    await vi.waitFor(() => expect(requestCount).toBeGreaterThanOrEqual(1))
+    const afterFirstLoad = requestCount
 
     await vi.advanceTimersByTimeAsync(10_000)
 
-    await vi.waitFor(() => expect(requestCount).toBe(2))
+    await vi.waitFor(() => expect(requestCount).toBeGreaterThan(afterFirstLoad))
   })
 })
