@@ -172,7 +172,7 @@ Esto sigue reconstruyendo la imagen completa en cada cambio (el `docker-compose.
 
 ## Despliegue a producción
 
-Configuración recomendada de costo cero: **frontend → Vercel**, **backend + base de datos → Railway**.
+Configuración recomendada de costo cero: **frontend → Vercel**, **backend → Railway** con App Sleep y **base de datos → un Postgres gratuito externo** (ver [Despliegue gratuito](#despliegue-gratuito-railway-free--postgres-externo): un Postgres encendido 24/7 dentro de Railway no cabe en el crédito gratuito).
 
 Variables de entorno requeridas para el backend:
 
@@ -201,7 +201,34 @@ DB_POOL_MIN_IDLE             # (1) conexiones que el pool mantiene abiertas en r
 SERVER_THREADS_MAX           # (20) hilos de request de Tomcat
 ```
 
-Lo que queda encendido después de esto es el coste estructural de tener dos servicios (backend + Postgres) desplegados de forma permanente, que ningún cambio de código elimina: para bajarlo hay que activar *App Sleep* en el servicio backend desde el panel de Railway, o pausar el despliegue entre demos y usar el demo local con `ngrok`.
+### Despliegue gratuito (Railway Free + Postgres externo)
+
+Con la simulación apagada el backend ya no trabaja cuando nadie lo usa, pero sigue ocupando memoria mientras está encendido, y Railway cobra esa memoria por tiempo. Las cifras de abajo se midieron arrancando el `.jar` contra un PostgreSQL 16 con los datos demo y lanzando 209 peticiones (tres pasadas sobre 50 PDFs de facturas más listados, y luego 6 PDFs en paralelo):
+
+| Flags de la JVM | RAM en reposo | RAM en pico |
+|---|---|---|
+| Anteriores (`-Xmx256m`, SerialGC) | 485 MB | **527 MB** — por encima del tope de 0,5 GB del plan Free |
+| Actuales del `Dockerfile` | 357 MB | **386 MB** |
+
+A las tarifas publicadas de Railway (10 $/GB-mes de RAM y 1 $ de crédito al mes en el plan Free), 386 MB encendidos 24/7 cuestan ~3,9 $ al mes solo en RAM: no caben en el crédito gratuito. Por eso hay que combinar dos cosas:
+
+1. **App Sleep** en el servicio backend de Railway (en los ajustes del servicio, opción *Serverless*): se apaga tras unos minutos sin tráfico saliente y solo factura mientras está despierto. Coste: el primer acceso tras un rato de inactividad tarda el arranque de la JVM (~15 s medidos en local, algo más en frío).
+2. **Postgres fuera de Railway**, en un proveedor con plan gratuito (por ejemplo Neon o Supabase). Como Flyway crea el esquema y siembra los datos demo al arrancar, no hay datos que migrar: basta con apuntar el backend a la nueva base de datos con estas variables en Railway y borrar después el servicio Postgres de Railway.
+
+```
+SPRING_DATASOURCE_URL=jdbc:postgresql://<host>:5432/<base>?sslmode=require
+SPRING_DATASOURCE_USERNAME=<usuario>
+SPRING_DATASOURCE_PASSWORD=<contraseña>
+SPRING_PROFILES_ACTIVE=prod,demo   # `demo` siembra los datos demo; quitarlo para una base vacía
+```
+
+Si el proveedor ofrece un endpoint con *pooler* además del directo, usar el directo: Flyway necesita una conexión normal y puede fallar detrás de un pooler en modo transacción.
+
+Con la simulación GPS apagada (el valor por defecto) la página Mapa GPS consulta las posiciones una sola vez en lugar de cada 10 s: hacerlo en bucle mantendría despierto al backend para pedir filas que no cambian. Con la simulación encendida vuelve el sondeo cada 10 s, y la simulación se apaga sola a los 30 minutos.
+
+> Los planes gratuitos cambian: las cifras de esta sección (1 $ de crédito, 0,5 GB, tarifas por GB) son las vigentes al escribirla, en septiembre de 2026, y conviene contrastarlas con la página de precios de cada proveedor antes de fiarse de ellas. No se ha verificado desde aquí que App Sleep esté disponible en el plan Free ni los límites actuales de los proveedores de Postgres gratuito.
+
+Si no se quiere depender de ningún plan gratuito, la alternativa es pausar el despliegue entre demos y usar el demo local con `ngrok`.
 
 Demo local expuesta con una URL pública temporal (no es un despliegue real):
 

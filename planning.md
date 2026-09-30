@@ -2098,7 +2098,8 @@ FleetMgm/
 
 **Recomendado:**
 - Frontend → **Vercel** (gratis, deploy automático desde GitHub)
-- Backend + BD → **Railway** (crédito $5/mes cubre el proyecto; sin cold start)
+- Backend → **Railway** con App Sleep; BD → Postgres gratuito externo (p. ej. Neon). Un Postgres propio de Railway encendido 24/7 no cabe en el crédito gratuito: medido en septiembre de 2026, el backend con los flags actuales del `Dockerfile` ocupa 357 MB en reposo y 386 MB en pico (~3,9 $/mes solo de RAM a 10 $/GB-mes), y con los flags anteriores 527 MB, por encima del tope de 0,5 GB del plan Free. Coste del App Sleep: cold start de ~15 s en el primer acceso tras inactividad. Ver README § Despliegue gratuito.
+  > Este punto sustituye a la versión anterior ("crédito $5/mes cubre el proyecto; sin cold start"), que se escribió sin medir el consumo y dejó de cumplirse: el proyecto llegó a gastar 5 $ por encima del plan Hobby de 5 $.
 
 **Alternativa backup:**
 - BD → Neon.tech (PostgreSQL gratuito 0.5GB)

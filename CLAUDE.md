@@ -631,7 +631,7 @@ Frontend: polls `/api/v1/gps/latest` every 10 seconds via Leaflet + react-leafle
 
 ## Deployment
 
-**Zero-cost recommended:** Frontend → Vercel; Backend + DB → Railway.
+**Zero-cost recommended:** Frontend → Vercel; Backend → Railway (Free or Hobby) with App Sleep; DB → an external free Postgres (e.g. Neon). A Railway-hosted Postgres running 24/7 does not fit the Free plan's $1 credit. Measured backend footprint with the `Dockerfile` JVM flags: 357 MB idle, 386 MB peak — see README § Despliegue gratuito before changing any `-X` flag, and never lower `-XX:MaxMetaspaceSize` below 128m (96m crashes startup).
 
 **Local demo:**
 ```bash
